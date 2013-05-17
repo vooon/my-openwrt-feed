@@ -17,6 +17,9 @@ PKG_SOURCE_VERSION:=0cf6d998431a61f1bd630e7883d4d43df4ad8ccc
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 
+PKG_LICENSE:=MIT
+PKG_LICENSE_FILE:=license.html
+
 include $(INCLUDE_DIR)/package.mk
 
 define Package/libtidy
