@@ -40,7 +40,7 @@ Selfoss mupdater (fast c-prog)
 endef
 
 MAKE_FLAGS += LIBS_a="" \
-	      LIBS="-lmrss -lnxml -ltidy -lcurl -lsqlite3 -ljson -liconv"
+	      LIBS="-lmrss -lnxml -ltidy -lcurl -lsqlite3 -ljson-c -liconv"
 EXTRA_CFLAGS += -std=gnu99 -flto
 
 define Build/Compile
