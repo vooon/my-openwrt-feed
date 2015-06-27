@@ -26,8 +26,8 @@ define Package/lcd4linux-glcd128x64/install
 	$(INSTALL_DIR) $(1)/etc
 	$(INSTALL_DIR) $(1)/usr/share/lcd4linux
 	$(INSTALL_DIR) $(1)/usr/lib/lcd4linux
-	$(INSTALL_BIN) ./files/lcd4linux-glcd128x64.conf $(1)/etc/
-	$(INSTALL_BIN) ./files/tux.png $(1)/usr/share/lcd4linux/
+	$(INSTALL_CONF) ./files/lcd4linux-glcd128x64.conf $(1)/etc/
+	$(INSTALL_DATA) ./files/tux.png $(1)/usr/share/lcd4linux/
 	$(INSTALL_BIN) ./files/yota-status.sh $(1)/usr/lib/lcd4linux/
 endef
 
