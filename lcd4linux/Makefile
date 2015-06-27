@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lcd4linux
-PKG_REV:=1202
+PKG_REV:=1201
 PKG_VERSION:=r$(PKG_REV)
 PKG_RELEASE:=1
 
@@ -69,8 +69,8 @@ LCD4LINUX_DRIVERS:= \
 	Trefon \
 	USBHUB \
 	USBLCD \
-	VNC \
 	WincorNixdorf \
+#	VNC \
 #	ULA200 \
 #	X11 \
 
@@ -128,10 +128,10 @@ PKG_BUILD_DEPENDS:= \
 	libncurses \
 	libnmeap \
 	libsqlite3 \
-	libvncserver \
 	ppp \
 	serdisplib \
 	st2205tool \
+#	libvncserver \
 #	libftdi \
 #	libX11 \
 #	python \
@@ -170,9 +170,9 @@ $(call Package/lcd4linux/Default)
 	+LCD4LINUX_CUSTOM_NEEDS_libncurses:libncurses \
 	+LCD4LINUX_CUSTOM_NEEDS_libsqlite3:libsqlite3 \
 	+LCD4LINUX_CUSTOM_NEEDS_libusb:libusb-compat \
-	+LCD4LINUX_CUSTOM_NEEDS_libvncserver:libvncserver \
 	+LCD4LINUX_CUSTOM_NEEDS_serdisplib:serdisplib \
 	+LCD4LINUX_CUSTOM_NEEDS_st2205tool:st2205tool \
+#	+LCD4LINUX_CUSTOM_NEEDS_libvncserver:libvncserver \
 #	+LCD4LINUX_CUSTOM_NEEDS_libftdi:libftdi \
 #	+LCD4LINUX_CUSTOM_NEEDS_libX11:libX11 \
 #	+LCD4LINUX_CUSTOM_NEEDS_python:python
@@ -204,9 +204,9 @@ $(call Package/lcd4linux/Default)
 	+libncurses \
 	+libsqlite3 \
 	+libusb-compat \
-	+libvncserver \
 	+serdisplib \
 	+st2205tool \
+#	+libvncserver \
 #	+libftdi \
 #	+libX11 \
 #	+python
