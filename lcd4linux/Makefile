@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2012 OpenWrt.org
+# Copyright (C) 2007-2015 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -8,9 +8,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lcd4linux
-PKG_REV:=1200
+PKG_REV:=1203
 PKG_VERSION:=r$(PKG_REV)
-PKG_RELEASE:=3
+PKG_RELEASE:=2
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=https://ssl.bulix.org/svn/lcd4linux/trunk/
@@ -59,7 +59,6 @@ LCD4LINUX_DRIVERS:= \
 	PPM \
 	$(if $(CONFIG_TARGET_rb532),RouterBoard) \
 	$(if $(CONFIG_BROKEN),SamsungSPF) \
-	serdisplib \
 	ShuttleVFD \
 	SimpleLCD \
 	st2205 \
@@ -69,8 +68,8 @@ LCD4LINUX_DRIVERS:= \
 	Trefon \
 	USBHUB \
 	USBLCD \
+	VNC \
 	WincorNixdorf \
-#	VNC \
 #	ULA200 \
 #	X11 \
 
@@ -129,9 +128,6 @@ PKG_BUILD_DEPENDS:= \
 	libnmeap \
 	libsqlite3 \
 	ppp \
-	serdisplib \
-	st2205tool \
-#	libvncserver \
 #	libftdi \
 #	libX11 \
 #	python \
@@ -146,7 +142,7 @@ include $(INCLUDE_DIR)/nls.mk
 define Package/lcd4linux/Default
   SECTION:=utils
   CATEGORY:=Utilities
-  MAINTAINER:=Jonathan McCrohan <jmccrohan@gmail.com>
+  PKG_MAINTAINER:=Jonathan McCrohan <jmccrohan@gmail.com>
   TITLE:=LCD display utility
   URL:=http://lcd4linux.bulix.org/
 endef
@@ -161,7 +157,6 @@ define Package/lcd4linux-custom
 $(call Package/lcd4linux/Default)
   DEPENDS:= \
 	+LCD4LINUX_CUSTOM_NEEDS_libdbus:libdbus \
-	+LCD4LINUX_CUSTOM_NEEDS_libdpf:libdpf \
 	+LCD4LINUX_CUSTOM_NEEDS_libgd:libgd \
 	$(if $(ICONV_FULL),+LCD4LINUX_CUSTOM_NEEDS_libiconv:libiconv-full) \
 	+LCD4LINUX_CUSTOM_NEEDS_libjpeg:libjpeg \
@@ -170,9 +165,6 @@ $(call Package/lcd4linux/Default)
 	+LCD4LINUX_CUSTOM_NEEDS_libncurses:libncurses \
 	+LCD4LINUX_CUSTOM_NEEDS_libsqlite3:libsqlite3 \
 	+LCD4LINUX_CUSTOM_NEEDS_libusb:libusb-compat \
-	+LCD4LINUX_CUSTOM_NEEDS_serdisplib:serdisplib \
-	+LCD4LINUX_CUSTOM_NEEDS_st2205tool:st2205tool \
-#	+LCD4LINUX_CUSTOM_NEEDS_libvncserver:libvncserver \
 #	+LCD4LINUX_CUSTOM_NEEDS_libftdi:libftdi \
 #	+LCD4LINUX_CUSTOM_NEEDS_libX11:libX11 \
 #	+LCD4LINUX_CUSTOM_NEEDS_python:python
@@ -196,7 +188,6 @@ define Package/lcd4linux-full
 $(call Package/lcd4linux/Default)
   DEPENDS:= @DEVEL \
 	+libdbus \
-	+libdpf \
 	+libgd \
 	$(if $(ICONV_FULL),+libiconv-full) \
 	+libmpdclient \
@@ -204,9 +195,6 @@ $(call Package/lcd4linux/Default)
 	+libncurses \
 	+libsqlite3 \
 	+libusb-compat \
-	+serdisplib \
-	+st2205tool \
-#	+libvncserver \
 #	+libftdi \
 #	+libX11 \
 #	+python

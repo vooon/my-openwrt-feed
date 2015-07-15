@@ -168,7 +168,7 @@
  
  # generic libraries
  LIBUSB="no"
-@@ -940,6 +941,12 @@ if test "$LIBJPEG" = "yes"; then
+@@ -936,6 +937,12 @@ if test "$LIBJPEG" = "yes"; then
     DRVLIBS="$DRVLIBS -ljpeg"
  fi
  
@@ -181,9 +181,9 @@
  # libusb
  if test "$LIBUSB" = "yes"; then
     DRVLIBS="$DRVLIBS -lusb"
---- a/configure.in
-+++ b/configure.in
-@@ -118,6 +118,9 @@ AC_ARG_WITH(outb,
+--- a/configure.ac
++++ b/configure.ac
+@@ -115,6 +115,9 @@ AC_ARG_WITH(outb,
  
  AC_CHECK_HEADERS([asm/io.h] [linux/parport.h linux/ppdev.h], [has_parport="true"], [has_parport="false"])
  

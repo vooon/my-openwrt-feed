@@ -27,7 +27,7 @@
        Trefon)
           Trefon=$val
           ;;
-@@ -801,6 +805,18 @@ if test "$TeakLCM" = "yes"; then
+@@ -797,6 +801,18 @@ if test "$TeakLCM" = "yes"; then
     AC_DEFINE(WITH_TEAK_LCM,1,[TeakLCM driver])
  fi
  

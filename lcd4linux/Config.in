@@ -3,9 +3,6 @@ if PACKAGE_lcd4linux-custom
 config LCD4LINUX_CUSTOM_NEEDS_libdbus
 	bool
 
-config LCD4LINUX_CUSTOM_NEEDS_libdpf
-	bool
-
 #config LCD4LINUX_CUSTOM_NEEDS_libftdi
 #	bool
 
@@ -36,9 +33,6 @@ config LCD4LINUX_CUSTOM_NEEDS_libsqlite3
 config LCD4LINUX_CUSTOM_NEEDS_libusb
 	bool
 
-#config LCD4LINUX_CUSTOM_NEEDS_libvncserver
-#	bool
-
 #config LCD4LINUX_CUSTOM_NEEDS_libX11
 #	bool
 
@@ -46,12 +40,6 @@ config LCD4LINUX_CUSTOM_NEEDS_ppp
 	bool
 
 config LCD4LINUX_CUSTOM_NEEDS_python
-	bool
-
-config LCD4LINUX_CUSTOM_NEEDS_serdisplib
-	bool
-
-config LCD4LINUX_CUSTOM_NEEDS_st2205tool
 	bool
 
 
@@ -312,11 +300,11 @@ config LCD4LINUX_CUSTOM_DRIVER_USBLCD
 	prompt "USBLCD"
 	select LCD4LINUX_CUSTOM_NEEDS_libusb
 
-#config LCD4LINUX_CUSTOM_DRIVER_VNC
-#	bool
-#	prompt "VNC"
-#	select LCD4LINUX_CUSTOM_NEEDS_libgd
-#	select LCD4LINUX_CUSTOM_NEEDS_libvncserver
+config LCD4LINUX_CUSTOM_DRIVER_VNC
+	bool
+	prompt "VNC"
+	select LCD4LINUX_CUSTOM_NEEDS_libgd
+	select LCD4LINUX_CUSTOM_NEEDS_libvncserver
 
 config LCD4LINUX_CUSTOM_DRIVER_WincorNixdorf
 	bool
