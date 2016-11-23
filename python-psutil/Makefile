@@ -4,7 +4,7 @@ PKG_NAME:=psutil
 PKG_VERSION:=5.0.0
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).zip
 PKG_SOURCE_URL:=https://pypi.python.org/packages/93/7f/347309562d30c688299727e65f4d76ef34180c406dfb6f2c7b6c8d746e13
 PKG_MD5SUM:=362a03686ce36940d22a548ecb47d7e0
 
@@ -19,7 +19,7 @@ define Package/python-psutil
   SECTION:=lang
   CATEGORY:=Languages
   TITLE:=python-psutil
-  URL:=http://code.google.com/p/psutil/
+  URL:=https://pypi.python.org/pypi/psutil
   DEPENDS:=+python
 endef
 
