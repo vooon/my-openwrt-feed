@@ -1,0 +1,27 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+USE_PROCD=1
+PROG=/usr/bin/zitadel
+USER=zitadel
+GROUP=zitadel
+CONF=zitadel
+
+append_env() {
+	procd_append_param env "ZITADEL_$(echo "$1" | tr "[:lower:]" "[:upper:]")"="$2"
+}
+
+start_service() {
+	config_load "$CONF"
+
+	procd_open_instance
+	procd_set_param command "$PROG"
+	procd_set_param user "$USER"
+	procd_set_param group "$GROUP"
+	procd_set_param respawn
+
+	# XXX TODO: pass config to env
+
+	procd_close_instance
+}
