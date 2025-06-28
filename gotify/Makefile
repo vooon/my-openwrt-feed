@@ -24,10 +24,8 @@ GO_PKG:=github.com/gotify/server
 #GO_PKG_EXCLUDES:=examples/
 
 include $(INCLUDE_DIR)/package.mk
-# include $(INCLUDE_DIR)/host-build.mk
 # include ../../lang/golang/golang-package.mk
 include ../../packages/lang/golang/golang-package.mk
-#include ../../packages/lang/golang/golang-host-build.mk
 
 define Package/gotify
   SECTION:=net
@@ -49,16 +47,26 @@ define Package/gotify/conffiles
 /etc/config/gotify
 endef
 
-define Host/Compile
+define Build/Compile
+	(cd "$(PKG_BUILD_DIR)/ui"; yarn install)
+	$(MAKE) -C $(PKG_BUILD_DIR) build-js
+
+	$(call GoPackage/Build/Compile,$(GO_PKG_BUILD_PKG))
 endef
 
 define Package/gotify/install
+	$(call GoPackage/Package/Install/Bin,$(PKG_INSTALL_DIR))
+
+	$(INSTALL_DIR) $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/server $(1)/usr/bin/gotify
+
 	$(INSTALL_DIR) $(1)/etc/config/
 	$(INSTALL_CONF) $(CURDIR)/files/gotify.conf $(1)/etc/config/gotify
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/gotify.init $(1)/etc/init.d/gotify
-	$(INSTALL_DIR) $(1)/usr/bin/
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/gotify $(1)/usr/bin/gotify
+
+	$(INSTALL_DIR) $(1)/var/lib/gotify
+	$(INSTALL_DIR) $(1)/usr/lib/gotify
 endef
 
 $(eval $(call BuildPackage,gotify))
