@@ -20,7 +20,7 @@ PKG_BUILD_DEPENDS:=golang/host node-yarn/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
-GO_PKG:=github.com/gotify/server/v2
+GO_PKG:=github.com/gotify/server
 #GO_PKG_EXCLUDES:=examples/
 
 include $(INCLUDE_DIR)/package.mk
