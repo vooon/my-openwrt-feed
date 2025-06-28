@@ -12,6 +12,22 @@ append_env() {
 	procd_append_param env "ZITADEL_$(echo "$1" | tr "[:lower:]" "[:upper:]")"="$2"
 }
 
+config_cb() {
+	local type="$1"
+	local name="$2"
+	if [ "$type" = "config" ]
+	then
+		option_cb() {
+			local option="$1"
+			local value="$2"
+			echo "${name} ${option} $value" >> /tmp/zitadel.test
+		}
+	else {
+		option_cb() { return; }
+	}
+	fi
+}
+
 start_service() {
 	config_load "$CONF"
 

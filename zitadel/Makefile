@@ -16,7 +16,7 @@ PKG_LICENSE:=AGPL-3.0
 PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
-PKG_BUILD_DEPENDS:=golang/host zitadel/host
+PKG_BUILD_DEPENDS:=golang/host node-yarn/host zitadel/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
@@ -53,6 +53,14 @@ define Host/Compile
 	$(GO_HOST_BUILD_CONFIG_VARS) \
 	$(GO_HOST_VARS) \
 	$(MAKE) $(HOST_MAKE_FLAGS) -C $(HOST_BUILD_DIR) core_api_generator core_grpc_dependencies
+
+	$(GO_GENERAL_BUILD_CONFIG_VARS) \
+	$(GO_HOST_BUILD_CONFIG_VARS) \
+	$(GO_HOST_VARS) \
+	go install github.com/rakyll/statik@v0.1.7
+
+	# XXX: do on host
+	# npm install sass
 endef
 
 define Host/Install
@@ -67,11 +75,12 @@ define Build/Compile
 endef
 
 define Package/zitadel/install
-
 	$(INSTALL_DIR) $(1)/etc/config/
 	$(INSTALL_CONF) $(CURDIR)/files/zitadel.conf $(1)/etc/config/zitadel
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/zitadel.init $(1)/etc/init.d/zitadel
+	$(INSTALL_DIR) $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/zitadel $(1)/usr/bin/zitadel
 endef
 
 $(eval $(call BuildPackage,zitadel))
