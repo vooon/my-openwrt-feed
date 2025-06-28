@@ -9,35 +9,45 @@ GROUP=zitadel
 CONF=zitadel
 
 append_env() {
-	procd_append_param env "ZITADEL_$(echo "$1" | tr "[:lower:]" "[:upper:]")"="$2"
+	procd_append_param env "$(echo "$1" | tr "a-z" "A-Z")"="$2"
+}
+
+append_env_fmt() {
+	case "$1" in
+		_)
+			append_env "ZITADEL_$2" "$3"
+			;;
+		*)
+			append_env "ZITADEL_$1_$2" "$3"
+			;;
+	esac
 }
 
 config_cb() {
 	local type="$1"
-	local name="$2"
-	if [ "$type" = "config" ]
-	then
+	export sect_name="$2"
+	if [ "$type" = "env" ]; then
 		option_cb() {
 			local option="$1"
 			local value="$2"
-			echo "${name} ${option} $value" >> /tmp/zitadel.test
+			append_env_fmt "$sect_name" "$option" "$value"
 		}
-	else {
-		option_cb() { return; }
-	}
+	else
+		option_cb() {
+			return
+		}
 	fi
 }
 
 start_service() {
-	config_load "$CONF"
-
 	procd_open_instance
-	procd_set_param command "$PROG"
+	procd_set_param command "$PROG" start-from-init
 	procd_set_param user "$USER"
 	procd_set_param group "$GROUP"
 	procd_set_param respawn
+	procd_set_param file "/etc/config/$CONF"
 
-	# XXX TODO: pass config to env
+	config_load "$CONF"
 
 	procd_close_instance
 }
