@@ -52,7 +52,7 @@ define Host/Compile
 	$(GO_GENERAL_BUILD_CONFIG_VARS) \
 	$(GO_HOST_BUILD_CONFIG_VARS) \
 	$(GO_HOST_VARS) \
-	$(MAKE) $(HOST_MAKE_FLAGS) -C $(HOST_BUILD_DIR) core_api
+	$(MAKE) $(HOST_MAKE_FLAGS) -C $(HOST_BUILD_DIR) core_api_generator core_grpc_dependencies
 endef
 
 define Host/Install
