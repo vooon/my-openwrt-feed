@@ -66,7 +66,8 @@ define Package/gotify/install
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/gotify.init $(1)/etc/init.d/gotify
 
-	$(INSTALL_DIR) $(1)/var/lib/gotify/images
+	# $(INSTALL_DIR) $(1)/var/lib/gotify/images
+	# $(INSTALL_DIR) $(1)/var/lib/gotify/acme_cache
 	$(INSTALL_DIR) $(1)/usr/lib/gotify
 endef
 
