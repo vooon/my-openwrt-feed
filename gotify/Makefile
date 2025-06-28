@@ -10,7 +10,7 @@ PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/gotify/server.git
 PKG_SOURCE_DATE=2025-06-28
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
-PKG_MIRROR_HASH:=885ac2bc50609050199940ad5bcd2e07a87906ca308016879a2e812a7ff4abe4
+PKG_MIRROR_HASH:=bf9cb4c2c177e0c2049aa5078a535bfb278e29a75698cdd6929f8fb6724dd239
 
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
@@ -20,7 +20,7 @@ PKG_BUILD_DEPENDS:=golang/host node-yarn/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
-GO_PKG:=github.com/gotify/server
+GO_PKG:=github.com/gotify/server/v2
 #GO_PKG_EXCLUDES:=examples/
 
 include $(INCLUDE_DIR)/package.mk
@@ -32,7 +32,6 @@ define Package/gotify
   CATEGORY:=Network
   TITLE:=A simple server for sending and receiving messages in real-time.
   URL:=https://gotify.net
-  # DEPENDS:=$(GO_ARCH_DEPENDS)
   DEPENDS:=$(GO_ARCH_DEPENDS)
   USERID:=gotify:gotify
 endef
@@ -46,6 +45,8 @@ endef
 define Package/gotify/conffiles
 /etc/config/gotify
 endef
+
+GO_PKG_INSTALL_ARGS += -ldflags="-s -w -X main.Mode=prod"
 
 define Build/Compile
 	(cd "$(PKG_BUILD_DIR)/ui"; yarn install)
@@ -65,7 +66,7 @@ define Package/gotify/install
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/gotify.init $(1)/etc/init.d/gotify
 
-	$(INSTALL_DIR) $(1)/var/lib/gotify
+	$(INSTALL_DIR) $(1)/var/lib/gotify/images
 	$(INSTALL_DIR) $(1)/usr/lib/gotify
 endef
 
