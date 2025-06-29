@@ -30,13 +30,15 @@ config_cb() {
 
 start_service() {
 	procd_open_instance
-	procd_set_param command "$PROG" start-from-init
+
+	config_load "$CONF"
+	config_get _workdir daemon workdir '/tmp'
+
+	# procd_set_param command "$PROG"
+	procd_set_param command "/bin/sh -c 'cd $_workdir; exec $PROG'"
 	procd_set_param user "$USER"
 	procd_set_param group "$GROUP"
 	procd_set_param respawn
 	procd_set_param file "/etc/config/$CONF"
-
-	config_load "$CONF"
-
 	procd_close_instance
 }

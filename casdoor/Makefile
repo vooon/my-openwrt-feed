@@ -62,8 +62,8 @@ define Package/casdoor/install
 	$(INSTALL_BIN) $(CURDIR)/files/casdoor.init $(1)/etc/init.d/casdoor
 	$(INSTALL_DIR) $(1)/etc/casdoor/
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/conf/app.conf $(1)/etc/casdoor/app.conf
-	$(INSTALL_DIR) $(1)/usr/share/casdoor/
-	$(CP) -parv $(PKG_BUILD_DIR)/web/build $(1)/usr/share/casdoor/web
+	$(INSTALL_DIR) $(1)/usr/share/casdoor/web/
+	$(CP) -parv $(PKG_BUILD_DIR)/web/build $(1)/usr/share/casdoor/web/build
 	$(CP) -parv $(PKG_BUILD_DIR)/swagger $(1)/usr/share/casdoor/
 endef
 
