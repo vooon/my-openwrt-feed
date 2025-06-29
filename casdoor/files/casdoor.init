@@ -9,28 +9,17 @@ GROUP=casdoor
 CONF=casdoor
 
 append_env() {
-	procd_append_param env "$(echo "$1" | tr "a-z" "A-Z")"="$2"
-}
-
-append_env_fmt() {
-	case "$1" in
-		_)
-			append_env "ZITADEL_$2" "$3"
-			;;
-		*)
-			append_env "ZITADEL_$1_$2" "$3"
-			;;
-	esac
+	procd_append_param env "$1"="$2"
 }
 
 config_cb() {
 	local type="$1"
-	export sect_name="$2"
+	local sect_name="$2"
 	if [ "$type" = "env" ]; then
 		option_cb() {
 			local option="$1"
 			local value="$2"
-			append_env_fmt "$sect_name" "$option" "$value"
+			append_env "$option" "$value"
 		}
 	else
 		option_cb() {
