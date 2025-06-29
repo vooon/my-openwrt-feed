@@ -28,12 +28,27 @@ config_cb() {
 	fi
 }
 
+init_workdir() {
+	local dir="$1"
+
+	mkdir -p "$dir"
+	mkdir -p "$dir/files"
+	[ -e "$dir/conf" ] || ln -s /etc/casdoor "$dir/conf"
+	[ -e "$dir/swagegr" ] || ln -s /usr/share/casdoor/swagger "$dir/"
+	[ -e "$dir/web" ] || ln -s /usr/share/casdoor/web "$dir/"
+
+	chown "$USER:$GROUP" "$dir" "$dir/conf/app.conf"
+	chown "$USER:$GROUP" -R "$dir/files"
+}
+
 start_service() {
 	procd_open_instance
 
 	local _workdir
 	config_load "$CONF"
-	config_get _workdir daemon workdir '/tmp'
+	config_get _workdir daemon workdir '/tmp/casdoor'
+
+	init_workdir "$_workdir"
 
 	# procd_set_param command "$PROG"
 	procd_set_param command "/bin/sh -c 'cd $_workdir; exec $PROG'"
