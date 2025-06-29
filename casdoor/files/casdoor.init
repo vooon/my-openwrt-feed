@@ -33,12 +33,13 @@ init_workdir() {
 
 	mkdir -p "$dir"
 	mkdir -p "$dir/files"
+	mkdir -p "$dir/logs"
 	[ -e "$dir/conf" ] || ln -s /etc/casdoor "$dir/conf"
-	[ -e "$dir/swagegr" ] || ln -s /usr/share/casdoor/swagger "$dir/"
+	[ -e "$dir/swagger" ] || ln -s /usr/share/casdoor/swagger "$dir/"
 	[ -e "$dir/web" ] || ln -s /usr/share/casdoor/web "$dir/"
 
 	chown "$USER:$GROUP" "$dir" "$dir/conf/app.conf"
-	chown "$USER:$GROUP" -R "$dir/files"
+	chown "$USER:$GROUP" -R "$dir/files" "$dir/logs"
 }
 
 start_service() {
@@ -51,7 +52,7 @@ start_service() {
 	init_workdir "$_workdir"
 
 	# procd_set_param command "$PROG"
-	procd_set_param command "/bin/sh -c 'cd $_workdir; exec $PROG'"
+	procd_set_param command /bin/sh -c "cd $_workdir; exec $PROG"
 	procd_set_param user "$USER"
 	procd_set_param group "$GROUP"
 	procd_set_param respawn
