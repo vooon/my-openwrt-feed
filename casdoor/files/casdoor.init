@@ -51,10 +51,17 @@ start_service() {
 
 	init_workdir "$_workdir"
 
+	# required for jail
+	procd_append_param env PATH /bin:/usr/bin
+	procd_append_param env GOPATH /tmp/go
+
 	procd_add_jail casdoor log
+	procd_add_jail_mount /etc/TZ
+	procd_add_jail_mount /etc/ssl/certs
 	procd_add_jail_mount /etc/casdoor
 	procd_add_jail_mount /usr/bin/casdoor
 	procd_add_jail_mount /usr/bin/lsof
+	# procd_add_jail_mount /usr/bin/curl
 	procd_add_jail_mount /usr/share/casdoor
 	procd_add_jail_mount_rw "$_workdir"
 
