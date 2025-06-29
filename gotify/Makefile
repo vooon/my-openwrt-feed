@@ -44,7 +44,7 @@ endef
 
 define Package/gotify/conffiles
 /etc/config/gotify
-/etc/gotify/
+/etc/gotify/config.yml
 endef
 
 GO_PKG_INSTALL_ARGS += -ldflags="-s -w -X main.Mode=prod"
@@ -66,8 +66,8 @@ define Package/gotify/install
 	$(INSTALL_CONF) $(CURDIR)/files/gotify.conf $(1)/etc/config/gotify
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/gotify.init $(1)/etc/init.d/gotify
-	$(INSTALL_DIR) $(1)/etc/gotify/
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.example.yml $(1)/etc/gotify/config.yml
+	#$(INSTALL_DIR) $(1)/etc/gotify/
+	#$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.example.yml $(1)/etc/gotify/config.yml
 
 	# $(INSTALL_DIR) $(1)/var/lib/gotify/images
 	# $(INSTALL_DIR) $(1)/var/lib/gotify/acme_cache
