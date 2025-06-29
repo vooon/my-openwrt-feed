@@ -55,7 +55,7 @@ start_service() {
 	procd_append_param env PATH="/bin:/usr/bin"
 	procd_append_param env GOPATH="/tmp/go"
 
-	procd_add_jail casdoor log
+	procd_add_jail casdoor log procfs sysfs
 	procd_add_jail_mount /etc/TZ
 	procd_add_jail_mount /etc/ssl/certs
 	procd_add_jail_mount /etc/casdoor
