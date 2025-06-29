@@ -32,7 +32,7 @@ define Package/casdoor
   CATEGORY:=Network
   TITLE:=An open-source UI-first IAM, SSO.
   URL:=https://casdoor.com
-  DEPENDS:=$(GO_ARCH_DEPENDS) +lsof
+  DEPENDS:=$(GO_ARCH_DEPENDS) +lsof +casbin-static
   USERID:=casdoor:casdoor
 endef
 
