@@ -32,7 +32,7 @@ define Package/casdoor
   CATEGORY:=Network
   TITLE:=An open-source UI-first IAM, SSO.
   URL:=https://casdoor.com
-  DEPENDS:=$(GO_ARCH_DEPENDS)
+  DEPENDS:=$(GO_ARCH_DEPENDS) +lsof
   USERID:=casdoor:casdoor
 endef
 
@@ -58,6 +58,8 @@ define Package/casdoor/install
 
 	$(INSTALL_DIR) $(1)/etc/config/
 	$(INSTALL_CONF) $(CURDIR)/files/casdoor.conf $(1)/etc/config/casdoor
+	$(INSTALL_DIR) $(1)/etc/capabilities/
+	$(INSTALL_DATA) $(CURDIR)/files/casdoor.json $(1)/etc/capabilities/casdoor.json
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/casdoor.init $(1)/etc/init.d/casdoor
 	$(INSTALL_DIR) $(1)/etc/casdoor/
