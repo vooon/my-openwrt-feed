@@ -7,6 +7,7 @@ PKG_RELEASE:=1
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/lldap/lldap.git
+PKG_MIRROR_HASH:=b64c30a1f9ad724d54f93cde6b789846e1963a45c992791869d462001593a3cd
 PKG_SOURCE_DATE=2025-06-11
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
@@ -37,20 +38,40 @@ endef
 
 define Package/lldap/description
 $(call Package/lldap/Default/description)
+
+Server.
 endef
 
 define Package/lldap/conffiles
 /etc/config/lldap
 endef
 
-# NOTE: fix compact_jwt git clone problem
-#CARGO_PKG_VARS += \
-#	CARGO_NET_GIT_FETCH_WITH_CLI=true \
+define Package/lldap-migration-tool
+  SECTION:=net
+  CATEGORY:=Network
+  DEPENDS:=$(RUST_ARCH_DEPENDS) lldap
+  TITLE:=Light LDAP Migration Tool
+  URL:=https://github.com/lldap/lldap/
+endef
 
-#define Build/Compile
-#	$(call Build/Compile/Cargo,server)
-#
-#endef
+define Package/lldap/description
+$(call Package/lldap/Default/description)
+
+Migration Tool.
+endef
+
+# FIX: Unable to update https://github.com/inejge/ldap3/
+CARGO_PKG_VARS += \
+	CARGO_NET_GIT_FETCH_WITH_CLI=true \
+
+define Build/Compile
+	$(call Build/Compile/Cargo,server)
+	$(call Build/Compile/Cargo,set-password)
+	$(call Build/Compile/Cargo,migration-tool)
+
+	# XXX TODO: build App WASM
+
+endef
 
 define Package/lldap/install
 	$(INSTALL_DIR) $(1)/etc/lldap
