@@ -26,7 +26,7 @@ start_service() {
 
 	local _datadir
 	config_load "$CONF"
-	config_get _datadir daemon workdir '/tmp/authelia'
+	config_get _datadir daemon datadir '/tmp/authelia'
 
 	init_workdir "$_datadir"
 
