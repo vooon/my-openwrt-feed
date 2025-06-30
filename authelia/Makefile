@@ -8,7 +8,7 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/authelia/authelia.git
-PKG_MIRROR_HASH:=
+PKG_MIRROR_HASH:=8bf3f4f48e8077c0923859429085e1dd88b00915ebf2fc5b1e330a3259640356
 PKG_SOURCE_DATE=2025-06-29
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
@@ -16,14 +16,14 @@ PKG_LICENSE:=ASL-2.0
 PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
-PKG_BUILD_DEPENDS:=golang/host node-yarn/host
+PKG_BUILD_DEPENDS:=golang/host node/host authelia/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
-GO_PKG:=github.com/authelia/authelia
-#GO_PKG_EXCLUDES:=examples/
+GO_PKG:=github.com/authelia/authelia/v4/cmd/authelia
 
 include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/host-build.mk
 # include ../../lang/golang/golang-package.mk
 include ../../packages/lang/golang/golang-package.mk
 
@@ -45,27 +45,46 @@ endef
 
 define Package/authelia/conffiles
 /etc/config/authelia
-/etc/authelia/app.conf
+/etc/authelia/configuration.yml
+/etc/authelia/
 endef
 
-#define Build/Compile
-#	$(MAKE) -C $(PKG_BUILD_DIR) frontend
-#
-#	$(call GoPackage/Build/Compile,$(GO_PKG_BUILD_PKG))
-#endef
+define Host/Compile
+endef
 
+define Host/Install
+	# XXX: quite ad-hoc solution...
+	npm install -g pnpm@latest-10
+endef
+
+define Build/Compile
+	cd $(PKG_BUILD_DIR)/web; \
+	pnpm install; \
+	pnpm build;
+
+	cd $(PKG_BUILD_DIR); \
+	cp -rp api ./internal/server/public_html/
+
+	$(call GoPackage/Build/Compile,$(GO_PKG_BUILD_PKG))
+endef
 
 define Package/authelia/install
 	$(call GoPackage/Package/Install/Bin,$(1))
 
-	#$(INSTALL_BIN) $(CURDIR)/files/authelia-wrapper.sh $(1)/usr/bin/
-	#$(INSTALL_DIR) $(1)/etc/config/
-	#$(INSTALL_CONF) $(CURDIR)/files/authelia.conf $(1)/etc/config/authelia
+	#$(INSTALL_BIN) $(CURDIR)/files/authelia.sh $(1)/usr/libexec/
+
+	$(INSTALL_DIR) $(1)/etc/config/
+	$(INSTALL_CONF) $(CURDIR)/files/authelia.conf $(1)/etc/config/authelia
+
 	#$(INSTALL_DIR) $(1)/etc/capabilities/
 	#$(INSTALL_DATA) $(CURDIR)/files/authelia.json $(1)/etc/capabilities/authelia.json
-	#$(INSTALL_DIR) $(1)/etc/init.d/
-	#$(INSTALL_BIN) $(CURDIR)/files/authelia.init $(1)/etc/init.d/authelia
-	#$(INSTALL_DIR) $(1)/etc/authelia/
+
+	$(INSTALL_DIR) $(1)/etc/init.d/
+	$(INSTALL_BIN) $(CURDIR)/files/authelia.init $(1)/etc/init.d/authelia
+
+	$(INSTALL_DIR) $(1)/etc/authelia/
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.template.yml $(1)/etc/authelia/configuration.yml
 endef
 
+$(eval $(call HostBuild))
 $(eval $(call BuildPackage,authelia))

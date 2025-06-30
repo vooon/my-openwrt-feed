@@ -1,0 +1,61 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+USE_PROCD=1
+PROG=/usr/bin/authelia
+USER=authelia
+GROUP=authelia
+CONF=authelia
+CONFYML=/etc/authelia/configuration.yml
+
+list_append_env() {
+	procd_append_param env "$1"
+}
+
+init_workdir() {
+	local dir="$1"
+
+	mkdir -p "$dir"
+	chown "$USER:$GROUP" -R "$dir"
+	[ -f "$CONFYML" ] && chown "$USER:$GROUP" "$CONFYML"
+}
+
+start_service() {
+	procd_open_instance
+
+	local _datadir
+	config_load "$CONF"
+	config_get _datadir daemon workdir '/tmp/authelia'
+
+	init_workdir "$_datadir"
+
+	procd_add_jail authelia log
+	procd_add_jail_mount /etc/TZ
+	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
+	procd_add_jail_mount_rw "$_datadir"
+
+	config_list_foreach daemon ro_mount procd_add_jail_mount
+	config_list_foreach daemon rw_mount procd_add_jail_mount_rw
+	config_list_foreach daemon env list_append_env
+
+	procd_set_param command /usr/bin/authelia
+	if [ -f "$CONFYML" ]; then
+		procd_append_param command --config "$CONFYML"
+		procd_add_jail_mount "$CONFYML"
+	fi
+
+	procd_set_param user "$USER"
+	procd_set_param group "$GROUP"
+	procd_set_param respawn
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	# procd_set_param capabilities "/etc/capabilities/authelia.json"
+	procd_set_param file "/etc/config/$CONF" "$CONFYML"
+	procd_close_instance
+}
+
+service_triggers() {
+	# NOTE: seems it does not have reload signal
+	procd_add_raw_trigger acme.renew 5000 /etc/init.d/authelia restart
+}
