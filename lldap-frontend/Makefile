@@ -17,6 +17,8 @@ PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
 
+TAR_CMD=$(HOST_TAR) -C $(1) $(TAR_OPTIONS)
+
 define Package/lldap-frontend
   SECTION:=net
   CATEGORY:=Network
@@ -38,7 +40,7 @@ endef
 
 define Package/lldap-frontend/install
 	$(INSTALL_DIR) $(1)/usr/share/lldap/
-	$(CP) -parv $(PKG_BUILD_DIR)/app $(1)/usr/share/lldap/
+	$(CP) -parv $(PKG_BUILD_DIR)/amd64-lldap/app $(1)/usr/share/lldap/
 endef
 
 $(eval $(call BuildPackage,lldap-frontend))

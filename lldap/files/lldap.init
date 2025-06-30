@@ -8,14 +8,13 @@ USER=lldap
 GROUP=lldap
 CONF=lldap
 
-
 init_workdir() {
 	local dir="$1"
 
 	mkdir -p "$dir"
 	chown "$USER:$GROUP" -R "$dir"
 
-	[ -e "$dir/app" ] || ln -s /usr/share/lldap/app "$dir/app"
+	[ -e "/usr/share/lldap/app" ] && [ ! -e "$dir/app" ] && ln -s /usr/share/lldap/app "$dir/app"
 }
 
 append_env() {
