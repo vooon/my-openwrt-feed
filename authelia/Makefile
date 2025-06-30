@@ -57,6 +57,9 @@ define Host/Install
 	npm install -g pnpm@latest-10
 endef
 
+GO_PKG_CUSTOM_LDFLAGS += \
+	-w -s
+
 define Build/Compile
 	cd $(PKG_BUILD_DIR)/web; \
 	pnpm install; \
