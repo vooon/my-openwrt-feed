@@ -8,17 +8,38 @@ USER=lldap
 GROUP=lldap
 CONF=lldap
 
+append_env() {
+	procd_append_param env "LLDAP_$(echo "$1" | tr "a-z" "A-Z")"="$2"
+}
+
+config_cb() {
+	local type="$1"
+	local sect_name="$2"
+	if [ "$type" = "env" ]; then
+		option_cb() {
+			local option="$1"
+			local value="$2"
+			append_env "$option" "$value"
+		}
+	else
+		option_cb() {
+			return
+		}
+	fi
+}
+
+list_append_env() {
+	procd_append_param env "$1"
+}
+
 init_workdir() {
 	local dir="$1"
 
 	mkdir -p "$dir"
 	chown "$USER:$GROUP" -R "$dir"
+	chown "$USER:$GROUP" "/etc/lldap/lldap_config.toml"
 
 	[ -e "/usr/share/lldap/app" ] && [ ! -e "$dir/app" ] && ln -s /usr/share/lldap/app "$dir/app"
-}
-
-append_env() {
-	procd_append_param env "$1"
 }
 
 start_service() {
@@ -32,17 +53,18 @@ start_service() {
 
 	procd_add_jail lldap log
 	procd_add_jail_mount /etc/TZ
-	procd_add_jail_mount /etc/ssl/certs
-	procd_add_jail_mount /etc/lldap
+	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
 	procd_add_jail_mount /bin/sh
 	procd_add_jail_mount /usr/bin/lldap
-	procd_add_jail_mount /usr/share/lldap
 	procd_add_jail_mount_rw "$_workdir"
+	[ -e "/etc/lldap" ] && procd_add_jail_mount /etc/lldap
+	[ -e "/usr/share/lldap/app" ] && procd_add_jail_mount /usr/share/lldap
 
 	config_list_foreach "$CONF" daemon ro_mount procd_add_jail_mount
-	config_list_foreach "$CONF" daemon env append_env
+	config_list_foreach "$CONF" daemon env list_append_env
 
-	procd_set_param command /usr/bin/lldap.sh "$_workdir" run --config-file /etc/lldap/lldap_config.toml
+	# procd_set_param command /usr/bin/lldap.sh "$_workdir" run --config-file /etc/lldap/lldap_config.toml
+	procd_set_param command /usr/bin/lldap.sh "$_workdir" run
 	procd_set_param user "$USER"
 	procd_set_param group "$GROUP"
 	procd_set_param respawn

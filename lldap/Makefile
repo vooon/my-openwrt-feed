@@ -44,8 +44,8 @@ endef
 
 define Package/lldap/conffiles
 /etc/config/lldap
-/etc/lldap/config.toml
 endef
+# /etc/lldap/lldap_config.toml
 
 define Package/lldap-migration-tool
   SECTION:=net
@@ -104,8 +104,11 @@ define Package/lldap/install
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/lldap.init $(1)/etc/init.d/lldap
 
-	$(INSTALL_DIR) $(1)/etc/lldap
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/lldap_config.docker_template.toml $(1)/etc/lldap/lldap_config.toml
+	$(INSTALL_DIR) $(1)/etc/capabilities/
+	$(INSTALL_DATA) $(CURDIR)/files/lldap.json $(1)/etc/capabilities/lldap.json
+
+	# $(INSTALL_DIR) $(1)/etc/lldap
+	# $(INSTALL_CONF) $(PKG_BUILD_DIR)/lldap_config.docker_template.toml $(1)/etc/lldap/lldap_config.toml
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(CURDIR)/files/lldap.conf $(1)/etc/config/lldap
