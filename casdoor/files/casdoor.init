@@ -59,14 +59,14 @@ start_service() {
 	procd_add_jail_mount /etc/TZ
 	procd_add_jail_mount /etc/ssl/certs
 	procd_add_jail_mount /etc/casdoor
+	procd_add_jail_mount /bin/sh
 	procd_add_jail_mount /usr/bin/casdoor
 	procd_add_jail_mount /usr/bin/lsof
 	# procd_add_jail_mount /usr/bin/curl
 	procd_add_jail_mount /usr/share/casdoor
 	procd_add_jail_mount_rw "$_workdir"
 
-	# procd_set_param command "$PROG"
-	procd_set_param command /bin/sh -c "cd $_workdir; exec $PROG"
+	procd_set_param command /usr/bin/casdoor-wrapper.sh "$_workdir"
 	procd_set_param user "$USER"
 	procd_set_param group "$GROUP"
 	procd_set_param respawn

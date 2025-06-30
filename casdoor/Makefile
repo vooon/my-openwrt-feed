@@ -56,6 +56,7 @@ endef
 define Package/casdoor/install
 	$(call GoPackage/Package/Install/Bin,$(1))
 
+	$(INSTALL_BIN) $(CURDIR)/files/casdoor-wrapper.sh $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/config/
 	$(INSTALL_CONF) $(CURDIR)/files/casdoor.conf $(1)/etc/config/casdoor
 	$(INSTALL_DIR) $(1)/etc/capabilities/
