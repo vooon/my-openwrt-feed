@@ -7,6 +7,7 @@ PKG_RELEASE:=1
 # XXX NOTE: OpenWRT does not have Rust WASM compiller, so instead to building just package prebuilt files.
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com/lldap/lldap/releases/download/v$(PKG_VERSION)/amd64-lldap.tar.gz
+PKG_HASH:=a012c01583640cb0e405a84bba7c1dfc0a249cc712cc076ffc9da3ffb4d014fb
 
 PKG_LICENSE:=ASL-2.0
 PKG_LICENSE_FILES:=LICENSE

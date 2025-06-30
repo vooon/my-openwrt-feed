@@ -99,12 +99,13 @@ endef
 define Package/lldap/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/lldap $(1)/usr/bin/
+	$(INSTALL_BIN) $(CURDIR)/files/lldap.sh $(1)/usr/bin/
 
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/lldap.init $(1)/etc/init.d/lldap
 
 	$(INSTALL_DIR) $(1)/etc/lldap
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/lldap_config.docker_template.toml $(1)/etc/lldap/config.toml
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/lldap_config.docker_template.toml $(1)/etc/lldap/lldap_config.toml
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(CURDIR)/files/lldap.conf $(1)/etc/config/lldap
