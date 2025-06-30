@@ -44,6 +44,7 @@ endef
 
 define Package/lldap/conffiles
 /etc/config/lldap
+/etc/lldap/config.toml
 endef
 
 define Package/lldap-migration-tool
@@ -80,9 +81,8 @@ CARGO_PKG_VARS += \
 	CARGO_NET_GIT_FETCH_WITH_CLI=true \
 
 define Build/Compile
+	# XXX: does not work.
 	#$$(call Build/Compile/Cargo,server)
-	#$$(call Build/Compile/Cargo,set-password)
-	#$$(call Build/Compile/Cargo,migration-tool)
 
 	cd $(PKG_BUILD_DIR); \
 	$(CARGO_PKG_VARS) \
@@ -98,13 +98,13 @@ endef
 
 define Package/lldap/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/lldap $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/lldap $(1)/usr/bin/
 
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/lldap.init $(1)/etc/init.d/lldap
 
 	$(INSTALL_DIR) $(1)/etc/lldap
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/lldap_config.docker_template.toml $(1)/usr/lldap/config.toml
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/lldap_config.docker_template.toml $(1)/etc/lldap/config.toml
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(CURDIR)/files/lldap.conf $(1)/etc/config/lldap
@@ -112,12 +112,12 @@ endef
 
 define Package/lldap-migration-tool/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/lldap_migration_tool $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/lldap_migration_tool $(1)/usr/bin/
 endef
 
 define Package/lldap-set-password/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/lldap_set_password $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/lldap_set_password $(1)/usr/bin/
 endef
 
 $(eval $(call RustBinPackage,lldap))
