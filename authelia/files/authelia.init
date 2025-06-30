@@ -59,3 +59,8 @@ service_triggers() {
 	# NOTE: seems it does not have reload signal
 	procd_add_raw_trigger acme.renew 5000 /etc/init.d/authelia restart
 }
+
+extra_command "check" "Check authelia config"
+check() {
+	$PROG validate-config --config "$CONFYML"
+}

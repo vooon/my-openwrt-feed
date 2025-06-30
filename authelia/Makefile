@@ -58,7 +58,11 @@ define Host/Install
 endef
 
 GO_PKG_CUSTOM_LDFLAGS += \
-	-w -s
+	-w -s \
+	-X github.com/authelia/authelia/v4/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
+	-X github.com/authelia/authelia/v4/internal/utils.BuildState="tagged" \
+	-X github.com/authelia/authelia/v4/internal/utils.BuildDate="$(shell date --iso-8601=s)" \
+
 
 define Build/Compile
 	cd $(PKG_BUILD_DIR)/web; \
