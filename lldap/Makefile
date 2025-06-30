@@ -26,7 +26,7 @@ define Package/lldap
   SECTION:=net
   CATEGORY:=Network
   DEPENDS:=$(RUST_ARCH_DEPENDS)
-  TITLE:=Light LDAP implementation
+  TITLE:=Light LDAP - Server
   URL:=https://github.com/lldap/lldap/
   USERID:=lldap=389:lldap=389
 endef
@@ -50,37 +50,77 @@ define Package/lldap-migration-tool
   SECTION:=net
   CATEGORY:=Network
   DEPENDS:=$(RUST_ARCH_DEPENDS) lldap
-  TITLE:=Light LDAP Migration Tool
+  TITLE:=Light LDAP - Migration Tool
   URL:=https://github.com/lldap/lldap/
 endef
 
-define Package/lldap/description
+define Package/lldap-migration-tool/description
 $(call Package/lldap/Default/description)
 
 Migration Tool.
 endef
+
+define Package/lldap-set-password
+  SECTION:=net
+  CATEGORY:=Network
+  DEPENDS:=$(RUST_ARCH_DEPENDS) lldap
+  TITLE:=Light LDAP - Password tool
+  URL:=https://github.com/lldap/lldap/
+endef
+
+define Package/lldap-set-password/description
+$(call Package/lldap/Default/description)
+
+Password Tool.
+endef
+
 
 # FIX: Unable to update https://github.com/inejge/ldap3/
 CARGO_PKG_VARS += \
 	CARGO_NET_GIT_FETCH_WITH_CLI=true \
 
 define Build/Compile
-	$(call Build/Compile/Cargo,server)
-	$(call Build/Compile/Cargo,set-password)
-	$(call Build/Compile/Cargo,migration-tool)
+	#$$(call Build/Compile/Cargo,server)
+	#$$(call Build/Compile/Cargo,set-password)
+	#$$(call Build/Compile/Cargo,migration-tool)
+
+	cd $(PKG_BUILD_DIR); \
+	$(CARGO_PKG_VARS) \
+	cargo build -v \
+		--release \
+		--package lldap \
+		$(if $(CONFIG_PACKAGE_lldap-migration-tool),--package lldap_migration_tool) \
+		$(if $(CONFIG_PACKAGE_lldap-set-password),--package lldap_set_password) \
 
 	# XXX TODO: build App WASM
 
 endef
 
 define Package/lldap/install
-	$(INSTALL_DIR) $(1)/etc/lldap
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/lldap $(1)/usr/bin/
+
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(CURDIR)/files/lldap.init $(1)/etc/init.d/lldap
+
+	$(INSTALL_DIR) $(1)/etc/lldap
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/lldap_config.docker_template.toml $(1)/usr/lldap/config.toml
+
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) $(CURDIR)/files/lldap.conf $(1)/etc/config/lldap
+endef
+
+define Package/lldap-migration-tool/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/lldap $(1)/usr/bin/
-	$(INSTALL_DIR) $(1)/usr/lib/lldap
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/lldap_migration_tool $(1)/usr/bin/
+endef
+
+define Package/lldap-set-password/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/lldap_set_password $(1)/usr/bin/
 endef
 
 $(eval $(call RustBinPackage,lldap))
 $(eval $(call BuildPackage,lldap))
+$(eval $(call BuildPackage,lldap-migration-tool))
+$(eval $(call BuildPackage,lldap-set-password))
