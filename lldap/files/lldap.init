@@ -32,6 +32,10 @@ list_append_env() {
 	procd_append_param env "$1"
 }
 
+list_append_ro_mount() {
+	procd_add_jail_mount "$1"
+}
+
 init_workdir() {
 	local dir="$1"
 
@@ -58,10 +62,10 @@ start_service() {
 	procd_add_jail_mount_rw "$_workdir"
 	[ -e "/usr/share/lldap/app" ] && procd_add_jail_mount /usr/share/lldap
 
-	config_list_foreach "$CONF" daemon ro_mount procd_add_jail_mount
-	config_list_foreach "$CONF" daemon env list_append_env
+	config_list_foreach daemon ro_mount list_append_ro_mount
+	config_list_foreach daemon env list_append_env
 
-	procd_set_param command /usr/bin/lldap.sh "$_workdir" run
+	procd_set_param command /usr/libexec/lldap "$_workdir" run
 	if [ -f "/etc/lldap/lldap_config.toml" ]; then
 		procd_append_param command --config-file /etc/lldap/lldap_config.toml
 		procd_add_jail_mount /etc/lldap/lldap_config.toml
@@ -75,4 +79,9 @@ start_service() {
 	procd_set_param capabilities "/etc/capabilities/lldap.json"
 	procd_set_param file "/etc/config/$CONF"
 	procd_close_instance
+}
+
+service_triggers() {
+	# NOTE: seems it does not have reload signal
+	procd_add_raw_trigger acme.renew 5000 /etc/init.d/lldap restart
 }
