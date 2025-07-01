@@ -41,34 +41,32 @@ endef
 
 define Package/mox/conffiles
 /etc/config/mox
+/etc/mox/*
 /etc/mox/
 endef
 
 GO_PKG_CUSTOM_LDFLAGS += \
 	-w -s \
-	-X github.com/mox/mox/v4/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
+	-X github.com/mjl-/mox/moxvar.Version="$(PKG_SOURCE_VERSION)" \
+	-X github.com/mjl-/mox/moxvar.VersionBare="$(PKG_SOURCE_VERSION)" \
 
-
-#define Build/Compile
-#	$(call GoPackage/Build/Compile,$(GO_PKG_BUILD_PKG))
-#endef
 
 define Package/mox/install
 	$(call GoPackage/Package/Install/Bin,$(1))
 
-	#$(INSTALL_BIN) $(CURDIR)/files/mox.sh $(1)/usr/libexec/
+	$(INSTALL_DIR) $(1)/usr/libexec/
+	$(INSTALL_BIN) $(CURDIR)/files/mox.sh $(1)/usr/libexec/
 
-	#$(INSTALL_DIR) $(1)/etc/config/
-	#$(INSTALL_CONF) $(CURDIR)/files/mox.conf $(1)/etc/config/mox
+	$(INSTALL_DIR) $(1)/etc/config/
+	$(INSTALL_CONF) $(CURDIR)/files/mox.conf $(1)/etc/config/mox
 
-	#$(INSTALL_DIR) $(1)/etc/capabilities/
-	#$(INSTALL_DATA) $(CURDIR)/files/mox.json $(1)/etc/capabilities/mox.json
+	$(INSTALL_DIR) $(1)/etc/capabilities/
+	$(INSTALL_DATA) $(CURDIR)/files/mox.json $(1)/etc/capabilities/mox.json
 
-	#$(INSTALL_DIR) $(1)/etc/init.d/
-	#$(INSTALL_BIN) $(CURDIR)/files/mox.init $(1)/etc/init.d/mox
+	$(INSTALL_DIR) $(1)/etc/init.d/
+	$(INSTALL_BIN) $(CURDIR)/files/mox.init $(1)/etc/init.d/mox
 
 	$(INSTALL_DIR) $(1)/etc/mox/
-	#$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.template.yml $(1)/etc/mox/configuration.yml
 endef
 
 $(eval $(call BuildPackage,mox))
