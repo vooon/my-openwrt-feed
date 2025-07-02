@@ -35,9 +35,9 @@ start_service() {
 	procd_add_jail_mount /etc/TZ
 	procd_add_jail_mount /etc/passwd /etc/group
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
-	procd_add_jail_mount /etc/mox
 	procd_add_jail_mount /bin/sh
 	procd_add_jail_mount "$PROG"
+	procd_add_jail_mount_rw /etc/mox  # NOTE: required RW to save users from the UI
 	procd_add_jail_mount_rw "$_workdir"
 
 	config_list_foreach daemon ro_mount procd_add_jail_mount
