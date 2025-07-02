@@ -34,6 +34,7 @@ start_service() {
 	procd_add_jail mox log
 	procd_add_jail_mount /etc/TZ
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
+	procd_add_jail_mount /etc/mox
 	procd_add_jail_mount /bin/sh
 	procd_add_jail_mount "$PROG"
 	procd_add_jail_mount_rw "$_workdir"
@@ -43,8 +44,8 @@ start_service() {
 	config_list_foreach daemon env list_append_env
 
 	procd_set_param command /usr/libexec/mox "$_workdir" serve
-	procd_set_param user "$USER"
-	procd_set_param group "$GROUP"
+	#procd_set_param user "$USER"
+	#procd_set_param group "$GROUP"
 	procd_set_param respawn
 	procd_set_param stdout 1
 	procd_set_param stderr 1

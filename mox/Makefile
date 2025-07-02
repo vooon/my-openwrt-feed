@@ -55,7 +55,7 @@ define Package/mox/install
 	$(call GoPackage/Package/Install/Bin,$(1))
 
 	$(INSTALL_DIR) $(1)/usr/libexec/
-	$(INSTALL_BIN) $(CURDIR)/files/mox.sh $(1)/usr/libexec/
+	$(INSTALL_BIN) $(CURDIR)/files/mox.sh $(1)/usr/libexec/mox
 
 	$(INSTALL_DIR) $(1)/etc/config/
 	$(INSTALL_CONF) $(CURDIR)/files/mox.conf $(1)/etc/config/mox
