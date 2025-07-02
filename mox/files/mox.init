@@ -16,7 +16,8 @@ init_workdir() {
 	local dir="$1"
 
 	mkdir -p "$dir/data"
-	ln -s /etc/mox "$dir/conf"
+	mkdir -p "$dir/web"
+	ln -s /etc/mox "$dir/config"
 	chown "$USER:$GROUP" -R "$dir"
 	chown "$USER:$GROUP" -R /etc/mox
 }
