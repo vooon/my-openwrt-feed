@@ -31,8 +31,9 @@ start_service() {
 
 	init_workdir "$_workdir"
 
-	procd_add_jail mox log
+	procd_add_jail mox log procfs
 	procd_add_jail_mount /etc/TZ
+	procd_add_jail_mount /etc/passwd /etc/group
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
 	procd_add_jail_mount /etc/mox
 	procd_add_jail_mount /bin/sh
@@ -49,7 +50,7 @@ start_service() {
 	procd_set_param respawn
 	procd_set_param stdout 1
 	procd_set_param stderr 1
-	procd_set_param capabilities "/etc/capabilities/mox.json"
+	#procd_set_param capabilities "/etc/capabilities/mox.json"
 	procd_set_param file "/etc/config/$CONF" "/etc/mox/"
 	procd_close_instance
 }
