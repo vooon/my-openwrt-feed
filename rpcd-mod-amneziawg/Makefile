@@ -12,7 +12,7 @@ include $(INCLUDE_DIR)/cmake.mk
 define Package/rpcd-mod-amneziawg
   SECTION:=libs
   CATEGORY:=Libraries
-  TITLE:=WireGuard rpcd module
+  TITLE:=AmneziaWG rpcd module
   DEPENDS:=+rpcd +kmod-amneziawg
   MAINTAINER:=Andre Heider <a.heider@gmail.com>
 endef
