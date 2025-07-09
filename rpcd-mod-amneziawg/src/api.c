@@ -29,7 +29,7 @@ static const struct blobmsg_policy rpc_privatekey_policy[__RPC_PK_MAX] = {
 	[RPC_PK_DEVICE] = { .name = "private", .type = BLOBMSG_TYPE_STRING },
 };
 
-static void rpc_wireguard_add_endpoint(const wg_endpoint *endpoint)
+static void rpc_amneziawg_add_endpoint(const wg_endpoint *endpoint)
 {
 	char host[1025]; // NI_MAXHOST
 	char serv[32]; // NI_MAXSERV
@@ -57,7 +57,7 @@ static void rpc_wireguard_add_endpoint(const wg_endpoint *endpoint)
 	blobmsg_add_string(&buf, "endpoint", res);
 }
 
-static void rpc_wireguard_add_allowedip(const wg_allowedip *allowedip)
+static void rpc_amneziawg_add_allowedip(const wg_allowedip *allowedip)
 {
 	char res[INET6_ADDRSTRLEN + 4 + 1];
 
@@ -78,16 +78,16 @@ static void rpc_wireguard_add_allowedip(const wg_allowedip *allowedip)
 	blobmsg_add_string(&buf, NULL, res);
 }
 
-static void rpc_wireguard_add_peer(const wg_peer *peer)
+static void rpc_amneziawg_add_peer(const wg_peer *peer)
 {
 	void *c;
 	struct wg_allowedip *allowedip;
 
-	rpc_wireguard_add_endpoint(&peer->endpoint);
+	rpc_amneziawg_add_endpoint(&peer->endpoint);
 
 	c = blobmsg_open_array(&buf, "allowed_ips");
 	wg_for_each_allowedip(peer, allowedip)
-		rpc_wireguard_add_allowedip(allowedip);
+		rpc_amneziawg_add_allowedip(allowedip);
 	blobmsg_close_array(&buf, c);
 
 	blobmsg_add_u64(&buf, "last_handshake", peer->last_handshake_time.tv_sec);
@@ -97,7 +97,7 @@ static void rpc_wireguard_add_peer(const wg_peer *peer)
 		blobmsg_add_u16(&buf, "persistent_keepalive_interval", peer->persistent_keepalive_interval);
 }
 
-static void rpc_wireguard_add_device(const wg_device *device)
+static void rpc_amneziawg_add_device(const wg_device *device)
 {
 	void *c, *d;
 	wg_peer *peer;
@@ -120,13 +120,13 @@ static void rpc_wireguard_add_device(const wg_device *device)
 	wg_for_each_peer(device, peer) {
 		wg_key_to_base64(key, peer->public_key);
 		d = blobmsg_open_table(&buf, key);
-		rpc_wireguard_add_peer(peer);
+		rpc_amneziawg_add_peer(peer);
 		blobmsg_close_table(&buf, d);
 	}
 	blobmsg_close_table(&buf, c);
 }
 
-static int rpc_wireguard_status(struct ubus_context *ctx, struct ubus_object *obj,
+static int rpc_amneziawg_status(struct ubus_context *ctx, struct ubus_object *obj,
 	struct ubus_request_data *req, const char *method, struct blob_attr *msg)
 {
 	void *c;
@@ -146,7 +146,7 @@ static int rpc_wireguard_status(struct ubus_context *ctx, struct ubus_object *ob
 			continue;
 
 		c = blobmsg_open_table(&buf, device_name);
-		rpc_wireguard_add_device(device);
+		rpc_amneziawg_add_device(device);
 		blobmsg_close_table(&buf, c);
 
 		wg_free_device(device);
@@ -159,7 +159,7 @@ static int rpc_wireguard_status(struct ubus_context *ctx, struct ubus_object *ob
 	return UBUS_STATUS_OK;
 }
 
-static int rpc_wireguard_genkey(struct ubus_context *ctx, struct ubus_object *obj,
+static int rpc_amneziawg_genkey(struct ubus_context *ctx, struct ubus_object *obj,
 	struct ubus_request_data *req, const char *method, struct blob_attr *msg)
 {
 	wg_key private_key, public_key;
@@ -178,7 +178,7 @@ static int rpc_wireguard_genkey(struct ubus_context *ctx, struct ubus_object *ob
 	return UBUS_STATUS_OK;
 }
 
-static int rpc_wireguard_genpsk(struct ubus_context *ctx, struct ubus_object *obj,
+static int rpc_amneziawg_genpsk(struct ubus_context *ctx, struct ubus_object *obj,
 	struct ubus_request_data *req, const char *method, struct blob_attr *msg)
 {
 	wg_key preshared_key;
@@ -194,7 +194,7 @@ static int rpc_wireguard_genpsk(struct ubus_context *ctx, struct ubus_object *ob
 	return UBUS_STATUS_OK;
 }
 
-static int rpc_wireguard_pubkey(struct ubus_context *ctx, struct ubus_object *obj,
+static int rpc_amneziawg_pubkey(struct ubus_context *ctx, struct ubus_object *obj,
 	struct ubus_request_data *req, const char *method, struct blob_attr *msg)
 {
 	static struct blob_attr *tb[__RPC_PK_MAX];
@@ -218,20 +218,20 @@ static int rpc_wireguard_pubkey(struct ubus_context *ctx, struct ubus_object *ob
 	return UBUS_STATUS_OK;
 }
 
-static int rpc_wireguard_api_init(const struct rpc_daemon_ops *ops, struct ubus_context *ctx)
+static int rpc_amneziawg_api_init(const struct rpc_daemon_ops *ops, struct ubus_context *ctx)
 {
 	static const struct ubus_method wireguard_methods[] = {
-		UBUS_METHOD_NOARG("status", rpc_wireguard_status),
-		UBUS_METHOD_NOARG("genkey", rpc_wireguard_genkey),
-		UBUS_METHOD_NOARG("genpsk", rpc_wireguard_genpsk),
-		UBUS_METHOD("pubkey", rpc_wireguard_pubkey, rpc_privatekey_policy),
+		UBUS_METHOD_NOARG("status", rpc_amneziawg_status),
+		UBUS_METHOD_NOARG("genkey", rpc_amneziawg_genkey),
+		UBUS_METHOD_NOARG("genpsk", rpc_amneziawg_genpsk),
+		UBUS_METHOD("pubkey", rpc_amneziawg_pubkey, rpc_privatekey_policy),
 	};
 
 	static struct ubus_object_type wireguard_type =
-		UBUS_OBJECT_TYPE("rpcd-plugin-wireguard", wireguard_methods);
+		UBUS_OBJECT_TYPE("rpcd-plugin-amneziawg", wireguard_methods);
 
 	static struct ubus_object obj = {
-		.name = "wireguard",
+		.name = "amneziawg",
 		.type = &wireguard_type,
 		.methods = wireguard_methods,
 		.n_methods = ARRAY_SIZE(wireguard_methods),
@@ -241,5 +241,5 @@ static int rpc_wireguard_api_init(const struct rpc_daemon_ops *ops, struct ubus_
 }
 
 struct rpc_plugin rpc_plugin = {
-	.init = rpc_wireguard_api_init
+	.init = rpc_amneziawg_api_init
 };
