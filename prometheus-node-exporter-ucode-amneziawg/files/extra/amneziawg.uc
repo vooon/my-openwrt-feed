@@ -1,17 +1,17 @@
 import { cursor } from "uci";
 
-const x = ubus.call("wireguard", "status");
+const x = ubus.call("amneziawg", "status");
 if (!x)
 	return false;
 
 const uci = cursor();
 uci.load("network");
 
-let m_wg_iface_info = gauge("wireguard_interface_info");
-let m_wg_peer_info = gauge("wireguard_peer_info");
-let m_wg_handshake = gauge ("wireguard_latest_handshake_seconds");
-let m_wg_rx = gauge ("wireguard_received_bytes_total");
-let m_wg_tx = gauge ("wireguard_sent_bytes_total");
+let m_wg_iface_info = gauge("amneziawg_interface_info");
+let m_wg_peer_info = gauge("amneziawg_peer_info");
+let m_wg_handshake = gauge ("amneziawg_latest_handshake_seconds");
+let m_wg_rx = gauge ("amneziawg_received_bytes_total");
+let m_wg_tx = gauge ("amneziawg_sent_bytes_total");
 
 for (let iface in x) {
 	const wc = x[iface];
@@ -25,7 +25,7 @@ for (let iface in x) {
 
 	for (let peer in wc["peers"]) {
 		let description;
-		uci.foreach('network', `wireguard_${iface}`, (s) => {
+		uci.foreach('network', `amneziawg_${iface}`, (s) => {
 			if (s.public_key == peer)
 				description = s.description;
 		});
