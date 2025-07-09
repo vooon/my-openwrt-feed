@@ -22,7 +22,8 @@ GO_PKG:=github.com/coredns/coredns
 GO_PKG_EXCLUDES:=test
 
 include $(INCLUDE_DIR)/package.mk
-include ../../lang/golang/golang-package.mk
+# include ../../lang/golang/golang-package.mk
+include ../../packages/lang/golang/golang-package.mk
 
 define Package/coredns
   SECTION:=net
