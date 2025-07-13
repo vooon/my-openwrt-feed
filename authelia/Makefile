@@ -1,15 +1,14 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=authelia
-PKG_VERSION:=4.39.4
+PKG_VERSION:=4.39.5
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/authelia/authelia.git
-PKG_MIRROR_HASH:=8bf3f4f48e8077c0923859429085e1dd88b00915ebf2fc5b1e330a3259640356
-PKG_SOURCE_DATE=2025-06-29
+PKG_MIRROR_HASH:=4f373b43b82d7118eb90af5bba40fc8be853fad1d46a262184c15af72212b615
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=ASL-2.0
@@ -17,7 +16,7 @@ PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
 PKG_BUILD_DEPENDS:=golang/host node/host authelia/host
-PKG_BUILD_PARALLEL:=1
+# PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/authelia/authelia/v4/cmd/authelia
