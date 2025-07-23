@@ -7,7 +7,7 @@ PKG_RELEASE:=1
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://git.proxmox.com/git/proxmox-backup.git
-PKG_MIRROR_HASH:=b64c30a1f9ad724d54f93cde6b789846e1963a45c992791869d462001593a3cd
+PKG_MIRROR_HASH:=556e19c963d2bd004df7b5e992b80d03cbab9296e73093a15fc837c0000ca824
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
@@ -38,6 +38,7 @@ endef
 define Package/proxmox-backup-client
   $(call Package/proxmox-backup/Default)
   TITLE:=Proxmox Backup Client
+  DEPENDS+= +pxar +qrencode +libopenssl +libfuse3
 endef
 
 define Package/proxmox-backup-client/description
@@ -68,10 +69,8 @@ $(call Package/proxmox-backup/Default/description)
 Restore files from a backup snapshot.
 endef
 
-
-# FIX: Unable to update https://github.com/inejge/ldap3/
-#CARGO_PKG_VARS += \
-#	CARGO_NET_GIT_FETCH_WITH_CLI=true \
+CARGO_PKG_VARS += \
+	CARGO_NET_GIT_FETCH_WITH_CLI=true \
 
 define Build/Compile
 
@@ -79,42 +78,28 @@ define Build/Compile
 	$(CARGO_PKG_VARS) \
 	cargo build -v \
 		--release \
-		--package proxmox-backup \
-		$(if $(CONFIG_PACKAGE_proxmox-backup-migration-tool),--package proxmox-backup_migration_tool) \
-		$(if $(CONFIG_PACKAGE_proxmox-backup-set-password),--package proxmox-backup_set_password) \
+		$(if $(CONFIG_PACKAGE_proxmox-backup-client),--package proxmox-backup-client) \
+		$(if $(CONFIG_PACKAGE_pxar),--package pxar-bin) \
+		$(if $(CONFIG_PACKAGE_proxmox-file-restore),--package proxmox-file-restore) \
 
 endef
 
-define Package/proxmox-backup/install
+define Package/proxmox-backup-client/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/proxmox-backup $(1)/usr/bin/
-	$(INSTALL_DIR) $(1)/usr/libexec
-	$(INSTALL_BIN) $(CURDIR)/files/proxmox-backup.sh $(1)/usr/libexec/proxmox-backup
-
-	$(INSTALL_DIR) $(1)/etc/init.d/
-	$(INSTALL_BIN) $(CURDIR)/files/proxmox-backup.init $(1)/etc/init.d/proxmox-backup
-
-	$(INSTALL_DIR) $(1)/etc/capabilities/
-	$(INSTALL_DATA) $(CURDIR)/files/proxmox-backup.json $(1)/etc/capabilities/proxmox-backup.json
-
-	# $(INSTALL_DIR) $(1)/etc/proxmox-backup
-	# $(INSTALL_CONF) $(PKG_BUILD_DIR)/proxmox-backup_config.docker_template.toml $(1)/etc/proxmox-backup/proxmox-backup_config.toml
-
-	$(INSTALL_DIR) $(1)/etc/config
-	$(INSTALL_CONF) $(CURDIR)/files/proxmox-backup.conf $(1)/etc/config/proxmox-backup
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/proxmox-backup-client $(1)/usr/bin/
 endef
 
-define Package/proxmox-backup-migration-tool/install
+define Package/pxar/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/proxmox-backup_migration_tool $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/pxar $(1)/usr/bin/
 endef
 
-define Package/proxmox-backup-set-password/install
+define Package/proxmox-file-restore/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/proxmox-backup_set_password $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/proxmox-file-restore $(1)/usr/bin/
 endef
 
 $(eval $(call RustBinPackage,proxmox-backup-client))
-$(eval $(call RustBinPackage,pxar))
-$(eval $(call RustBinPackage,proxmox-file-restore))
 $(eval $(call BuildPackage,proxmox-backup-client))
+$(eval $(call BuildPackage,pxar))
+$(eval $(call BuildPackage,proxmox-file-restore))

@@ -1,0 +1,204 @@
+From e26727aea5201aa498dd0f30059e55ab3a6901f8 Mon Sep 17 00:00:00 2001
+From: Vladimir Ermakov <vooon341@gmail.com>
+Date: Wed, 23 Jul 2025 13:13:18 +0200
+Subject: [PATCH 2/3] cargo: fix dependencies, disable server build
+
+Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
+---
+ Cargo.toml | 97 +++++++++++++++++++++++++++---------------------------
+ 1 file changed, 49 insertions(+), 48 deletions(-)
+
+diff --git a/Cargo.toml b/Cargo.toml
+index cc88dbfa..6641ee72 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -39,10 +39,10 @@ members = [
+     "pbs-tape",
+     "pbs-tools",
+ 
+-    "proxmox-backup-banner",
++    #"proxmox-backup-banner",
+     "proxmox-backup-client",
+     "proxmox-file-restore",
+-    "proxmox-restore-daemon",
++    #"proxmox-restore-daemon",
+ 
+     "pxar-bin",
+ ]
+@@ -53,8 +53,8 @@ path = "src/lib.rs"
+ 
+ [workspace.dependencies]
+ # proxmox workspace
+-proxmox-apt = { version = "0.11", features = [ "cache" ] }
+-proxmox-apt-api-types = "1.0.1"
++#proxmox-apt = { version = "0.11", features = [ "cache" ] }
++#proxmox-apt-api-types = "1.0.1"
+ proxmox-async = "0.4"
+ proxmox-auth-api = "0.4"
+ proxmox-borrow = "1"
+@@ -67,10 +67,10 @@ proxmox-human-byte = "0.1"
+ proxmox-io = "1.0.1" # tools and client use "tokio" feature
+ proxmox-lang = "1.1"
+ proxmox-log = "0.2.6"
+-proxmox-ldap = "0.2.1"
+-proxmox-metrics = "0.3.1"
++#proxmox-ldap = "0.2.1"
++#proxmox-metrics = "0.3.1"
+ proxmox-notify = "0.5.1"
+-proxmox-openid = "0.10.0"
++#proxmox-openid = "0.10.0"
+ proxmox-rest-server = { version = "0.8.9", features = [ "templates" ] }
+ # some use "cli", some use "cli" and "server", pbs-config uses nothing
+ proxmox-router = { version = "3.0.0", default-features = false }
+@@ -83,7 +83,7 @@ proxmox-serde = "0.1.1"
+ proxmox-shared-cache = "0.1"
+ proxmox-shared-memory = "0.3.0"
+ proxmox-sortable-macro = "0.1.2"
+-proxmox-subscription = { version = "0.5.0", features = [ "api-types" ] }
++#proxmox-subscription = { version = "0.5.0", features = [ "api-types" ] }
+ proxmox-sys = "0.6.7"
+ proxmox-systemd = "0.1"
+ proxmox-tfa = { version = "5", features = [ "api", "api-types" ] }
+@@ -94,7 +94,7 @@ pbs-api-types = "0.2.2"
+ 
+ # other proxmox crates
+ pathpatterns = "0.3"
+-proxmox-acme = "0.5.3"
++#proxmox-acme = "0.5.3"
+ pxar = "0.12.1"
+ 
+ # PBS workspace
+@@ -111,7 +111,7 @@ pbs-tools = { path = "pbs-tools" }
+ # regular crates
+ anyhow = "1.0"
+ async-trait = "0.1.56"
+-apt-pkg-native = "0.3.2"
++#apt-pkg-native = "0.3.2"
+ base64 = "0.13"
+ bitflags = "2.4"
+ bytes = "1.0"
+@@ -202,8 +202,8 @@ zstd.workspace = true
+ #valgrind_request = { git = "https://github.com/edef1c/libvalgrind_request", version = "1.1.0", optional = true }
+ 
+ # proxmox workspace
+-proxmox-apt.workspace = true
+-proxmox-apt-api-types.workspace = true
++#proxmox-apt.workspace = true
++#proxmox-apt-api-types.workspace = true
+ proxmox-async.workspace = true
+ proxmox-auth-api = { workspace = true, features = [ "api", "pam-authenticator" ] }
+ proxmox-compression.workspace = true
+@@ -214,11 +214,11 @@ proxmox-human-byte.workspace = true
+ proxmox-io.workspace = true
+ proxmox-lang.workspace = true
+ proxmox-log.workspace = true
+-proxmox-ldap.workspace = true
+-proxmox-metrics.workspace = true
++#proxmox-ldap.workspace = true
++#proxmox-metrics.workspace = true
+ proxmox-notify = { workspace = true, features = [ "pbs-context" ] }
+-proxmox-openid.workspace = true
+-proxmox-rest-server = { workspace = true, features = [ "rate-limited-stream" ] }
++#proxmox-openid.workspace = true
++#proxmox-rest-server = { workspace = true, features = [ "rate-limited-stream" ] }
+ proxmox-router = { workspace = true, features = [ "cli", "server"] }
+ proxmox-schema = { workspace = true, features = [ "api-macro" ] }
+ proxmox-section-config.workspace = true
+@@ -226,7 +226,7 @@ proxmox-serde = { workspace = true, features = [ "serde_json" ] }
+ proxmox-shared-cache.workspace = true
+ proxmox-shared-memory.workspace = true
+ proxmox-sortable-macro.workspace = true
+-proxmox-subscription.workspace = true
++#proxmox-subscription.workspace = true
+ proxmox-sys = { workspace = true, features = [ "timer" ] }
+ proxmox-systemd.workspace = true
+ proxmox-tfa.workspace = true
+@@ -236,7 +236,7 @@ proxmox-worker-task.workspace = true
+ pbs-api-types.workspace = true
+ 
+ # in their respective repo
+-proxmox-acme.workspace = true
++#proxmox-acme.workspace = true
+ pxar.workspace = true
+ 
+ # proxmox-backup workspace/internal crates
+@@ -253,45 +253,46 @@ proxmox-rrd-api-types.workspace = true
+ # Local path overrides
+ # NOTE: You must run `cargo update` after changing this for it to take effect!
+ [patch.crates-io]
+-#pbs-api-types = { path = "../proxmox/pbs-api-types" }
++pbs-api-types = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }  # no tags, stable-bookworm used for v3
+ #proxmox-acme = { path = "../proxmox/proxmox-acme" }
+ #proxmox-apt = { path = "../proxmox/proxmox-apt" }
+ #proxmox-apt-api-types = { path = "../proxmox/proxmox-apt-api-types" }
+-#proxmox-async = { path = "../proxmox/proxmox-async" }
+-#proxmox-auth-api = { path = "../proxmox/proxmox-auth-api" }
+-#proxmox-borrow = { path = "../proxmox/proxmox-borrow" }
+-#proxmox-compression = { path = "../proxmox/proxmox-compression" }
+-#proxmox-config-digest = { path = "../proxmox/proxmox-config-digest" }
+-#proxmox-daemon = { path = "../proxmox/proxmox-daemon" }
+-#proxmox-fuse = { path = "../proxmox-fuse" }
+-#proxmox-http = { path = "../proxmox/proxmox-http" }
+-#proxmox-human-byte = { path = "../proxmox/proxmox-human-byte" }
+-#proxmox-io = { path = "../proxmox/proxmox-io" }
+-#proxmox-lang = { path = "../proxmox/proxmox-lang" }
+-#proxmox-log = { path = "../proxmox/proxmox-log" }
++proxmox-async = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-auth-api = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-borrow = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-compression = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-config-digest = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-daemon = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-fuse = { git = "https://git.proxmox.com/git/proxmox-fuse.git", rev="6faec3a52fcdb0df3ca13fee2977683824d62d01" }  # version 0.1.7-1
++proxmox-http = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-human-byte = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-io = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-lang = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-log = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
+ #proxmox-ldap = { path = "../proxmox/proxmox-ldap" }
+ #proxmox-metrics = { path = "../proxmox/proxmox-metrics" }
+-#proxmox-notify = { path = "../proxmox/proxmox-notify" }
++proxmox-notify = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
+ #proxmox-openid = { path = "../proxmox/proxmox-openid" }
+ #proxmox-rest-server = { path = "../proxmox/proxmox-rest-server" }
+-#proxmox-router = { path = "../proxmox/proxmox-router" }
+-#proxmox-rrd = { path = "../proxmox/proxmox-rrd" }
+-#proxmox-rrd-api-types = { path = "../proxmox/proxmox-rrd-api-types" }
+-#proxmox-schema = { path = "../proxmox/proxmox-schema" }
+-#proxmox-section-config = { path = "../proxmox/proxmox-section-config" }
+-#proxmox-serde = { path = "../proxmox/proxmox-serde" }
+-#proxmox-shared-memory = { path = "../proxmox/proxmox-shared-memory" }
+-#proxmox-sortable-macro = { path = "../proxmox/proxmox-sortable-macro" }
++proxmox-router = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-rrd = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-rrd-api-types = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-schema = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-section-config = { git = "https://git.proxmox.com/git/proxmox.git", rev="f2fefb7ffdc59497394052f90cd6a11819660d3b" }  # version 2.1.2-1
++proxmox-serde = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-shared-cache = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-shared-memory = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-sortable-macro = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
+ #proxmox-subscription = { path = "../proxmox/proxmox-subscription" }
+-#proxmox-sys = { path = "../proxmox/proxmox-sys" }
+-#proxmox-systemd = { path = "../proxmox/proxmox-systemd" }
+-#proxmox-tfa = { path = "../proxmox/proxmox-tfa" }
+-#proxmox-time = { path = "../proxmox/proxmox-time" }
+-#proxmox-uuid = { path = "../proxmox/proxmox-uuid" }
+-#proxmox-worker-task = { path = "../proxmox/proxmox-worker-task" }
++proxmox-sys = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-systemd = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-tfa = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-time = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-uuid = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
++proxmox-worker-task = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
+ 
+-#pathpatterns = {path = "../pathpatterns" }
+-#pxar = { path = "../pxar" }
++pathpatterns = { git = "https://git.proxmox.com/git/pathpatterns.git", rev = "5f625aacbd6f81d97a1c6f5476fb38769d069f26" }  # there is no tags, version 0.3.0-1
++pxar = { git = "https://git.proxmox.com/git/pxar.git", rev = "410f326a08ef6c08141af5c7431beb2e16f0c666" }  # same problem, version 0.12.1-1
+ 
+ [features]
+ default = []
+-- 
+2.50.1
+

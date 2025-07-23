@@ -1,0 +1,28 @@
+From 47e2f765a7b66953caca7a99f73ab7ce28d51047 Mon Sep 17 00:00:00 2001
+From: Vladimir Ermakov <vooon341@gmail.com>
+Date: Wed, 23 Jul 2025 13:14:05 +0200
+Subject: [PATCH 3/3] cargo: remove debian-specific config
+
+Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
+---
+ .cargo/config.toml | 8 --------
+ 1 file changed, 8 deletions(-)
+ delete mode 100644 .cargo/config.toml
+
+diff --git a/.cargo/config.toml b/.cargo/config.toml
+deleted file mode 100644
+index a439c97b..00000000
+--- a/.cargo/config.toml
++++ /dev/null
+@@ -1,8 +0,0 @@
+-[source]
+-[source.debian-packages]
+-directory = "/usr/share/cargo/registry"
+-[source.crates-io]
+-replace-with = "debian-packages"
+-
+-[profile.release]
+-debug=true
+-- 
+2.50.1
+
