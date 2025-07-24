@@ -1,7 +1,6 @@
-import * as uclient from "uclient";
 import * as log from "log";
 
-const api_url = config["api_url"]
+const api_url = config["api_url"];
 if (!api_url)
 	return false;
 
@@ -11,44 +10,58 @@ let m_consumer_info = gauge("go2rtc_consumer_info");
 let m_producer_rx = counter("go2rtc_producer_received_bytes_total");
 let m_consumer_tx = counter("go2rtc_consumer_sent_bytes_total");
 
+
 function get_streams_info(api_url) {
 
-	let uc = uclient.new(`${api_url}/api/streams`, null, {
-		error: (cb, code) => {
-			log.ERR("uclient error code=%s url=%s\n", code, api_url);
-			m_up({}, 0);
-		},
-	});
+	const url = `${api_url}/api/streams`;
 
-	if (!uc.connect()) {
-		log.ERR("failed to connect.\n");
+	// NOTE: ucode-mod-uclient not so easy to use, also it brings problems with ujail library mount.
+	let ret = ubus.call("file", "exec", {command: "uclient-fetch", params: ["-O", "-", url]});
+	if (ret?.code != 0) {
+		log.ERR("failed to fetch url: %s rc: %d: err: %s", url, ret?.code, ret?.stderr);
 		return null;
 	}
 
-	let args = {
-		headers: {
-			"User-Agent": "prometheus-exporter/1.0",
-			"Accept": "application/json",
-		},
-	};
-
-	if (!uc.request("GET", args)) {
-		log.ERR("failed to send request\n");
-		return null;
-	}
-
-	let data = json(uc);
-
-	return data;
+	return json(ret.stdout);
 }
 
-//for (let iface in x) {
-//
-//	m_wg_iface_info({
-//		name: iface,
-//		public_key: wc["public_key"],
-//		listen_port: wc["listen_port"],
-//		fwmark: wc["fwmark"] || NaN,
-//	}, 1);
-//
-//}
+const x = get_streams_info(api_url);
+
+if (!x) {
+	m_up({url: api_url}, 0);
+	return false;
+}
+
+m_up({url: api_url}, 1);
+
+for (let stream, info in x) {
+
+	for (let producer in info.producers) {
+		m_producer_info({
+			stream: stream,
+			format_name: producer.format_name,
+			protocol: producer.protocol,
+			remote_addr: producer.remote_addr,
+			user_agent: producer.user_agent,
+		}, (!producer.remote_addr) ? 0 : 1);
+		m_producer_rx({
+			stream: stream,
+			remote_addr: producer.remote_addr,
+		}, producer.bytes_recv);
+	}
+
+	for (let consumer in info.consumers) {
+		m_consumer_info({
+			stream: stream,
+			format_name: consumer.format_name,
+			protocol: consumer.protocol,
+			remote_addr: consumer.remote_addr,
+			user_agent: consumer.user_agent,
+		}, 1);
+		m_consumer_tx({
+			stream: stream,
+			remote_addr: consumer.remote_addr,
+		}, consumer.bytes_send);
+	}
+
+}

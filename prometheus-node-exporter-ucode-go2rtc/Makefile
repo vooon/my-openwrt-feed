@@ -35,4 +35,4 @@ define Collector
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(1)))
 endef
 
-$(eval $(call Collector,go2rtc,Go2RTC collector,+ucode-mod-uclient go2rtc))
+$(eval $(call Collector,go2rtc,go2rtc collector,+uclient-fetch go2rtc))
