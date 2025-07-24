@@ -74,6 +74,7 @@ endef
 CARGO_PKG_VARS += \
 	CARGO_NET_GIT_FETCH_WITH_CLI=true \
 	BINDGEN_EXTRA_CLANG_ARGS="-v --target=$(GNU_TARGET_NAME) --sysroot=$(STAGING_DIR) --gcc-install-dir=$(dir $(LIBGCC_A)) -I $(dir $(LIBGCC_A))/include" \
+	CFLAGS="-I$(STAGING_DIR)/usr/include" \
 
 
 define Build/Compile
