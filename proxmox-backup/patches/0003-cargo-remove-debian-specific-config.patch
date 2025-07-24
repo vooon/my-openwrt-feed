@@ -1,7 +1,7 @@
-From 47e2f765a7b66953caca7a99f73ab7ce28d51047 Mon Sep 17 00:00:00 2001
+From 753ee856488e943bbf60e71b11e6f7f84cad3b27 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Wed, 23 Jul 2025 13:14:05 +0200
-Subject: [PATCH 3/3] cargo: remove debian-specific config
+Subject: [PATCH 3/4] cargo: remove debian-specific config
 
 Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 ---

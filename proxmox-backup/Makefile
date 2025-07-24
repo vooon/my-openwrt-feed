@@ -1,14 +1,16 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=proxmox-backup
-PKG_VERSION:=3.4.0
+PKG_VERSION:=3.4.3
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://git.proxmox.com/git/proxmox-backup.git
-PKG_MIRROR_HASH:=556e19c963d2bd004df7b5e992b80d03cbab9296e73093a15fc837c0000ca824
-PKG_SOURCE_VERSION:=v${PKG_VERSION}
+PKG_MIRROR_HASH:=8b4f15ffc91f0535f16b64a92e7d6d0d362b01f29e25505064a3f02e0a1f0894
+# NOTE: version 3.4.3-1, there is no tag, but the package on PVE 8.4 is already 3.4.3-1
+#PKG_SOURCE_VERSION:=v${PKG_VERSION}
+PKG_SOURCE_VERSION:=d84d10125d5de3653c3de2f0f31af5368bc09c35
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 PKG_LICENSE:=AGPL-3.0
@@ -38,7 +40,7 @@ endef
 define Package/proxmox-backup-client
   $(call Package/proxmox-backup/Default)
   TITLE:=Proxmox Backup Client
-  DEPENDS+= +pxar +qrencode +libopenssl +libfuse3
+  DEPENDS+= +pxar +qrencode +libopenssl +libfuse3 +libzstd
 endef
 
 define Package/proxmox-backup-client/description
@@ -71,6 +73,7 @@ endef
 
 CARGO_PKG_VARS += \
 	CARGO_NET_GIT_FETCH_WITH_CLI=true \
+
 
 define Build/Compile
 

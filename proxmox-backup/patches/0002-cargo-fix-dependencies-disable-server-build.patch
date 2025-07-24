@@ -1,7 +1,7 @@
-From e26727aea5201aa498dd0f30059e55ab3a6901f8 Mon Sep 17 00:00:00 2001
+From b7e0eace8f64535befd8bf420c3aef4455f6cc37 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Wed, 23 Jul 2025 13:13:18 +0200
-Subject: [PATCH 2/3] cargo: fix dependencies, disable server build
+Subject: [PATCH 2/4] cargo: fix dependencies, disable server build
 
 Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 ---
@@ -9,7 +9,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  1 file changed, 49 insertions(+), 48 deletions(-)
 
 diff --git a/Cargo.toml b/Cargo.toml
-index cc88dbfa..6641ee72 100644
+index b13ace6a..c1661e4d 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -39,10 +39,10 @@ members = [
@@ -173,7 +173,7 @@ index cc88dbfa..6641ee72 100644
 +proxmox-rrd = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
 +proxmox-rrd-api-types = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
 +proxmox-schema = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
-+proxmox-section-config = { git = "https://git.proxmox.com/git/proxmox.git", rev="f2fefb7ffdc59497394052f90cd6a11819660d3b" }  # version 2.1.2-1
++proxmox-section-config = { git = "https://git.proxmox.com/git/proxmox.git", rev="61b5788a639e3e74f85666f8c240d6b37acdf9fa" }  # version 3.1.0-1
 +proxmox-serde = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
 +proxmox-shared-cache = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
 +proxmox-shared-memory = { git = "https://git.proxmox.com/git/proxmox.git", branch="stable-bookworm" }
