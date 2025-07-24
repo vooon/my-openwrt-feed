@@ -14,8 +14,8 @@ include $(INCLUDE_DIR)/package.mk
 define Package/pbs-helper
   SECTION:=utils
   CATEGORY:=Utilities
-  TITLE:=Backup Helper script
-  DEPENDS:=proxmox-backup-client +jshn
+  TITLE:=Proxmox Backup Helper script
+  DEPENDS:=proxmox-backup-client +jshn +curl
   ARCH:=all
 endef
 
