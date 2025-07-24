@@ -15,8 +15,9 @@ PKG_LICENSE:=ASL-2.0
 PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
+HOST_BUILD_DEPENDS:=node/host
 PKG_BUILD_DEPENDS:=golang/host node/host authelia/host
-# PKG_BUILD_PARALLEL:=1
+PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/authelia/authelia/v4/cmd/authelia
