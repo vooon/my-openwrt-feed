@@ -23,8 +23,6 @@ include $(INCLUDE_DIR)/package.mk
 include ../../packages/lang/rust/rust-package.mk
 
 define Package/proxmox-backup/Default
-  SECTION:=net
-  CATEGORY:=Network
   SECTION:=utils
   CATEGORY:=Utilities
   URL:=https://www.proxmox.com/en/products/proxmox-backup-server/overview
