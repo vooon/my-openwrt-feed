@@ -1,16 +1,16 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=proxmox-backup
-PKG_VERSION:=3.4.3
+PKG_VERSION:=4.0.5
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://git.proxmox.com/git/proxmox-backup.git
 PKG_MIRROR_HASH:=8b4f15ffc91f0535f16b64a92e7d6d0d362b01f29e25505064a3f02e0a1f0894
-# NOTE: version 3.4.3-1, there is no tag, but the package on PVE 8.4 is already 3.4.3-1
+# NOTE: version 4.0.5-1, there is no tag
 #PKG_SOURCE_VERSION:=v${PKG_VERSION}
-PKG_SOURCE_VERSION:=d84d10125d5de3653c3de2f0f31af5368bc09c35
+PKG_SOURCE_VERSION:=7616c0a2ed079204c3a333622a0c5ef2b3469350
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 PKG_LICENSE:=AGPL-3.0
@@ -28,7 +28,7 @@ define Package/proxmox-backup/Default
   SECTION:=utils
   CATEGORY:=Utilities
   URL:=https://www.proxmox.com/en/products/proxmox-backup-server/overview
-  DEPENDS:=$(RUST_ARCH_DEPENDS)
+  DEPENDS:=$(RUST_ARCH_DEPENDS) +libacl +libfuse3 +libopenssl +libzstd
 endef
 
 define Package/proxmox-backup/Default/description
@@ -40,7 +40,7 @@ endef
 define Package/proxmox-backup-client
   $(call Package/proxmox-backup/Default)
   TITLE:=Proxmox Backup Client
-  DEPENDS+= +pxar +qrencode +libopenssl +libfuse3 +libzstd
+  DEPENDS+= +pxar +qrencode
 endef
 
 define Package/proxmox-backup-client/description
@@ -60,16 +60,16 @@ $(call Package/proxmox-backup/Default/description)
 Pxar is a command-line utility for creating and manipulating archives in the Proxmox File Archive Format (.pxar).
 endef
 
-define Package/proxmox-file-restore
-  $(call Package/proxmox-backup/Default)
-  TITLE:=Proxmox Backup File Restore
-endef
-
-define Package/proxmox-file-restore/description
-$(call Package/proxmox-backup/Default/description)
-
-Restore files from a backup snapshot.
-endef
+# define Package/proxmox-file-restore
+#   $(call Package/proxmox-backup/Default)
+#   TITLE:=Proxmox Backup File Restore
+# endef
+#
+# define Package/proxmox-file-restore/description
+# $(call Package/proxmox-backup/Default/description)
+#
+# Restore files from a backup snapshot.
+# endef
 
 CARGO_PKG_VARS += \
 	CARGO_NET_GIT_FETCH_WITH_CLI=true \
@@ -98,12 +98,12 @@ define Package/pxar/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/pxar $(1)/usr/bin/
 endef
 
-define Package/proxmox-file-restore/install
-	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/proxmox-file-restore $(1)/usr/bin/
-endef
+# define Package/proxmox-file-restore/install
+# 	$(INSTALL_DIR) $(1)/usr/bin
+# 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/proxmox-file-restore $(1)/usr/bin/
+# endef
 
 $(eval $(call RustBinPackage,proxmox-backup-client))
 $(eval $(call BuildPackage,proxmox-backup-client))
 $(eval $(call BuildPackage,pxar))
-$(eval $(call BuildPackage,proxmox-file-restore))
+#$(eval $(call BuildPackage,proxmox-file-restore))
