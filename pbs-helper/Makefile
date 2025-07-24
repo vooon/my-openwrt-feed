@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pbs-helper
-PKG_VERSION:=0.6.1
+PKG_VERSION:=0.1.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=ASL-2.0
@@ -23,8 +23,11 @@ define Package/pbs-helper/description
   Script helper to backup host.
 endef
 
-define Build/Configure
+define Package/pbs-helper/conffiles
 /etc/pbs.env
+endef
+
+define Build/Configure
 endef
 
 define Build/Compile
