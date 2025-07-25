@@ -59,6 +59,7 @@ start_service() {
 	init_datadir "$_datadir"
 
 	procd_add_jail gotify log
+	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
 	procd_add_jail_mount /usr/lib/gotify
 	procd_add_jail_mount_rw "$_datadir"
 
