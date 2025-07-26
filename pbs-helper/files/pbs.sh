@@ -9,7 +9,7 @@ fi
 
 . /etc/pbs.env
 
-proxmox-backup-client backup --ns "$PBS_NAMESPACE" "$PBS_BACKUP_NAME.pxar:/" 2>&1 | tee $backup_log
+proxmox-backup-client backup --ns "$PBS_NAMESPACE" "$PBS_BACKUP_NAME.pxar:/" "$@" 2>&1 | tee $backup_log
 rc=$?
 
 if [ $rc -gt 0 ]; then
@@ -26,7 +26,7 @@ fi
 
 json_init
 json_add_string title "$HOSTNAME backup: $stat"
-json_add_string message "$(cat $backup_log)"
+json_add_string message "\`\`\`\n$(cat $backup_log)\n\`\`\`"
 json_add_int priotity $prio
 json_close_object
 
