@@ -2,7 +2,7 @@
 
 set -o pipefail
 
-backup_log="$(mktemp /tmp/pbs-backup.XXXX.log)"
+backup_log="$(mktemp -u -t pbs-backup.log.XXXXXX)"
 atexit() {
 	rm -f "$backup_log"
 }
