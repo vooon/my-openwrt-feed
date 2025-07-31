@@ -33,7 +33,7 @@ fi
 
 curl "$GOTIFY_URL/message" -H "X-Gotify-Key: $GOTIFY_APP_TOKEN" -X POST \
 	-F "title=$HOSTNAME backup: $stat" \
-	-F "message=\`\`\`\n$(cat $backup_log)\n\`\`\`" \
+	-F "$(printf 'message=```\n%s\n```\n' "$(cat $backup_log)")" \
 	-F "priority=$prio"
 rc2=$?
 
