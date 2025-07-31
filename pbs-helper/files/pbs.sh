@@ -34,7 +34,7 @@ fi
 curl "$GOTIFY_URL/message" -H "X-Gotify-Key: $GOTIFY_APP_TOKEN" -X POST \
 	-F "title=$HOSTNAME backup: $stat" \
 	-F "message=\`\`\`\n$(cat $backup_log)\n\`\`\`" \
-	-F "priotity=$prio"
+	-F "priority=$prio"
 rc2=$?
 
 [ $rc -gt 0 ] && exit $rc
