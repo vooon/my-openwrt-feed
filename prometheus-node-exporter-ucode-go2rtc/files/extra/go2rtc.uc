@@ -16,7 +16,7 @@ function get_streams_info(api_url) {
 	const url = `${api_url}/api/streams`;
 
 	// NOTE: ucode-mod-uclient not so easy to use, also it brings problems with ujail library mount.
-	let ret = ubus.call("file", "exec", {command: "uclient-fetch", params: ["-O", "-", url]});
+	let ret = ubus.call("file", "exec", {command: "uclient-fetch", params: ["-T", "5", "-O", "-", url]});
 	if (ret?.code != 0) {
 		log.ERR("failed to fetch url: %s rc: %d: err: %s", url, ret?.code, ret?.stderr);
 		return null;
