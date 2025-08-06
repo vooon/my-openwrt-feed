@@ -1,4 +1,4 @@
-From 3ff08f2200d8044f086f909a1c2d3b3b26c2a400 Mon Sep 17 00:00:00 2001
+From c5bbe61cecb01e1f8962448ca6bc8e213f99e6b8 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Thu, 24 Jul 2025 12:33:00 +0200
 Subject: [PATCH 2/3] remove libsystemd linking
@@ -22,7 +22,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  create mode 100644 proxmox-systemd-escape/src/lib.rs
 
 diff --git a/Cargo.toml b/Cargo.toml
-index e532ccae..f6031f8f 100644
+index ff728dfa..a412313f 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -45,6 +45,8 @@ members = [
@@ -34,7 +34,7 @@ index e532ccae..f6031f8f 100644
  ]
  
  [lib]
-@@ -110,6 +112,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse" }
+@@ -112,6 +114,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse" }
  pbs-tape = { path = "pbs-tape" }
  pbs-tools = { path = "pbs-tools" }
  
@@ -43,7 +43,7 @@ index e532ccae..f6031f8f 100644
  # regular crates
  anyhow = "1.0"
  async-trait = "0.1.56"
-@@ -256,6 +260,8 @@ pbs-tools.workspace = true
+@@ -260,6 +264,8 @@ pbs-tools.workspace = true
  proxmox-rrd.workspace = true
  proxmox-rrd-api-types.workspace = true
  
