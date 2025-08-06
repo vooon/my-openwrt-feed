@@ -27,13 +27,14 @@ start_service() {
 	procd_add_jail zoneomatic log
 	procd_add_jail_mount /etc/TZ
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
+	procd_add_jail_mount "$_htpasswd"
 
 	config_list_foreach daemon ro_mount procd_add_jail_mount
 	config_list_foreach daemon rw_mount procd_add_jail_mount_rw
 	config_list_foreach daemon env list_append_env
 
 	procd_set_param command /usr/bin/zoneomatic --listen "$_listen" -p "$_htpasswd"
-	[[ $_accept_proxy -ne 0 ]] && procd_append_param command --accept-proxy
+	[ "$_accept_proxy" -ne 0 ] && procd_append_param command --accept-proxy
 	config_list_foreach daemon zone list_append_zone
 
 	procd_set_param respawn
