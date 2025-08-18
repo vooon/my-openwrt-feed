@@ -1,14 +1,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lldap
-PKG_VERSION:=0.6.1
+PKG_VERSION:=0.6.2
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/lldap/lldap.git
-PKG_MIRROR_HASH:=b64c30a1f9ad724d54f93cde6b789846e1963a45c992791869d462001593a3cd
-PKG_SOURCE_DATE=2025-06-11
+PKG_MIRROR_HASH:=
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
@@ -21,6 +20,15 @@ PKG_BUILD_PARALLEL:=1
 include $(INCLUDE_DIR)/package.mk
 #include ../../lang/rust/rust-package.mk
 include ../../packages/lang/rust/rust-package.mk
+
+# NOTE: use prebuilt webasm web-interface
+FRONTEND_FILE=$(PKG_NAME)-$(PKG_VERSION)-amd64.tar.gz
+define Download/lldap-frontend
+  URL:=https://github.com/lldap/lldap/releases/download/v$(PKG_VERSION)/
+  URL_FILE:=amd64-lldap.tar.gz
+  FILE:=$(FRONTEND_FILE)
+  HASH:=a69a3d547cbef17d440753a206ad94ea3735f3cf55caa292df0faf77dab3b81b
+endef
 
 define Package/lldap
   SECTION:=net
@@ -113,6 +121,9 @@ define Package/lldap/install
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(CURDIR)/files/lldap.conf $(1)/etc/config/lldap
+
+	$(INSTALL_DIR) $(1)/usr/share/lldap/
+	gzip -dc $(DL_DIR)/$(FRONTEND_FILE) | $(HOST_TAR) -C $(1)/usr/share/lldap $(TAR_OPTIONS) --strip-components=1 amd64-lldap/app
 endef
 
 define Package/lldap-migration-tool/install
@@ -125,6 +136,7 @@ define Package/lldap-set-password/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/target/$(RUSTC_TARGET_ARCH)/release/lldap_set_password $(1)/usr/bin/
 endef
 
+$(eval $(call Download,lldap-frontend))
 $(eval $(call RustBinPackage,lldap))
 $(eval $(call BuildPackage,lldap))
 $(eval $(call BuildPackage,lldap-migration-tool))
