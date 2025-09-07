@@ -1,4 +1,4 @@
-From cddefebce3947989504c8e33c714cb261dd3fd6d Mon Sep 17 00:00:00 2001
+From ac1e81158d9dbcf69d3add95544505e5a133f0d9 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Thu, 24 Jul 2025 13:30:41 +0200
 Subject: [PATCH 3/3] cargo: use system libzstd
@@ -9,7 +9,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/Cargo.toml b/Cargo.toml
-index a412313f..8de2f54b 100644
+index e856e9d7..7a73fcc0 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -166,7 +166,7 @@ udev = "0.9"
@@ -22,5 +22,5 @@ index a412313f..8de2f54b 100644
  
  [dependencies]
 -- 
-2.50.1
+2.51.0
 
