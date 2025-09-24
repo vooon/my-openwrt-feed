@@ -42,7 +42,8 @@ fi
 curl "$GOTIFY_URL/message" -H "X-Gotify-Key: $GOTIFY_APP_TOKEN" -X POST \
 	-F "title=$HOSTNAME $PBS_BACKUP_NAME backup: $stat" \
 	-F "$(printf 'message=```\n%s\n```\n' "$(cat $backup_log)")" \
-	-F "priority=$prio"
+	-F "priority=$prio" \
+	-F 'extras={"client::display": {"contentType": "text/markdown"}}'
 rc2=$?
 
 [ $rc -ne 0 ] && exit $rc
