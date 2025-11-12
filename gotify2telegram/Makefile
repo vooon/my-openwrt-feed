@@ -22,6 +22,7 @@ PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/vooon/gotify2telegram
 #GO_PKG_EXCLUDES:=examples/
+GO_PKG_INSTALL_ARGS += -buildmode=plugin
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
@@ -38,8 +39,6 @@ endef
 define Package/gotify2telegram/description
   This Gotify plugin forwards all received messages to Telegram through the Telegram bot.
 endef
-
-GO_PKG_INSTALL_ARGS += -ldflags '-w -s' -buildmode=plugin
 
 define Build/Compile
 	(cd $(PKG_BUILD_DIR); \

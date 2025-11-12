@@ -57,11 +57,10 @@ define Host/Install
 	npm install -g pnpm@latest-10
 endef
 
-GO_PKG_CUSTOM_LDFLAGS += \
-	-w -s \
-	-X github.com/authelia/authelia/v4/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
-	-X github.com/authelia/authelia/v4/internal/utils.BuildState="tagged" \
-	-X github.com/authelia/authelia/v4/internal/utils.BuildDate="$(shell date --iso-8601=s)" \
+GO_PKG_LDFLAGS_X:= \
+	github.com/authelia/authelia/v4/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
+	github.com/authelia/authelia/v4/internal/utils.BuildState="tagged" \
+	github.com/authelia/authelia/v4/internal/utils.BuildDate="$(shell date --iso-8601=s)" \
 
 
 define Build/Compile

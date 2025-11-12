@@ -8,7 +8,6 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://codeberg.org/ocimea/gotify-alertmanager-plugin.git
-PKG_SOURCE_DATE=2025-06-28
 # PKG_SOURCE_VERSION:=v${PKG_VERSION}
 PKG_SOURCE_VERSION:=36dcd9e3c183bf0d95bd8072fffed42f3b44d136
 PKG_MIRROR_HASH:=
@@ -23,6 +22,7 @@ PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=codeberg.org/ocimea/gotify-alertmanager-plugin
 #GO_PKG_EXCLUDES:=examples/
+GO_PKG_INSTALL_ARGS += -buildmode=plugin
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
@@ -39,8 +39,6 @@ endef
 define Package/gotify-alertmanager-plugin/description
   This Gotify plugin allowing to receive notifications from AlertManager.
 endef
-
-GO_PKG_INSTALL_ARGS += -ldflags '-w -s' -buildmode=plugin
 
 define Build/Compile
 	(cd $(PKG_BUILD_DIR); \

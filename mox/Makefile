@@ -45,11 +45,9 @@ define Package/mox/conffiles
 /etc/mox/
 endef
 
-GO_PKG_CUSTOM_LDFLAGS += \
-	-w -s \
-	-X github.com/mjl-/mox/moxvar.Version="$(PKG_SOURCE_VERSION)" \
-	-X github.com/mjl-/mox/moxvar.VersionBare="$(PKG_SOURCE_VERSION)" \
-
+GO_PKG_LDFLAGS_X:= \
+	github.com/mjl-/mox/moxvar.Version="$(PKG_SOURCE_VERSION)" \
+	github.com/mjl-/mox/moxvar.VersionBare="$(PKG_SOURCE_VERSION)"
 
 define Package/mox/install
 	$(call GoPackage/Package/Install/Bin,$(1))

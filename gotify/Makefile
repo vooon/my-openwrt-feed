@@ -21,6 +21,7 @@ PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/gotify/server
 #GO_PKG_EXCLUDES:=examples/
+GO_PKG_LDFLAGS_X:=main.Mode=prod
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
@@ -45,8 +46,6 @@ define Package/gotify/conffiles
 /etc/config/gotify
 /etc/gotify/config.yml
 endef
-
-GO_PKG_INSTALL_ARGS += -ldflags="-s -w -X main.Mode=prod"
 
 define Build/Compile
 	(cd "$(PKG_BUILD_DIR)/ui"; yarn install)
