@@ -4,11 +4,9 @@ PKG_NAME:=gotify
 PKG_VERSION:=2.7.3
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/gotify/server.git
-PKG_MIRROR_HASH:=b55f7cd3af7cda99eaec83a9b2bdaf364ce9f915652c770db9477658832cf128
+PKG_MIRROR_HASH:=7ec5a2651c8cd8724da21224b7753aa9bc3cdd018fc8f6dbca676e51f6471db1
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=MIT
@@ -20,7 +18,6 @@ PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/gotify/server
-#GO_PKG_EXCLUDES:=examples/
 GO_PKG_LDFLAGS_X:=main.Mode=prod
 
 include $(INCLUDE_DIR)/package.mk
