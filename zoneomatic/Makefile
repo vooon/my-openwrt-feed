@@ -4,11 +4,9 @@ PKG_NAME:=zoneomatic
 PKG_VERSION:=0.4.0
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/zoneomatic.git
-PKG_MIRROR_HASH:=3703392fe09d262b763dc3d44bf4da420bec5df0c6065c91c4e0b2c3f4b8e18e
+PKG_MIRROR_HASH:=5b4fa890c06265bce52bbad31214a76d2541681311fa2037fd6156bdd0e81e84
 PKG_SOURCE_VERSION:=${PKG_VERSION}
 
 PKG_LICENSE:=ASL-2.0
@@ -20,6 +18,9 @@ PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/vooon/zoneomatic/cmd/zoneomatic
+# GO_PKG_LDFLAGS_X:= \
+#	github.com/vooon/zoneomatic/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
+#	github.com/vooon/zoneomatic/internal/utils.BuildDate="$(shell date --iso-8601=s)" \
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
@@ -39,12 +40,6 @@ endef
 define Package/zoneomatic/conffiles
 /etc/config/zoneomatic
 endef
-
-# GO_PKG_LDFLAGS_X:= \
-#	github.com/vooon/zoneomatic/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
-#	github.com/vooon/zoneomatic/internal/utils.BuildState="tagged" \
-#	github.com/vooon/zoneomatic/internal/utils.BuildDate="$(shell date --iso-8601=s)" \
-
 
 define Build/Compile
 	$(call GoPackage/Build/Compile,$(GO_PKG_BUILD_PKG))
