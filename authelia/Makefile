@@ -4,11 +4,9 @@ PKG_NAME:=authelia
 PKG_VERSION:=4.39.14
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/authelia/authelia.git
-PKG_MIRROR_HASH:=9610ef883dd2633c292de7f25341e7094e606813f715e3e2222c9b52cb724f4d
+PKG_MIRROR_HASH:=7f69c48f86add5f934bd188735858f0891e8787e61c31154ecc3a811b62aeda4
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=ASL-2.0
@@ -21,6 +19,10 @@ PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/authelia/authelia/v4/cmd/authelia
+GO_PKG_LDFLAGS_X:= \
+	github.com/authelia/authelia/v4/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
+	github.com/authelia/authelia/v4/internal/utils.BuildState="tagged" \
+	github.com/authelia/authelia/v4/internal/utils.BuildDate="$(shell date --iso-8601=s)" \
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/host-build.mk
@@ -56,12 +58,6 @@ define Host/Install
 	# XXX: quite ad-hoc solution...
 	npm install -g pnpm@latest-10
 endef
-
-GO_PKG_LDFLAGS_X:= \
-	github.com/authelia/authelia/v4/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
-	github.com/authelia/authelia/v4/internal/utils.BuildState="tagged" \
-	github.com/authelia/authelia/v4/internal/utils.BuildDate="$(shell date --iso-8601=s)" \
-
 
 define Build/Compile
 	cd $(PKG_BUILD_DIR)/web; \
