@@ -4,11 +4,9 @@ PKG_NAME:=mox
 PKG_VERSION:=0.0.15
 PKG_RELEASE:=3
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/mjl-/mox.git
-PKG_MIRROR_HASH:=89b06f0ff05461c365882778259674a202aeb5eae9de33041acecf4dbc1f82df
+PKG_MIRROR_HASH:=b83f5c3ed23a96f19c5ba17caf88488350290a6f5c712666ac94fc2d4536cc36
 #PKG_SOURCE_VERSION:=v${PKG_VERSION}
 PKG_SOURCE_VERSION:=023a40e2b130c3af8847675e121283adef701e5a
 
@@ -21,6 +19,9 @@ PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/mjl-/mox
+GO_PKG_LDFLAGS_X:= \
+	github.com/mjl-/mox/moxvar.Version="$(PKG_SOURCE_VERSION)" \
+	github.com/mjl-/mox/moxvar.VersionBare="$(PKG_SOURCE_VERSION)"
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
@@ -44,10 +45,6 @@ define Package/mox/conffiles
 /etc/mox/*
 /etc/mox/
 endef
-
-GO_PKG_LDFLAGS_X:= \
-	github.com/mjl-/mox/moxvar.Version="$(PKG_SOURCE_VERSION)" \
-	github.com/mjl-/mox/moxvar.VersionBare="$(PKG_SOURCE_VERSION)"
 
 define Package/mox/install
 	$(call GoPackage/Package/Install/Bin,$(1))
