@@ -1,4 +1,6 @@
 import * as log from "log";
+let uloop = require("uloop");
+let uclient = require("uclient");
 
 const api_url = config["api_url"];
 if (!api_url)
@@ -12,17 +14,54 @@ let m_consumer_tx = counter("go2rtc_consumer_sent_bytes_total");
 
 
 function get_streams_info(api_url) {
+	let data = '';
 
 	const url = `${api_url}/api/streams`;
 
-	// NOTE: ucode-mod-uclient not so easy to use, also it brings problems with ujail library mount.
-	let ret = ubus.call("file", "exec", {command: "uclient-fetch", params: ["-T", "5", "-O", "-", url]});
-	if (ret?.code != 0) {
-		log.ERR("failed to fetch url: %s rc: %d: err: %s", url, ret?.code, ret?.stderr);
+	uloop.init();
+	uc = uclient.new(url, null, {
+		data_read: (cb) => {
+			let chunk;
+			while (length(chunk = uc.read()) > 0)
+				data += chunk;
+		},
+		data_eof: (cb) => {
+			uloop.end();
+		},
+		error: (cb, code) => {
+			log.ERR(`failed to get url: ${url}: ${code}`);
+			data = null;
+			uloop.end();
+		}
+	});
+
+	if (!uc.set_timeout(5000)) {
+		log.ERR("failed to set timeout");
 		return null;
 	}
 
-	return json(ret.stdout);
+	if (!uc.ssl_init({verify: false})) {
+		log.ERR("failed to initialize SSL");
+		return null;
+	}
+
+	if (!uc.connect()) {
+		log.ERR("failed to connect");
+		return null;
+	}
+
+	if (!uc.request("GET", {headers: {"User-Agent": "prometheus-node-exporter-ucode/1.0"}})) {
+		log.ERR("failed to send request");
+		return null;
+	}
+
+	uloop.run();
+
+	if (data == null) {
+		return null;
+	}
+
+	return json(data);
 }
 
 const x = get_streams_info(api_url);
