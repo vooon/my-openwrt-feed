@@ -1,4 +1,4 @@
-From 34b3a785d1b570e8a12b5870c0e02934cb558b98 Mon Sep 17 00:00:00 2001
+From 42f4eec807fb677127c37041c7b5a3366022c9b8 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Thu, 24 Jul 2025 12:33:00 +0200
 Subject: [PATCH 2/3] remove libsystemd linking
@@ -22,7 +22,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  create mode 100644 proxmox-systemd-escape/src/lib.rs
 
 diff --git a/Cargo.toml b/Cargo.toml
-index aa965969..2c78da34 100644
+index eeee3af6..dfc8061b 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -45,6 +45,8 @@ members = [
@@ -34,7 +34,7 @@ index aa965969..2c78da34 100644
  ]
  
  [lib]
-@@ -112,6 +114,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse" }
+@@ -113,6 +115,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse" }
  pbs-tape = { path = "pbs-tape" }
  pbs-tools = { path = "pbs-tools" }
  
@@ -43,7 +43,7 @@ index aa965969..2c78da34 100644
  # regular crates
  anyhow = "1.0"
  async-trait = "0.1.56"
-@@ -260,6 +264,8 @@ pbs-tools.workspace = true
+@@ -262,6 +266,8 @@ pbs-tools.workspace = true
  proxmox-rrd.workspace = true
  proxmox-rrd-api-types.workspace = true
  
@@ -67,7 +67,7 @@ index 8ce930a9..715e57fc 100644
  proxmox-uuid.workspace = true
  proxmox-worker-task.workspace = true
 diff --git a/pbs-datastore/src/backup_info.rs b/pbs-datastore/src/backup_info.rs
-index 29ca6f90..5d1ad230 100644
+index 859039cf..9d8f3810 100644
 --- a/pbs-datastore/src/backup_info.rs
 +++ b/pbs-datastore/src/backup_info.rs
 @@ -11,7 +11,8 @@ use const_format::concatcp;
