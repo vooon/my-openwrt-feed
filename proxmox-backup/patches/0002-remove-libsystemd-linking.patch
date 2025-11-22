@@ -1,4 +1,4 @@
-From 42f4eec807fb677127c37041c7b5a3366022c9b8 Mon Sep 17 00:00:00 2001
+From b81931d126bf508de7fec7fbf2201e9f00e9e2ed Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Thu, 24 Jul 2025 12:33:00 +0200
 Subject: [PATCH 2/3] remove libsystemd linking
@@ -22,7 +22,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  create mode 100644 proxmox-systemd-escape/src/lib.rs
 
 diff --git a/Cargo.toml b/Cargo.toml
-index eeee3af6..dfc8061b 100644
+index 3ce4c8cf..a509aabf 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -45,6 +45,8 @@ members = [
