@@ -31,7 +31,8 @@ log_debug() {
 }
 
 list_append_args() {
-	procd_append_param command "$1"
+	# NOTE: filter empty args
+	[ -n "$1" ] && procd_append_param command "$1"
 }
 
 start_instance() {
