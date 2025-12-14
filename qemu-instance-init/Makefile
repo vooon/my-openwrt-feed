@@ -14,8 +14,9 @@ include $(INCLUDE_DIR)/package.mk
 define Package/qemu-instance-init
   SECTION:=utils
   CATEGORY:=Utilities
+  SUBMENU:=Virtualization
   TITLE:=Qemu Instance init.d helper
-  DEPENDS:=qemu-system-x86_64 +proxmox-backup-client +jshn +curl
+  DEPENDS:=@TARGET_x86_64:qemu-x86_64-softmmu +proxmox-backup-client +curl +uuidgen
   ARCH:=all
 endef
 
