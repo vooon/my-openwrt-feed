@@ -190,8 +190,10 @@ backup_instance() {
 	local qmp_port backup_server backup_id
 	config_get qmp_port "$section" qmp_port 4444
 	config_get root_disk "$section" root_disk
+	config_get uefi_code "$section" uefi_code
+	config_get uefi_vars "$section" uefi_vars
 	config_get backup_server "$section" backup_server
-	config_get backup_id "$section" backup_id "$hostname-$section"
+	config_get backup_id "$section" backup_id "${hostname}-vm-${section}"
 
 	# load backup env vars
 	config_get PBS_REPOSITORY "$backup_server" repository
@@ -241,6 +243,13 @@ backup_instance() {
 
 	# TODO: support multiple drives
 	pbs_args="$pbs_args disk0.img:$root_disk"
+
+	if [ -n "$uefi_code" ]; then
+		pbs_args="$pbs_args pflash0_code.img:$uefi_code"
+	fi
+	if [ -n "$uefi_vars" ]; then
+		pbs_args="$pbs_args pflash0_efivars.img:$uefi_vars"
+	fi
 
 	set -o pipefail
 

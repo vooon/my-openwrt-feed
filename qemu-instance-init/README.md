@@ -28,5 +28,5 @@ config instance 'unifi'
 	# pbs backup
 	option backup 1
 	option backup_client pbs_server
-	# option backup_id "$hostname-$instance"
+	# option backup_id "$hostname-vm-$instance"
 ```
