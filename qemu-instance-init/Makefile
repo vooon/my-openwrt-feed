@@ -15,7 +15,7 @@ define Package/qemu-instance-init
   SECTION:=utils
   CATEGORY:=Utilities
   SUBMENU:=Virtualization
-  TITLE:=Qemu Instance init.d helper
+  TITLE:=QEMU Instance init.d helper
   DEPENDS:=@TARGET_x86_64:qemu-x86_64-softmmu +proxmox-backup-client +curl +uuidgen
   ARCH:=all
 endef

@@ -7,7 +7,7 @@ STOP=1
 # XXX TODO: detect arch
 PROG=/usr/bin/qemu-system-x86_64
 
-extra_command "backup" "run proxmox-backup-client"
+extra_command "backup" "run proxmox-backup-client (all or one instance)"
 
 _log() {
 	local level="$1"
@@ -36,7 +36,7 @@ list_append_args() {
 }
 
 start_instance() {
-	local section=$1
+	local section="$1"
 
 	config_get_bool enabled "$section" enabled 1
 	[ "$enabled" = 1 ] || return
@@ -98,7 +98,6 @@ start_instance() {
 	procd_close_instance
 }
 
-
 _stop_instance_task(){
 	local section="$1" qmp_port="$2" term_timeout="$3" qemu_pid="$4"
 
@@ -127,7 +126,7 @@ _stop_instance_task(){
 }
 
 stop_instance() {
-	local section=$1
+	local section="$1"
 
 	config_get_bool enabled "$section" enabled 1
 	[ "$enabled" = 1 ] || return
@@ -143,6 +142,60 @@ stop_instance() {
 	fi
 
 	_stop_instance_task "$section" "$qmp_port" "$term_timeout" "$qemu_pid" &
+}
+
+backup_instance() {
+	local section="$1"
+
+	config_get_bool backup "$section" backup 1
+	[ "$backup" = 1 ] || return
+
+	local qmp_port backup_client backup_id
+	config_get qmp_port "$section" qmp_port 4444
+	config_get root_disk "$section" root_disk
+	config_get backup_client "$section" backup_client
+	config_get backup_id "$section" backup_id "$(uname -n)-$section"
+
+	# load backup env vars
+	config_get PBS_REPOSITORY "$backup_client" repository
+	config_get PBS_PASSWORD "$backup_client" password
+	config_get PBS_FINGERPRINT "$backup_client" fingerprint
+	config_get PBS_NAMESPACE "$backup_client" namespace
+	# see https://pbs.proxmox.com/docs-1/backup-client.html#environment-variables
+	export PBS_REPOSITORY PBS_PASSWORD PBS_FINGERPRINT
+
+	# load notify url
+	config_get gotify_url "$backup_client" gotify_url
+	config_get gotify_app_token "$backup_client" gotify_app_token
+
+	log_info "$section" "begin backup"
+
+	local pidfile="/var/run/qemu.$section.pid"
+	if [ -e "$pidfile" ]; then
+		local qemu_pid=$(cat $pidfile)
+
+		log_info "$section" "sending 'block-flush' to VM with PID $qemu_pid."
+		nc 127.0.0.1 "$qmp_port" <<-QMP
+		{ "execute": "block-flush", "arguments": { "device": "drive0" } }
+		QMP
+
+		# NOTE: ideally should make a lvm snapshot, then backup.
+		#       but porting all logic of vzdump is too much work...
+	fi
+
+	local backup_log="/tmp/pbs-backup.$section.log"
+
+	local pbs_args=""
+	if [ -n "$PBS_NAMESPACE" ]; then
+		pbs_args="$pbs_args --namespace $PBS_NAMESPACE"
+	fi
+
+	# TODO: support multiple drives
+	pbs_args="$pbs_args 'disk0.img:$root_disk'"
+
+	log_debug "$section" proxmox-backup-client backup --backup-type vm --backup-id "$backup_id" "$pbs_args"
+
+	log_info "$section" "end backup"
 }
 
 start_service() {
@@ -169,14 +222,13 @@ stop_service() {
 	wait
 }
 
-
-
-
 backup() {
-echo "QEMU: Sending 'block-flush' to VM with PID $(cat $qemu_pidfile)."
-nc localhost $qemu_qmp_port <<QMP
-{ "execute": "block-flush", "arguments": { "device": "drive0" } }
-QMP
+	local instance="$1"
 
-/srv/vm/pbs-vm.sh vm-unifi-os-server /dev/tiberium-vg0/vm-unifi-os-server
+	config_load qemu
+	if [ -z "$instance" ]; then
+		config_foreach backup_instance instance
+	else
+		backup_instance "$instance"
+	fi
 }
