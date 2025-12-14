@@ -39,43 +39,43 @@ list_append_args() {
 }
 
 start_instance() {
-	local section="$1" enabled
+	local instance="$1" enabled
 
-	config_get_bool enabled "$section" enabled 1
+	config_get_bool enabled "$instance" enabled 1
 	[ "$enabled" = 1 ] || return
 
 	local vcpus ram cpu_type uuid vnc qmp_port term_timeout
 	local root_disk root_disk_type uefi_code uefi_vars
 	local net0_mac net0_bridge
 	local guest_agent guest_agent_socket
-	config_get vcpus "$section" vcpus 1
-	config_get ram "$section" ram '512M'
-	config_get cpu_type "$section" cpu_type 'host'
-	config_get uuid "$section" uuid
-	config_get vnc "$section" vnc 'none'
-	config_get qmp_port "$section" qmp_port 4444
-	config_get term_timeout "$section" term_timeout 300
-	config_get root_disk "$section" root_disk
-	config_get root_disk_type "$section" root_disk_type 'qcow2'
-	config_get net0_mac "$section" net0_mac
-	config_get net0_bridge "$section" net0_bridge 'br-lan'
-	config_get uefi_code "$section" uefi_code
-	config_get uefi_vars "$section" uefi_vars
-	config_get_bool guest_agent "$section" guest_agent 0
-	config_get guest_agent_socket "$section" guest_agent_socket "/var/run/qemu.$section.qga.sock"
+	config_get vcpus "$instance" vcpus 1
+	config_get ram "$instance" ram '512M'
+	config_get cpu_type "$instance" cpu_type 'host'
+	config_get uuid "$instance" uuid
+	config_get vnc "$instance" vnc 'none'
+	config_get qmp_port "$instance" qmp_port 4444
+	config_get term_timeout "$instance" term_timeout 300
+	config_get root_disk "$instance" root_disk
+	config_get root_disk_type "$instance" root_disk_type 'qcow2'
+	config_get net0_mac "$instance" net0_mac
+	config_get net0_bridge "$instance" net0_bridge 'br-lan'
+	config_get uefi_code "$instance" uefi_code
+	config_get uefi_vars "$instance" uefi_vars
+	config_get_bool guest_agent "$instance" guest_agent 0
+	config_get guest_agent_socket "$instance" guest_agent_socket "/var/run/qemu.$instance.qga.sock"
 
 	if [ -z "$uuid" ]; then
-		uuid=$(uuidgen --md5 --namespace 5d762436-dc3c-45c4-9896-d078210eec5a --name "$section")
-		log_warn "$section" "uuid is not set. Generated UUID5 from instance name: $uuid"
+		uuid=$(uuidgen --md5 --namespace 5d762436-dc3c-45c4-9896-d078210eec5a --name "$instance")
+		log_info "$instance" "uuid is not set. Generated UUID5 from instance name: $uuid"
 	fi
 
-	procd_open_instance "$section"
+	procd_open_instance "$instance"
 	procd_set_param command "$PROG" -enable-kvm -cpu "$cpu_type" \
 		-smp "$vcpus" -m "$ram" -uuid "$uuid"
 
 	if [ -n "$uefi_code" ]; then
 		if [ ! -e "$uefi_code" ]; then
-			log_error "$section" "uefi code: $root_disk: does not exist"
+			log_error "$instance" "uefi code: $root_disk: does not exist"
 			procd_set_param error "uefi code: $root_disk: does not exist"
 		fi
 
@@ -83,7 +83,7 @@ start_instance() {
 	fi
 	if [ -n "$uefi_vars" ]; then
 		if [ ! -e "$uefi_vars" ]; then
-			log_error "$section" "uefi vars: $root_disk: does not exist"
+			log_error "$instance" "uefi vars: $root_disk: does not exist"
 			procd_set_param error "uefi vars: $root_disk: does not exist"
 		fi
 
@@ -91,7 +91,7 @@ start_instance() {
 	fi
 
 	if [ ! -e "$root_disk" ]; then
-		log_error "$section" "root disk: $root_disk: does not exist"
+		log_error "$instance" "root disk: $root_disk: does not exist"
 		procd_set_param error "root disk: $root_disk: does not exist"
 	else
 		if [ "$root_disk_type" = "qemu2" ]; then
@@ -117,83 +117,83 @@ start_instance() {
 		procd_append_param command -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0
 	fi
 
-	config_list_foreach "$section" extra_args list_append_args
+	config_list_foreach "$instance" extra_args list_append_args
 
 	procd_set_param stdout 1
 	procd_set_param stderr 1
 	procd_set_param respawn
 	procd_set_param term_timeout "$term_timeout"
-	procd_set_param pidfile "/var/run/qemu.$section.pid"
+	procd_set_param pidfile "/var/run/qemu.$instance.pid"
 
 	procd_close_instance
 }
 
 _stop_instance_task(){
-	local section="$1" qmp_port="$2" term_timeout="$3" qemu_pid="$4"
+	local instance="$1" qmp_port="$2" term_timeout="$3" qemu_pid="$4"
 
 	if [ ! -e "/proc/$qemu_pid" ]; then
-		log_info "$section" "VM process already absent"
+		log_info "$instance" "VM process already absent"
 		return
 	fi
 
-	log_info "$section" "sending 'system_powerdown' to VM with PID $qemu_pid."
+	log_info "$instance" "sending 'system_powerdown' to VM with PID $qemu_pid."
 	nc 127.0.0.1 "$qmp_port" <<-QMP
 	{ "execute": "qmp_capabilities" }
 	{ "execute": "system_powerdown" }
 	QMP
 
-	log_info "$section" "waiting VM to shutdown."
+	log_info "$instance" "waiting VM to shutdown."
 	local elapsed=0
 	while [ "$elapsed" -lt "$term_timeout" ]; do
 		if [ ! -e "/proc/$qemu_pid" ]; then
-			log_info "$section" "VM process finished. elapsed: $elapsed"
+			log_info "$instance" "VM process finished. elapsed: $elapsed"
 			return
 		fi
 
-		log_debug "$section" "PID $qemu_pid present. elapsed: $elapsed"
+		log_debug "$instance" "PID $qemu_pid present. elapsed: $elapsed"
 
 		sleep 1s
 		elapsed=$((elapsed + 1))
 	done
 
-	log_error "$section" "graceful VM termination timeout reached, giving up to procd"
+	log_error "$instance" "graceful VM termination timeout reached, giving up to procd"
 }
 
 stop_instance() {
-	local section="$1"
+	local instance="$1"
 
-	config_get_bool enabled "$section" enabled 1
+	config_get_bool enabled "$instance" enabled 1
 	[ "$enabled" = 1 ] || return
 
 	local qmp_port term_timeout qemu_pid
-	config_get qmp_port "$section" qmp_port 4444
-	config_get term_timeout "$section" term_timeout 300
+	config_get qmp_port "$instance" qmp_port 4444
+	config_get term_timeout "$instance" term_timeout 300
 
-	local pidfile="/var/run/qemu.$section.pid"
+	local pidfile="/var/run/qemu.$instance.pid"
 	if [ ! -e "$pidfile" ]; then
-		log_warn "$section" "pid file: $pidfile: does not exist. Is the instance already stopped?"
+		log_warn "$instance" "pid file: $pidfile: does not exist. Is the instance already stopped?"
 		return
 	fi
 
 	qemu_pid=$(cat "$pidfile")
-	_stop_instance_task "$section" "$qmp_port" "$term_timeout" "$qemu_pid" &
+	_stop_instance_task "$instance" "$qmp_port" "$term_timeout" "$qemu_pid" &
 }
 
 backup_instance() {
-	local section="$1" backup hostname
+	local instance="$1" backup hostname
 
-	config_get_bool backup "$section" backup 0
+	config_get_bool backup "$instance" backup 0
 	[ "$backup" = 1 ] || return
 
 	hostname=$(uname -n)
 
 	local qmp_port backup_server backup_id
-	config_get qmp_port "$section" qmp_port 4444
-	config_get root_disk "$section" root_disk
-	config_get uefi_code "$section" uefi_code
-	config_get uefi_vars "$section" uefi_vars
-	config_get backup_server "$section" backup_server
-	config_get backup_id "$section" backup_id "${hostname}-vm-${section}"
+	config_get qmp_port "$instance" qmp_port 4444
+	config_get root_disk "$instance" root_disk
+	config_get uefi_code "$instance" uefi_code
+	config_get uefi_vars "$instance" uefi_vars
+	config_get backup_server "$instance" backup_server
+	config_get backup_id "$instance" backup_id "${hostname}-vm-${instance}"
 
 	# load backup env vars
 	config_get PBS_REPOSITORY "$backup_server" repository
@@ -209,22 +209,22 @@ backup_instance() {
 	config_get gotify_app_token "$backup_server" gotify_app_token
 
 	if [ -z "$PBS_REPOSITORY" ] || [ -z "$PBS_PASSWORD" ] || [ -z "$PBS_FINGERPRINT" ]; then
-		log_error "$section" "pbs client unconfigured: $backup_server"
+		log_error "$instance" "pbs client unconfigured: $backup_server"
 		return
 	fi
 	if [ ! -e "$root_disk" ]; then
-		log_error "$section" "root disk: $root_disk: not exist"
+		log_error "$instance" "root disk: $root_disk: not exist"
 		return
 	fi
 
-	log_info "$section" "begin backup"
+	log_info "$instance" "begin backup"
 
-	local pidfile="/var/run/qemu.$section.pid"
+	local pidfile="/var/run/qemu.$instance.pid"
 	if [ -e "$pidfile" ]; then
 		local qemu_pid
 		qemu_pid=$(cat "$pidfile")
 
-		log_info "$section" "sending 'block-flush' to VM with PID $qemu_pid."
+		log_info "$instance" "sending 'block-flush' to VM with PID $qemu_pid."
 		nc 127.0.0.1 "$qmp_port" <<-QMP
 		{ "execute": "block-flush", "arguments": { "device": "drive0" } }
 		QMP
@@ -233,7 +233,7 @@ backup_instance() {
 		#       but porting all logic of vzdump is too much work...
 	fi
 
-	local backup_log="/tmp/pbs-backup.$section.log"
+	local backup_log="/tmp/pbs-backup.$instance.log"
 
 	# XXX need to have safe globbing
 	local pbs_args=""
@@ -258,11 +258,11 @@ backup_instance() {
 	local rc=$?
 
 	if [ "$rc" -ne 0 ]; then
-		log_error "$section" "backup failed: rc: $rc"
+		log_error "$instance" "backup failed: rc: $rc"
 		gotify_stat="failed rc=$rc"
 		gotify_prio=9
 	else
-		log_info "$section" "backup successful"
+		log_info "$instance" "backup successful"
 		gotify_stat="successful"
 		gotify_prio=1
 	fi
@@ -275,13 +275,13 @@ backup_instance() {
 			-F 'extras={"client::display": {"contentType": "text/markdown"}}'
 		rc2=$?
 		if [ "$rc2" -ne 0 ]; then
-			log_error "$section" "failed to notify gotify: rc: $rc2"
+			log_error "$instance" "failed to notify gotify: rc: $rc2"
 		else
-			log_info "$section" "gotify notified successfully"
+			log_info "$instance" "gotify notified successfully"
 		fi
 	fi
 
-	log_info "$section" "end backup"
+	log_info "$instance" "end backup"
 }
 
 start_service() {
