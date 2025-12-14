@@ -114,6 +114,7 @@ start_instance() {
 
 	if [ "$guest_agent" = 1 ]; then
 		procd_append_param command -chardev "socket,path=$guest_agent_socket,server,nowait,id=qga0"
+		procd_append_param command -device virtio-serial
 		procd_append_param command -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0
 	fi
 
