@@ -39,7 +39,7 @@ define Package/qemu-instance-init/install
 	$(INSTALL_CONF) $(CURDIR)/files/qemu.conf $(1)/etc/config/qemu
 
 	$(INSTALL_DIR) $(1)/etc/init.d/
-	$(INSTALL_BIN) $(CURDIR)/files/qemu.init.sh $(1)/etc/init.d/qemu
+	$(INSTALL_BIN) $(CURDIR)/files/qemu.init $(1)/etc/init.d/qemu
 endef
 
 $(eval $(call BuildPackage,qemu-instance-init))
