@@ -9,6 +9,27 @@ PROG=/usr/bin/qemu-system-x86_64
 
 extra_command "backup" "run proxmox-backup-client"
 
+_log() {
+	local level="$1"
+	shift
+	local instance="$1"
+	shift
+	logger -s -t "qemu.$instance" -p "daemon.$level" "$level:" "$@"
+}
+
+log_error() {
+	_log ERROR "$@"
+}
+log_warn() {
+	_log WARN "$@"
+}
+log_info() {
+	_log INFO "$@"
+}
+log_debug() {
+	_log DEBUG "$@"
+}
+
 list_append_args() {
 	procd_append_param command "$1"
 }
@@ -36,7 +57,7 @@ start_instance() {
 
 	if [ -z "$uuid" ]; then
 		uuid=$(uuidgen --md5 --namespace 5d762436-dc3c-45c4-9896-d078210eec5a --name "$section")
-		echo "WARN:$section: uuid is not set. Generated UUID5 from instance name: $uuid"
+		log_warn "$section" "uuid is not set. Generated UUID5 from instance name: $uuid"
 	fi
 
 	procd_open_instance "$section"
@@ -44,7 +65,7 @@ start_instance() {
 		-smp "$vcpus" -m "$ram" -uuid "$uuid"
 
 	if [ ! -e "$root_disk" ]; then
-		echo "ERROR:$section: root disk: $root_disk: does not exist"
+		log_error "$section" "root disk: $root_disk: does not exist"
 		procd_set_param error "root disk: $root_disk: does not exist"
 	else
 		if [ "$root_disk_type" = "qemu2" ]; then
@@ -65,7 +86,7 @@ start_instance() {
 	[ -n "$vnc" ] && procd_append_param command -vnc "$vnc"
 	procd_append_param command -qmp "tcp:127.0.0.1:$qmp_port,server,nowait"
 
-	config_list_foreach "$instance" extra_args list_append_args
+	config_list_foreach "$section" extra_args list_append_args
 
 	procd_set_param stdout 1
 	procd_set_param stderr 1
@@ -81,27 +102,27 @@ _stop_instance_task(){
 	local section="$1" qmp_port="$2" term_timeout="$3" qemu_pid="$4"
 
 	local qemu_pid=$(cat $pidfile)
-	echo "INFO:$section: sending 'system_powerdown' to VM with PID $qemu_pid."
+	log_info "$section" "sending 'system_powerdown' to VM with PID $qemu_pid."
 	nc 127.0.0.1 "$qmp_port" <<-QMP
 	{ "execute": "qmp_capabilities" }
 	{ "execute": "system_powerdown" }
 	QMP
 
-	echo "INFO:$section: waiting VM to shutdown."
+	log_info "$section" "waiting VM to shutdown."
 	local elapsed=0
 	while [ "$elapsed" -lt "$term_timeout" ]; do
 		if [ ! -e "/proc/$qemu_pid" ]; then
-			echo "INFO:$section: VM process finished. elapsed: $elapsed"
+			log_info "$section" "VM process finished. elapsed: $elapsed"
 			return
 		fi
 
-		echo "DEBUG:$section: PID $qemu_pid present. elapsed: $elapsed"
+		log_debug "$section" "PID $qemu_pid present. elapsed: $elapsed"
 
 		sleep 1s
 		elapsed=$((elapsed + 1))
 	done
 
-	echo "ERROR:$section: graceful VM termination timeout reached, giving up to procd"
+	log_error "$section" "graceful VM termination timeout reached, giving up to procd"
 }
 
 stop_instance() {
@@ -116,7 +137,7 @@ stop_instance() {
 
 	local pidfile="/var/run/qemu.$section.pid"
 	if [ ! -e "$pidfile" ]; then
-		echo "WARN:$section: pid file: $pidfile: does not exist. Is the instance already stopped?"
+		log_warn "$section" "pid file: $pidfile: does not exist. Is the instance already stopped?"
 		return
 	fi
 
