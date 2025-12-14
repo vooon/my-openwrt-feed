@@ -79,7 +79,7 @@ start_instance() {
 			procd_set_param error "uefi code: $root_disk: does not exist"
 		fi
 
-		procd_append_param command -device "if=pflash,file=$uefi_code,format=raw,readonly=on"
+		procd_append_param command -drive "if=pflash,file=$uefi_code,format=raw,readonly=on"
 	fi
 	if [ -n "$uefi_vars" ]; then
 		if [ ! -e "$uefi_vars" ]; then
@@ -87,7 +87,7 @@ start_instance() {
 			procd_set_param error "uefi vars: $root_disk: does not exist"
 		fi
 
-		procd_append_param command -device "if=pflash,file=$uefi_vars,format=raw"
+		procd_append_param command -drive "if=pflash,file=$uefi_vars,format=raw"
 	fi
 
 	if [ ! -e "$root_disk" ]; then
@@ -187,27 +187,27 @@ backup_instance() {
 
 	hostname=$(uname -n)
 
-	local qmp_port backup_client backup_id
+	local qmp_port backup_server backup_id
 	config_get qmp_port "$section" qmp_port 4444
 	config_get root_disk "$section" root_disk
-	config_get backup_client "$section" backup_client
+	config_get backup_server "$section" backup_server
 	config_get backup_id "$section" backup_id "$hostname-$section"
 
 	# load backup env vars
-	config_get PBS_REPOSITORY "$backup_client" repository
-	config_get PBS_PASSWORD "$backup_client" password
-	config_get PBS_FINGERPRINT "$backup_client" fingerprint
-	config_get PBS_NAMESPACE "$backup_client" namespace
+	config_get PBS_REPOSITORY "$backup_server" repository
+	config_get PBS_PASSWORD "$backup_server" password
+	config_get PBS_FINGERPRINT "$backup_server" fingerprint
+	config_get PBS_NAMESPACE "$backup_server" namespace
 	# see https://pbs.proxmox.com/docs-1/backup-client.html#environment-variables
 	export PBS_REPOSITORY PBS_PASSWORD PBS_FINGERPRINT
 
 	# load notify url
 	local gotify_url gotify_app_token
-	config_get gotify_url "$backup_client" gotify_url
-	config_get gotify_app_token "$backup_client" gotify_app_token
+	config_get gotify_url "$backup_server" gotify_url
+	config_get gotify_app_token "$backup_server" gotify_app_token
 
 	if [ -z "$PBS_REPOSITORY" ] || [ -z "$PBS_PASSWORD" ] || [ -z "$PBS_FINGERPRINT" ]; then
-		log_error "$section" "pbs client unconfigured: $backup_client"
+		log_error "$section" "pbs client unconfigured: $backup_server"
 		return
 	fi
 	if [ ! -e "$root_disk" ]; then
