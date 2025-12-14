@@ -1,17 +1,54 @@
 #!/bin/sh /etc/rc.common
 
-#set -x
-
+USE_PROCD=1
 START=99
 STOP=1
 
-EXTRA_COMMANDS="backup"
-EXTRA_HELP="\tbackup\t\trun proxmox-backup for this vm"
+extra_command "backup" "run proxmox-backup for this vm"
 
-qemu_pidfile="/var/run/qemu-unifi.pid"
-qemu_logfile="/srv/log/qemu-unifi.log"
-qemu_uuid="617c3275-5553-4980-9d48-789ab6c59abc"
-qemu_qmp_port=4444
+start_instance() {
+	local section=$1
+
+	config_get_bool enabled "$section" enabled 1
+	[ "$enabled" = 1 ] || return
+
+	local vcpus ram cpu_type uuid qmp_port
+	config_get vcpus "$section" vcpus 1
+	config_get ram "$section" ram "512M"
+	config_get cpu_type "$section" cpu_type "host"
+	config_get uuid "$section" uuid
+	config_get qmp_port "$section" qmp_port 4444
+	config_get term_timeout "$section" 300
+
+	if [ -z "$uuid" ]; then
+		uuid=$(uuidgen -m --parent 5d762436-dc3c-45c4-9896-d078210eec5a --name "$section")
+		log warning "UUID is not set. Generated UUID5 from instance name: $section = $uuid"
+	fi
+
+	procd_open_instance "$section"
+	# XXX TODO: detect arch
+	procd_set_param command qemu-system-x86_64 -enable-kvm -cpu "$cpu_type" \
+		-smp "$vcpus" -m "$ram" -uuid "$uuid"
+
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_set_param respawn
+	procd_set_param term_timeout "$term_timeout"
+	procd_set_param pidfile "/var/run/qemu.$section.pid"
+
+	procd_close_instance
+}
+
+start_service() {
+	config_load qemu
+	config_foreach start_instance instance
+}
+
+stop_service() {
+	:
+}
+
+if false; then
 
 start() {
 qemu-system-x86_64 -enable-kvm -cpu host -smp 2 -m 2G \
@@ -52,6 +89,8 @@ else
 	echo "QEMU: Error: $qemu_pidfile doesn't exist."
 fi
 }
+
+fi
 
 backup() {
 echo "QEMU: Sending 'block-flush' to VM with PID $(cat $qemu_pidfile)."
