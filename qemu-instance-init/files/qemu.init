@@ -44,8 +44,9 @@ start_instance() {
 	[ "$enabled" = 1 ] || return
 
 	local vcpus ram cpu_type uuid vnc qmp_port term_timeout
-	local root_disk root_disk_type
+	local root_disk root_disk_type uefi_code uefi_vars
 	local net0_mac net0_bridge
+	local guest_agent guest_agent_socket
 	config_get vcpus "$section" vcpus 1
 	config_get ram "$section" ram '512M'
 	config_get cpu_type "$section" cpu_type 'host'
@@ -57,6 +58,10 @@ start_instance() {
 	config_get root_disk_type "$section" root_disk_type 'qcow2'
 	config_get net0_mac "$section" net0_mac
 	config_get net0_bridge "$section" net0_bridge 'br-lan'
+	config_get uefi_code "$section" uefi_code
+	config_get uefi_vars "$section" uefi_vars
+	config_get_bool guest_agent "$section" guest_agent 0
+	config_get guest_agent_socket "$section" guest_agent_socket "/var/run/qemu.$section.qga.sock"
 
 	if [ -z "$uuid" ]; then
 		uuid=$(uuidgen --md5 --namespace 5d762436-dc3c-45c4-9896-d078210eec5a --name "$section")
@@ -67,13 +72,30 @@ start_instance() {
 	procd_set_param command "$PROG" -enable-kvm -cpu "$cpu_type" \
 		-smp "$vcpus" -m "$ram" -uuid "$uuid"
 
+	if [ -n "$uefi_code" ]; then
+		if [ ! -e "$uefi_code" ]; then
+			log_error "$section" "uefi code: $root_disk: does not exist"
+			procd_set_param error "uefi code: $root_disk: does not exist"
+		fi
+
+		procd_append_param command -device "if=pflash,file=$uefi_code,format=raw,readonly=on"
+	fi
+	if [ -n "$uefi_vars" ]; then
+		if [ ! -e "$uefi_vars" ]; then
+			log_error "$section" "uefi vars: $root_disk: does not exist"
+			procd_set_param error "uefi vars: $root_disk: does not exist"
+		fi
+
+		procd_append_param command -device "if=pflash,file=$uefi_vars,format=raw"
+	fi
+
 	if [ ! -e "$root_disk" ]; then
 		log_error "$section" "root disk: $root_disk: does not exist"
 		procd_set_param error "root disk: $root_disk: does not exist"
 	else
 		if [ "$root_disk_type" = "qemu2" ]; then
 			procd_append_param command -device virtio-scsi-pci,id=scsi
-			# TODO
+			procd_append_param command -drive "id=root-img,format=qcow2,file=$root_disk,if=virtio"
 		fi
 		if [ "$root_disk_type" = "lvm" ]; then
 			procd_append_param command -device virtio-scsi-pci,id=scsi
@@ -88,6 +110,11 @@ start_instance() {
 
 	[ -n "$vnc" ] && procd_append_param command -vnc "$vnc"
 	procd_append_param command -qmp "tcp:127.0.0.1:$qmp_port,server,nowait"
+
+	if [ "$guest_agent" = 1 ]; then
+		procd_append_param command -chardev "socket,path=$guest_agent_socket,server,nowait,id=qga0"
+		procd_append_param command -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0
+	fi
 
 	config_list_foreach "$section" extra_args list_append_args
 
