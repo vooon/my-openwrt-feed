@@ -9,6 +9,7 @@ STOP=1
 # XXX TODO: detect arch
 PROG=/usr/bin/qemu-system-x86_64
 
+# XXX may be optional
 extra_command "backup" "run proxmox-backup-client (all or one instance)"
 
 _log() {
@@ -130,6 +131,11 @@ start_instance() {
 _stop_instance_task(){
 	local section="$1" qmp_port="$2" term_timeout="$3" qemu_pid="$4"
 
+	if [ ! -e "/proc/$qemu_pid" ]; then
+		log_info "$section" "VM process already absent"
+		return
+	fi
+
 	log_info "$section" "sending 'system_powerdown' to VM with PID $qemu_pid."
 	nc 127.0.0.1 "$qmp_port" <<-QMP
 	{ "execute": "qmp_capabilities" }
@@ -159,7 +165,7 @@ stop_instance() {
 	config_get_bool enabled "$section" enabled 1
 	[ "$enabled" = 1 ] || return
 
-	local qmp_port term_timeout
+	local qmp_port term_timeout qemu_pid
 	config_get qmp_port "$section" qmp_port 4444
 	config_get term_timeout "$section" term_timeout 300
 
@@ -169,16 +175,17 @@ stop_instance() {
 		return
 	fi
 
+	qemu_pid=$(cat "$pidfile")
 	_stop_instance_task "$section" "$qmp_port" "$term_timeout" "$qemu_pid" &
 }
 
 backup_instance() {
-	local section="$1" backup
+	local section="$1" backup hostname
 
-	config_get_bool backup "$section" backup 1
+	config_get_bool backup "$section" backup 0
 	[ "$backup" = 1 ] || return
 
-	local hostname=$(uname -n)
+	hostname=$(uname -n)
 
 	local qmp_port backup_client backup_id
 	config_get qmp_port "$section" qmp_port 4444
@@ -212,7 +219,8 @@ backup_instance() {
 
 	local pidfile="/var/run/qemu.$section.pid"
 	if [ -e "$pidfile" ]; then
-		local qemu_pid=$(cat $pidfile)
+		local qemu_pid
+		qemu_pid=$(cat "$pidfile")
 
 		log_info "$section" "sending 'block-flush' to VM with PID $qemu_pid."
 		nc 127.0.0.1 "$qmp_port" <<-QMP
