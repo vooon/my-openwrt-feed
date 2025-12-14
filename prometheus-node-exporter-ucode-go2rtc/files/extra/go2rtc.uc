@@ -1,4 +1,3 @@
-import * as log from "log";
 let uloop = require("uloop");
 let uclient = require("uclient");
 
@@ -29,29 +28,29 @@ function get_streams_info(api_url) {
 			uloop.end();
 		},
 		error: (cb, code) => {
-			log.ERR(`failed to get url: ${url}: ${code}`);
+			warn(`failed to get url: ${url}: ${code}\n`);
 			data = null;
 			uloop.end();
 		}
 	});
 
 	if (!uc.set_timeout(5000)) {
-		log.ERR("failed to set timeout");
+		warn("failed to set timeout\n");
 		return null;
 	}
 
 	if (!uc.ssl_init({verify: false})) {
-		log.ERR("failed to initialize SSL");
+		warn("failed to initialize SSL\n");
 		return null;
 	}
 
 	if (!uc.connect()) {
-		log.ERR("failed to connect");
+		warn("failed to connect\n");
 		return null;
 	}
 
 	if (!uc.request("GET", {headers: {"User-Agent": "prometheus-node-exporter-ucode/1.0"}})) {
-		log.ERR("failed to send request");
+		warn("failed to send request\n");
 		return null;
 	}
 
