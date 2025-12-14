@@ -1,5 +1,7 @@
 #!/bin/sh /etc/rc.common
 
+# shellcheck shell=busybox
+
 USE_PROCD=1
 START=99
 STOP=1
@@ -36,7 +38,7 @@ list_append_args() {
 }
 
 start_instance() {
-	local section="$1"
+	local section="$1" enabled
 
 	config_get_bool enabled "$section" enabled 1
 	[ "$enabled" = 1 ] || return
@@ -101,7 +103,6 @@ start_instance() {
 _stop_instance_task(){
 	local section="$1" qmp_port="$2" term_timeout="$3" qemu_pid="$4"
 
-	local qemu_pid=$(cat $pidfile)
 	log_info "$section" "sending 'system_powerdown' to VM with PID $qemu_pid."
 	nc 127.0.0.1 "$qmp_port" <<-QMP
 	{ "execute": "qmp_capabilities" }
@@ -145,16 +146,18 @@ stop_instance() {
 }
 
 backup_instance() {
-	local section="$1"
+	local section="$1" backup
 
 	config_get_bool backup "$section" backup 1
 	[ "$backup" = 1 ] || return
+
+	local hostname=$(uname -n)
 
 	local qmp_port backup_client backup_id
 	config_get qmp_port "$section" qmp_port 4444
 	config_get root_disk "$section" root_disk
 	config_get backup_client "$section" backup_client
-	config_get backup_id "$section" backup_id "$(uname -n)-$section"
+	config_get backup_id "$section" backup_id "$hostname-$section"
 
 	# load backup env vars
 	config_get PBS_REPOSITORY "$backup_client" repository
@@ -165,8 +168,18 @@ backup_instance() {
 	export PBS_REPOSITORY PBS_PASSWORD PBS_FINGERPRINT
 
 	# load notify url
+	local gotify_url gotify_app_token
 	config_get gotify_url "$backup_client" gotify_url
 	config_get gotify_app_token "$backup_client" gotify_app_token
+
+	if [ -z "$PBS_REPOSITORY" ] || [ -z "$PBS_PASSWORD" ] || [ -z "$PBS_FINGERPRINT" ]; then
+		log_error "$section" "pbs client unconfigured: $backup_client"
+		return
+	fi
+	if [ ! -e "$root_disk" ]; then
+		log_error "$section" "root disk: $root_disk: not exist"
+		return
+	fi
 
 	log_info "$section" "begin backup"
 
@@ -185,15 +198,44 @@ backup_instance() {
 
 	local backup_log="/tmp/pbs-backup.$section.log"
 
+	# XXX need to have safe globbing
 	local pbs_args=""
 	if [ -n "$PBS_NAMESPACE" ]; then
-		pbs_args="$pbs_args --namespace $PBS_NAMESPACE"
+		pbs_args="$pbs_args --ns $PBS_NAMESPACE"
 	fi
 
 	# TODO: support multiple drives
-	pbs_args="$pbs_args 'disk0.img:$root_disk'"
+	pbs_args="$pbs_args disk0.img:$root_disk"
 
-	log_debug "$section" proxmox-backup-client backup --backup-type vm --backup-id "$backup_id" "$pbs_args"
+	set -o pipefail
+
+	# shellcheck disable=SC2086
+	proxmox-backup-client backup --backup-type vm --backup-id "$backup_id" $pbs_args 2>&1 | tee "$backup_log"
+	local rc=$?
+
+	if [ "$rc" -ne 0 ]; then
+		log_error "$section" "backup failed: rc: $rc"
+		gotify_stat="failed rc=$rc"
+		gotify_prio=9
+	else
+		log_info "$section" "backup successful"
+		gotify_stat="successful"
+		gotify_prio=1
+	fi
+
+	if [ -n "$gotify_url" ]; then
+		curl "$gotify_url/message" -H "X-Gotify-Key: $gotify_app_token" -X POST \
+			-F "title=$hostname $backup_id backup: $gotify_stat" \
+			-F "$(printf 'message=```\n%s\n```\n' "$(cat $backup_log)")" \
+			-F "priority=$gotify_prio" \
+			-F 'extras={"client::display": {"contentType": "text/markdown"}}'
+		rc2=$?
+		if [ "$rc2" -ne 0 ]; then
+			log_error "$section" "failed to notify gotify: rc: $rc2"
+		else
+			log_info "$section" "gotify notified successfully"
+		fi
+	fi
 
 	log_info "$section" "end backup"
 }
