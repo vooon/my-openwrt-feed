@@ -11,22 +11,49 @@ Instance configuration
 ----------------------
 
 ```uci
-config instance 'unifi'
-	option enabled		'1'	# default 1
-	option vcpus		'2'	# amount of cores, default 1
-	option ram		'2G'	# amount of ram, default 512M
-	option cpu_type		'host'	# cpu type, default host
-	option uuid		'617c3275-5553-4980-9d48-789ab6c59abc'	# machine uuid, default generated from instance name
-	option vnc		'none'	# -vnc option, default none
-	option qmp_port		'4444'	# port to bind for QMP, **required**
-	option root_disk	'/dev/vg0/vm-unifi-os-server'	# path to root disk device/file
-	option root_disk_type	'lvm'			# type of the disk. currently qcow2 or lvm
-	option net0_mac		'E2:F2:6A:01:9D:CA'	# mac for first virtio-net adapter, default - do not create port
-	option net0_bridge	br-lan			# bridge for net0, default br-lan
-	list extra_args ''				# any additional configuration arguments
-
-	# pbs backup
-	option backup 1
-	option backup_client pbs_server
-	# option backup_id "$hostname-vm-$instance"
+config instance 'instance-name'
 ```
+
+| Name                  | Type    | Required  | Default  | Description |
+|-----------------------|---------|-----------|----------|-------------|
+| `enabled`             | bool    | no        | 1        | Enable instance |
+| `vcpus`               | string  | no        | 1        | Amount of vCPUs |
+| `ram`                 | string  | no        | 512M     | Amount of RAM |
+| `cpu_type`            | string  | no        | host     | CPU type |
+| `uuid`                | string  | no        | *generated* | Machine UUID, may be generated |
+| `vnc`                 | string  | no        | `none`   | Value for -vnc, e.g. `:0` |
+| `qmp_port`            | string  | yes       | 4444     | port for QMP server, must be unique for each instance |
+| `root_disk`           | string  | yes       | *(none)* | path to the root disk |
+| `root_disk_type`      | string  | no        | qcow2    | type of the disk: `qcow2` or `lvm` |
+| `uefi_code`           | string  | no        | *(none)* | path to `OMVF_CODE.fd` - required to enable UEFI |
+| `uefi_vars`           | string  | no        | *(none)* | path to `OMVF_VARS.fd` |
+| `net0_mac`            | string  | no        | *(none)* | Create virtio-net adapter port with this MAC |
+| `net0_bridge`         | string  | no        | `br-lan` | Linux bridge, where port above should be connected to |
+| `guest_agent`         | bool    | no        | 0        | Enable QEMU Guest Agent socket device |
+| `guest_agent_socket`  | string  | no        | `/var/run/qemu.$instance.qga.sock` | Socket path for option above |
+|-----------------------|---------|-----------|----------|-------------|
+| `extra_args`          | []string | no       | []       | List of additional custom arguments. |
+|-----------------------|---------|-----------|----------|-------------|
+| `backup`              | bool    | no        | 0        | Enable backup for the instance |
+| `backup_server`       | string  | yes*      | *(none)* | Backup server section name |
+| `backup_id`           | string  | no        | `${hostname}-vm-${instance}` | Backup ID |
+
+
+Proxmox Backup Server configuration
+-----------------------------------
+
+https://pbs.proxmox.com/docs-1/backup-client.html#environment-variables
+
+```uci
+config proxmox_backup_server 'pbs_server'
+```
+
+| Name                  | Type    | Required  | Default  | Description |
+|-----------------------|---------|-----------|----------|-------------|
+| `repository` 					| string  | yes       | *(none)* | repository |
+| `password` 						| string  | yes       | *(none)* | password |
+| `fingerprint` 				| string  | yes       | *(none)* | server certificate fingerprint |
+| `namespace` 					| string  | no        | *(none)* | use namespace |
+|-----------------------|---------|-----------|----------|-------------|
+| `gotify_url` 					| string 	| no 				| *(none)* | URL to Gotify server for notifications. Disabled if unset. |
+| `gotify_app_token` 		| string 	| yes       | *(none)* | Gotify application token |
