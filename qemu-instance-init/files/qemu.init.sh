@@ -39,22 +39,22 @@ start_instance() {
 		echo "WARN:$section: uuid is not set. Generated UUID5 from instance name: $uuid"
 	fi
 
-	if [ ! -e "$root_disk" ]; then
-		echo "ERROR:$section: root disk: $root_disk: does not exist"
-		return
-	fi
-
 	procd_open_instance "$section"
 	procd_set_param command "$PROG" -enable-kvm -cpu "$cpu_type" \
 		-smp "$vcpus" -m "$ram" -uuid "$uuid"
 
-	if [ "$root_disk_type" = "qemu2" ]; then
-		procd_append_param command -device virtio-scsi-pci,id=scsi
-		# TODO
-	fi
-	if [ "$root_disk_type" = "lvm" ]; then
-		procd_append_param command -device virtio-scsi-pci,id=scsi
-		procd_append_param command -drive "id=root-img,format=raw,file=$root_disk,if=virtio,cache.direct=on"
+	if [ ! -e "$root_disk" ]; then
+		echo "ERROR:$section: root disk: $root_disk: does not exist"
+		procd_set_param error "root disk: $root_disk: does not exist"
+	else
+		if [ "$root_disk_type" = "qemu2" ]; then
+			procd_append_param command -device virtio-scsi-pci,id=scsi
+			# TODO
+		fi
+		if [ "$root_disk_type" = "lvm" ]; then
+			procd_append_param command -device virtio-scsi-pci,id=scsi
+			procd_append_param command -drive "id=root-img,format=raw,file=$root_disk,if=virtio,cache.direct=on"
+		fi
 	fi
 
 	if [ -n "$net0_mac" ]; then
@@ -76,21 +76,9 @@ start_instance() {
 	procd_close_instance
 }
 
-stop_instance() {
-	local section=$1
 
-	config_get_bool enabled "$section" enabled 1
-	[ "$enabled" = 1 ] || return
-
-	local qmp_port term_timeout
-	config_get qmp_port "$section" qmp_port 4444
-	config_get term_timeout "$section" term_timeout 300
-
-	local pidfile="/var/run/qemu.$section.pid"
-	if [ ! -e "$pidfile" ]; then
-		echo "WARN:$section: pid file: $pidfile: does not exist. Is the instance already stopped?"
-		return
-	fi
+_stop_instance_task(){
+	local section="$1" qmp_port="$2" term_timeout="$3" qemu_pid="$4"
 
 	local qemu_pid=$(cat $pidfile)
 	echo "INFO:$section: sending 'system_powerdown' to VM with PID $qemu_pid."
@@ -107,11 +95,32 @@ stop_instance() {
 			return
 		fi
 
+		echo "DEBUG:$section: PID $qemu_pid present. elapsed: $elapsed"
+
 		sleep 1s
 		elapsed=$((elapsed + 1))
 	done
 
 	echo "ERROR:$section: graceful VM termination timeout reached, giving up to procd"
+}
+
+stop_instance() {
+	local section=$1
+
+	config_get_bool enabled "$section" enabled 1
+	[ "$enabled" = 1 ] || return
+
+	local qmp_port term_timeout
+	config_get qmp_port "$section" qmp_port 4444
+	config_get term_timeout "$section" term_timeout 300
+
+	local pidfile="/var/run/qemu.$section.pid"
+	if [ ! -e "$pidfile" ]; then
+		echo "WARN:$section: pid file: $pidfile: does not exist. Is the instance already stopped?"
+		return
+	fi
+
+	_stop_instance_task "$section" "$qmp_port" "$term_timeout" "$qemu_pid" &
 }
 
 start_service() {
@@ -134,6 +143,8 @@ stop_service() {
 	else
 		stop_instance "$instance"
 	fi
+
+	wait
 }
 
 
