@@ -226,6 +226,7 @@ backup_instance() {
 
 		log_info "$instance" "sending 'block-flush' to VM with PID $qemu_pid."
 		nc 127.0.0.1 "$qmp_port" <<-QMP
+		{ "execute": "qmp_capabilities" }
 		{ "execute": "block-flush", "arguments": { "device": "drive0" } }
 		QMP
 
