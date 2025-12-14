@@ -91,17 +91,25 @@ start_instance() {
 	fi
 
 	if [ ! -e "$root_disk" ]; then
-		log_error "$instance" "root disk: $root_disk: does not exist"
-		procd_set_param error "root disk: $root_disk: does not exist"
+		local err="root disk: $root_disk: does not exist"
+		log_error "$instance" "$err"
+		procd_set_param error "$err"
 	else
-		if [ "$root_disk_type" = "qemu2" ]; then
-			procd_append_param command -device virtio-scsi-pci,id=scsi
-			procd_append_param command -drive "id=root-img,format=qcow2,file=$root_disk,if=virtio"
-		fi
-		if [ "$root_disk_type" = "lvm" ]; then
-			procd_append_param command -device virtio-scsi-pci,id=scsi
-			procd_append_param command -drive "id=root-img,format=raw,file=$root_disk,if=virtio,cache.direct=on"
-		fi
+		case "$root_disk_type" in
+			qcow2)
+				procd_append_param command -device virtio-scsi-pci,id=scsi
+				procd_append_param command -drive "id=root-img,format=qcow2,file=$root_disk,if=virtio"
+				;;
+			lvm)
+				procd_append_param command -device virtio-scsi-pci,id=scsi
+				procd_append_param command -drive "id=root-img,format=raw,file=$root_disk,if=virtio,cache.direct=on"
+				;;
+			*)
+				local err="unsupported root disk type: $root_disk_type"
+				log_error "$instance" "$err"
+				procd_set_param error "$err"
+				;;
+		esac
 	fi
 
 	if [ -n "$net0_mac" ]; then
