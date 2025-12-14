@@ -42,3 +42,9 @@ Proxmox Backup Client
 ---------------------
 
 Simple backup for services above...
+
+
+QEMU Instance init
+------------------
+
+Helper script for qemu vm init.d.
