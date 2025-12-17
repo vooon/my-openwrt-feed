@@ -1,16 +1,14 @@
 #!/bin/sh
 # shellcheck shell=busybox
 
-PROG=$(basename "$0")
+LOG_TAG=$(basename "$0")
 
 . /lib/functions.sh
-
-set -x
 
 _log() {
 	local level="$1"
 	shift
-	logger -s -t "$PROG" -p "daemon.$level" "$level:" "$@"
+	logger -s -t "${LOG_TAG}[$$]" -p "daemon.$level" "$level:" "$@"
 }
 
 log_error() {
@@ -48,7 +46,9 @@ sync_host() {
 		return
 	fi
 
-	echo curl -v "$update_url" -u "$username:$password" -G -d "hostname=$name.$origin" -d "myip=$ip"
+	# NOTE: possible to query if address needs update, like ddns.sh does,
+	#       but zoneomatic compares addresses anyway...
+	curl "$update_url" -u "$username:$password" -G -d "hostname=$name.$origin" -d "myip=$ip"
 	local rc=$?
 
 	if [ $rc -ne 0 ]; then
