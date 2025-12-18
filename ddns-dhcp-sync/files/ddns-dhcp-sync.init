@@ -5,7 +5,7 @@ USE_PROCD=1
 
 start_service() {
 	procd_open_instance
-	procd_set_param command /usr/bin/ddns-dhcp-sync.sh
+	procd_set_param command /usr/bin/ddns-dhcp-sync.sh --noexit
 	procd_close_instance
 }
 
