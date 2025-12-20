@@ -15,7 +15,7 @@ define Package/inotify-rsync
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Inotify Rsync Helper script
-  DEPENDS:=+@CONFIG_BUSYBOX_CONFIG_INOTIFYD +rsync
+  DEPENDS:=+@BUSYBOX_CONFIG_INOTIFYD +@BUSYBOX_DEFAULT_INOTIFYD +rsync
   ARCH:=all
 endef
 

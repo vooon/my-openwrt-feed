@@ -8,21 +8,21 @@ STOP=1
 expand_src() {
 	if [ -d "$1" ]; then
 		# XXX how to correctly deal with globbing?
-		procd_append_param $1/*
+		procd_append_param command $1/*
 	else
-		procd_append_param "$1"
+		procd_append_param command "$1"
 	fi
 }
 
 start_watch() {
 	local instance="$1"
+	local enabled dest src
 
 	config_get_bool enabled "$instance" enabled 1
 	[ "$enabled" = 1 ] || return
 
-	local dest src
-	config_get_bool dest "$instance" dest
-	config_get_bool src "$instance" src
+	config_get dest "$instance" dest
+	config_get src "$instance" src
 
 	local script="/tmp/inotify-rsync-$instance"
 	local tag="isync.$instance"
@@ -30,7 +30,7 @@ start_watch() {
 	cat > "$script" <<-EOF
 	#!/bin/sh
 	logger -s -t $tag "change notified: \$@"
-	rsync -Ppra $src "$dest"
+	rsync -Ppra --delete --delete-delay $src "$dest"
 	EOF
 
 	chmod +x "$script"
