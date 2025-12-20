@@ -1,0 +1,59 @@
+#!/bin/sh /etc/rc.common
+# shellcheck shell=busybox
+
+USE_PROCD=1
+START=99
+STOP=1
+
+expand_src() {
+	if [ -d "$1" ]; then
+		# XXX how to correctly deal with globbing?
+		procd_append_param $1/*
+	else
+		procd_append_param "$1"
+	fi
+}
+
+start_watch() {
+	local instance="$1"
+
+	config_get_bool enabled "$instance" enabled 1
+	[ "$enabled" = 1 ] || return
+
+	local dest src
+	config_get_bool dest "$instance" dest
+	config_get_bool src "$instance" src
+
+	local script="/tmp/inotify-rsync-$instance"
+	local tag="isync.$instance"
+
+	cat > "$script" <<-EOF
+	#!/bin/sh
+	logger -s -t $tag "change notified: \$@"
+	rsync -Ppra $src "$dest"
+	EOF
+
+	chmod +x "$script"
+
+	procd_open_instance "$instance"
+	procd_set_param command inotifyd "$script"
+
+	# add sources to watch
+	config_list_foreach "$instance" src expand_src
+
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_set_param respawn
+	procd_close_instance
+}
+
+start_service() {
+	local instance="$1"
+
+	config_load inotify-rsync
+	if [ -z "$instance" ]; then
+		config_foreach start_watch watch
+	else
+		start_watch "$instance"
+	fi
+}
