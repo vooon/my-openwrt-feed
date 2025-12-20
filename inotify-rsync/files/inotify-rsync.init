@@ -5,32 +5,45 @@ USE_PROCD=1
 START=99
 STOP=1
 
+extra_command "rsync" "force run rsync scripts"
+
 expand_src() {
 	if [ -d "$1" ]; then
 		# XXX how to correctly deal with globbing?
-		procd_append_param command $1/*
-	else
-		procd_append_param command "$1"
+		for d in $1/*; do
+			procd_append_param command "$d"
+		done
 	fi
+	procd_append_param command "$1"
+}
+
+expand_filter() {
+	local rule="$1"
+
+	eval "filter=\"$filter -f '$rule'\""
 }
 
 start_watch() {
 	local instance="$1"
-	local enabled dest src
+	local enabled dest src rsync_args
 
 	config_get_bool enabled "$instance" enabled 1
 	[ "$enabled" = 1 ] || return
 
 	config_get dest "$instance" dest
 	config_get src "$instance" src
+	config_get rsync_args "$instance" rsync_args
 
 	local script="/tmp/inotify-rsync-$instance"
 	local tag="isync.$instance"
 
+	local filter
+	config_list_foreach "$instance" filter expand_filter
+
 	cat > "$script" <<-EOF
 	#!/bin/sh
 	logger -s -t $tag "change notified: \$@"
-	rsync -Ppra --delete --delete-delay $src "$dest"
+	rsync -Ppra --delete --delete-delay $rsync_args $filter $src "$dest"
 	EOF
 
 	chmod +x "$script"
@@ -47,6 +60,13 @@ start_watch() {
 	procd_close_instance
 }
 
+start_rsync() {
+	local instance="$1"
+	local script="/tmp/inotify-rsync-$instance"
+
+	[ -x "$script" ] && $script
+}
+
 start_service() {
 	local instance="$1"
 
@@ -55,5 +75,16 @@ start_service() {
 		config_foreach start_watch watch
 	else
 		start_watch "$instance"
+	fi
+}
+
+rsync() {
+	local instance="$1"
+
+	config_load inotify-rsync
+	if [ -z "$instance" ]; then
+		config_foreach start_rsync watch
+	else
+		start_rsync "$instance"
 	fi
 }
