@@ -12,7 +12,9 @@ list_append_env() {
 
 list_append_zone() {
 	procd_append_param command -z "$1"
-	procd_add_jail_mount_rw "$1"
+	# NOTE: unfortunately that mounts exact inode, so rsync became problematic
+	# procd_add_jail_mount_rw "$1"
+	procd_add_jail_mount_rw "$(dirname "$1")"
 }
 
 start_service() {
