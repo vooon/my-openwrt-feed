@@ -9,10 +9,9 @@ extra_command "rsync" "force run rsync scripts"
 
 expand_src() {
 	if [ -d "$1" ]; then
-		# XXX how to correctly deal with globbing?
-		for d in $1/*; do
+		while IFS= read -r d; do
 			procd_append_param command "$d"
-		done
+		done < <(find "$1" -type d)
 	fi
 	procd_append_param command "$1"
 }
@@ -32,10 +31,10 @@ start_watch() {
 
 	config_get dest "$instance" dest
 	config_get src "$instance" src
-	config_get rsync_args "$instance" rsync_args
+	config_get rsync_args "$instance" rsync_args '-Ppra --delete --delete-delay'
 
 	local script="/tmp/inotify-rsync-$instance"
-	local tag="isync.$instance"
+	local tag="inotify-rsync.$instance"
 
 	local filter
 	config_list_foreach "$instance" filter expand_filter
@@ -43,7 +42,7 @@ start_watch() {
 	cat > "$script" <<-EOF
 	#!/bin/sh
 	logger -s -t $tag "change notified: \$@"
-	rsync -Ppra --delete --delete-delay $rsync_args $filter $src "$dest"
+	rsync $rsync_args $filter $src "$dest"
 	EOF
 
 	chmod +x "$script"
