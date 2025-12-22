@@ -50,7 +50,7 @@ start_watch() {
 
 	cat > "$script" <<-EOF
 	#!/bin/sh
-	local event="$1" file="$2" subfile="$3"
+	# event="\$1" file="\$2" subfile="\$3"
 	logger -s -t $tag "change notified: \$@"
 	rsync $rsync_args $filter $src "$dest"
 	EOF
