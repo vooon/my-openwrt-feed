@@ -7,13 +7,21 @@ STOP=1
 
 extra_command "rsync" "force run rsync scripts"
 
+_append_command_src() {
+	if [ -z "$2" ]; then
+		procd_append_param command "$1"
+	else
+		procd_append_param command "$1:$2"
+	fi
+}
+
 expand_src() {
 	if [ -d "$1" ]; then
 		while IFS= read -r d; do
-			procd_append_param command "$d"
+			_append_command_src "$d" "$2"
 		done < <(find "$1" -type d)
 	fi
-	procd_append_param command "$1"
+	_append_command_src "$1" "$2"
 }
 
 expand_filter() {
@@ -24,11 +32,12 @@ expand_filter() {
 
 start_watch() {
 	local instance="$1"
-	local enabled dest src rsync_args
+	local enabled dest src rsync_args event_mask
 
 	config_get_bool enabled "$instance" enabled 1
 	[ "$enabled" = 1 ] || return
 
+	config_get event_mask "$instance" event_mask 'c'
 	config_get dest "$instance" dest
 	config_get src "$instance" src
 	config_get rsync_args "$instance" rsync_args '-Ppra --delete --delete-delay'
@@ -41,6 +50,7 @@ start_watch() {
 
 	cat > "$script" <<-EOF
 	#!/bin/sh
+	local event="$1" file="$2" subfile="$3"
 	logger -s -t $tag "change notified: \$@"
 	rsync $rsync_args $filter $src "$dest"
 	EOF
@@ -51,7 +61,7 @@ start_watch() {
 	procd_set_param command inotifyd "$script"
 
 	# add sources to watch
-	config_list_foreach "$instance" src expand_src
+	config_list_foreach "$instance" src expand_src "$event_mask"
 
 	procd_set_param stdout 1
 	procd_set_param stderr 1
