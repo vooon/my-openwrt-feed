@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck shell=busybox
 #
 # Copyright (C) 2010 segal.di.ubi.pt
 # Copyright (C) 2020 nbembedded.com
@@ -6,8 +7,24 @@
 # This is free software, licensed under the GNU General Public License v2.
 #
 
+# arguments always the same, see init.d script
+instance="$1"
+mode="$2"
+period="$3"
+addressfamily="$4"
+pinghosts="$5"
+pingperiod="$6"
+pingsize="$7"
+forcedelay="$8"
+interface="$9"
+mmifacename="${10}"
+unlockbands="${11}"
+script="${12}"
+
+log_tag="watchcat.$instance[$$]"
+
 get_ping_size() {
-	ps=$1
+	local ps="$1"
 	case "$ps" in
 	small)
 		ps="1"
@@ -32,11 +49,11 @@ get_ping_size() {
 		echo "Corresponding ping packet sizes (bytes): small=1, windows=32, standard=56, big=248, huge=1492, jumbo=9000" 1>&2
 		;;
 	esac
-	echo $ps
+	echo "$ps"
 }
 
 get_ping_family_flag() {
-	family=$1
+	local family="$1"
 	case "$family" in
 	any)
 		family=""
@@ -51,63 +68,58 @@ get_ping_family_flag() {
 		echo "Error: invalid address_family \"$family\". address_family should be one of: any, ipv4, ipv6" 1>&2
 		;;
 	esac
-	echo $family
+	echo "$family"
 }
 
 reboot_now() {
 	reboot &
 
-	[ "$1" -ge 1 ] && {
-		sleep "$1"
+	[ "$forcedelay" -ge 1 ] && {
+		sleep "$forcedelay"
 		echo 1 > /proc/sys/kernel/sysrq
 		echo b > /proc/sysrq-trigger # Will immediately reboot the system without syncing or unmounting your disks.
 	}
 }
 
 watchcat_periodic() {
-	failure_period="$1"
-	force_reboot_delay="$2"
-
-	sleep "$failure_period" && reboot_now "$force_reboot_delay"
+	sleep "$period" && reboot_now
 }
 
 watchcat_restart_modemmanager_iface() {
 	[ "$2" -gt 0 ] && {
-		logger -p daemon.info -t "watchcat[$$]" "Resetting current-bands to 'any' on modem: \"$1\" now."
+		logger -p daemon.info -t "$log_tag" "Resetting current-bands to 'any' on modem: \"$1\" now."
 		/usr/bin/mmcli -m any --set-current-bands=any
 	}
-	logger -p daemon.info -t "watchcat[$$]" "Reconnecting modem: \"$1\" now."
+	logger -p daemon.info -t "$log_tag" "Reconnecting modem: \"$1\" now."
 	/etc/init.d/modemmanager restart
 	ifup "$1"
 }
 
 watchcat_restart_network_iface() {
-	logger -p daemon.info -t "watchcat[$$]" "Restarting network interface: \"$1\"."
-	ip link set "$1" down
-	ip link set "$1" up
+	logger -p daemon.info -t "$log_tag" "Restarting network interface: \"$1\"."
+	# ip link set "$1" down
+	# ip link set "$1" up
+	ifdown "$1"
+	ifup "$2"
 }
 
 watchcat_run_script() {
-	logger -p daemon.info -t "watchcat[$$]" "Running script \"$1\" for network interface: \"$2\"."
+	logger -p daemon.info -t "$log_tag" "Running script \"$1\" for network interface: \"$2\"."
 	"$1" "$2"
+	local rc=$?
+	[ "$rc" -ne 0 ] && logger -p daemon.err -t "$log_tag" "Running script \"$1\" for network interface: \"$2\", failed, rc: $rc"
 }
 
-watchcat_restart_all_network() {
-	logger -p daemon.info -t "watchcat[$$]" "Restarting networking now by running: /etc/init.d/network restart"
+watchcat_restart_all_networks() {
+	logger -p daemon.info -t "$log_tag" "Restarting networking now by running: /etc/init.d/network restart"
 	/etc/init.d/network restart
 }
 
 watchcat_monitor_network() {
-	failure_period="$1"
-	ping_hosts="$2"
-	ping_frequency_interval="$3"
-	ping_size="$4"
-	iface="$5"
-	mm_iface_name="$6"
-	mm_iface_unlock_bands="$7"
-	address_family="$8"
-	script="$9"
+	local failure_period="$period"
+	local ping_frequency_interval="$pingperiod"
 
+	local time_now time_lastcheck time_lastcheck_withinternet
 	time_now="$(cat /proc/uptime)"
 	time_now="${time_now%%.*}"
 
@@ -118,9 +130,9 @@ watchcat_monitor_network() {
 	time_lastcheck="$time_now"
 	time_lastcheck_withinternet="$time_now"
 
-	ping_size="$(get_ping_size "$ping_size")"
-
-	ping_family="$(get_ping_family_flag "$address_family")"
+	local ping_size ping_family
+	ping_size="$(get_ping_size "$pingsize")"
+	ping_family="$(get_ping_family_flag "$addressfamily")"
 
 	while true; do
 		# account for the time ping took to return. With a ping time of 5s, ping might take more than that, so it is important to avoid even more delay.
@@ -134,62 +146,61 @@ watchcat_monitor_network() {
 		time_now="${time_now%%.*}"
 		time_lastcheck="$time_now"
 
-		for host in $ping_hosts; do
-			if [ "$iface" != "" ]; then
-				ping_result="$(
-					ping $ping_family -I "$iface" -s "$ping_size" -c 1 "$host" &> /dev/null
-					echo $?
-				)"
+		for host in $pinghosts; do
+			local ping_rc
+			if [ -n "$interface" ]; then
+				# shellcheck disable=SC2086
+				ping $ping_family -I "$interface" -s "$ping_size" -c 1 "$host" > /dev/null
+				ping_rc="$?"
 			else
-				ping_result="$(
-					ping $ping_family -s "$ping_size" -c 1 "$host" &> /dev/null
-					echo $?
-				)"
+				# shellcheck disable=SC2086
+				ping $ping_family -s "$ping_size" -c 1 "$host" > /dev/null
+				ping_rc="$?"
 			fi
 
-			if [ "$ping_result" -eq 0 ]; then
+
+			if [ "$ping_rc" -eq 0 ]; then
 				time_lastcheck_withinternet="$time_now"
 			else
-				if [ "$script" != "" ]; then
-					logger -p daemon.info -t "watchcat[$$]" "Could not reach $host via \"$iface\" for \"$((time_now - time_lastcheck_withinternet))\" seconds. Running script after reaching \"$failure_period\" seconds"
-				elif [ "$iface" != "" ]; then
-					logger -p daemon.info -t "watchcat[$$]" "Could not reach $host via \"$iface\" for \"$((time_now - time_lastcheck_withinternet))\" seconds. Restarting \"$iface\" after reaching \"$failure_period\" seconds"
+				if [ -n "$script" ]; then
+					logger -p daemon.info -t "$log_tag" "Could not reach $host via \"$interface\" for \"$((time_now - time_lastcheck_withinternet))\" seconds. Running script after reaching \"$failure_period\" seconds"
+				elif [ -n "$interface" ]; then
+					logger -p daemon.info -t "$log_tag" "Could not reach $host via \"$interface\" for \"$((time_now - time_lastcheck_withinternet))\" seconds. Restarting \"$interface\" after reaching \"$failure_period\" seconds"
 				else
-					logger -p daemon.info -t "watchcat[$$]" "Could not reach $host for \"$((time_now - time_lastcheck_withinternet))\" seconds. Restarting networking after reaching \"$failure_period\" seconds"
+					logger -p daemon.info -t "$log_tag" "Could not reach $host for \"$((time_now - time_lastcheck_withinternet))\" seconds. Restarting networking after reaching \"$failure_period\" seconds"
 				fi
 			fi
 		done
 
-		[ "$((time_now - time_lastcheck_withinternet))" -ge "$failure_period" ] && {
-			if [ "$script" != "" ]; then
-				watchcat_run_script "$script" "$iface"
+		if [ "$((time_now - time_lastcheck_withinternet))" -ge "$failure_period" ]; then
+			if [ -n "$script" ]; then
+				watchcat_run_script "$script" "$interface"
 			else
-				if [ "$mm_iface_name" != "" ]; then
-					watchcat_restart_modemmanager_iface "$mm_iface_name" "$mm_iface_unlock_bands"
+				if [ -n "$mmifacename" ]; then
+					# XXX untested
+					watchcat_restart_modemmanager_iface "$mmifacename" "$unlockbands"
 				fi
-				if [ "$iface" != "" ]; then
-					watchcat_restart_network_iface "$iface"
+				if [ -n "$interface" ]; then
+					watchcat_restart_network_iface "$interface"
 				else
-					watchcat_restart_all_network
+					watchcat_restart_all_networks
 				fi
 			fi
-			/etc/init.d/watchcat start
+
+			# XXX wtf ???
+			# /etc/init.d/watchcat start
 			# Restart timer cycle.
 			time_lastcheck_withinternet="$time_now"
-		}
+		fi
 
 	done
 }
 
 watchcat_ping() {
-	failure_period="$1"
-	force_reboot_delay="$2"
-	ping_hosts="$3"
-	ping_frequency_interval="$4"
-	ping_size="$5"
-	address_family="$6"
-	iface="$7"
+	local failure_period="$period"
+	local ping_frequency_interval="$pingperiod"
 
+	local time_now time_lastcheck time_lastcheck_withinternet
 	time_now="$(cat /proc/uptime)"
 	time_now="${time_now%%.*}"
 
@@ -200,9 +211,9 @@ watchcat_ping() {
 	time_lastcheck="$time_now"
 	time_lastcheck_withinternet="$time_now"
 
-	ping_size="$(get_ping_size "$ping_size")"
-
-	ping_family="$(get_ping_family_flag "$address_family")"
+	local ping_size ping_family
+	ping_size="$(get_ping_size "$pingsize")"
+	ping_family="$(get_ping_family_flag "$addressfamily")"
 
 	while true; do
 		# account for the time ping took to return. With a ping time of 5s, ping might take more than that, so it is important to avoid even more delay.
@@ -216,55 +227,41 @@ watchcat_ping() {
 		time_now="${time_now%%.*}"
 		time_lastcheck="$time_now"
 
-		for host in $ping_hosts; do
-			if [ "$iface" != "" ]; then
-				ping_result="$(
-					ping $ping_family -I "$iface" -s "$ping_size" -c 1 "$host" &> /dev/null
-					echo $?
-				)"
+		for host in $pinghosts; do
+			local ping_rc
+			if [ -n "$interface" ]; then
+				# shellcheck disable=SC2086
+				ping $ping_family -I "$interface" -s "$ping_size" -c 1 "$host" > /dev/null
+				ping_rc="$?"
 			else
-				ping_result="$(
-					ping $ping_family -s "$ping_size" -c 1 "$host" &> /dev/null
-					echo $?
-				)"
+				# shellcheck disable=SC2086
+				ping $ping_family -s "$ping_size" -c 1 "$host" > /dev/null
+				ping_rc="$?"
 			fi
 
-			if [ "$ping_result" -eq 0 ]; then
+			if [ "$ping_rc" -eq 0 ]; then
 				time_lastcheck_withinternet="$time_now"
 			else
-				logger -p daemon.info -t "watchcat[$$]" "Could not reach $host for $((time_now - time_lastcheck_withinternet)). Rebooting after reaching $failure_period"
+				logger -p daemon.info -t "$log_tag" "Could not reach $host for $((time_now - time_lastcheck_withinternet)). Rebooting after reaching $failure_period"
 			fi
 		done
 
-		[ "$((time_now - time_lastcheck_withinternet))" -ge "$failure_period" ] && reboot_now "$force_reboot_delay"
+		[ "$((time_now - time_lastcheck_withinternet))" -ge "$failure_period" ] && reboot_now
 	done
 }
 
-mode="$1"
-
-# Fix potential typo in mode and provide backward compatibility.
-[ "$mode" = "allways" ] && mode="periodic_reboot"
-[ "$mode" = "always" ] && mode="periodic_reboot"
-[ "$mode" = "ping" ] && mode="ping_reboot"
-
 case "$mode" in
 periodic_reboot)
-	# args from init script: period forcedelay
-	watchcat_periodic "$2" "$3"
+	watchcat_periodic
 	;;
 ping_reboot)
-	# args from init script: period forcedelay pinghosts pingperiod pingsize addressfamily interface
-	watchcat_ping "$2" "$3" "$4" "$5" "$6" "$7" "$8"
+	watchcat_ping
 	;;
-restart_iface)
-	# args from init script: period pinghosts pingperiod pingsize interface mmifacename unlockbands addressfamily
-	watchcat_monitor_network "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" ""
-	;;
-run_script)
-	# args from init script: period pinghosts pingperiod pingsize interface addressfamily script
-	watchcat_monitor_network "$2" "$3" "$4" "$5" "$6" "" "" "$7" "$8"
+restart_iface|run_script)
+	watchcat_monitor_network
 	;;
 *)
-	echo "Error: invalid mode selected: $mode"
+	echo "Error: invalid mode selected: $mode" 1>&2
+	exit 128
 	;;
 esac
