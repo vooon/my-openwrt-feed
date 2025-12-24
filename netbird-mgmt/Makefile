@@ -6,7 +6,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/netbirdio/netbird.git
-PKG_MIRROR_HASH:=
+PKG_MIRROR_HASH:=b62c0b191dc92f3015712f07144d2c0ae96068d47ac2ab4560cf0afd34babab5
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Wesley Gimenes <wehagy@proton.me>
