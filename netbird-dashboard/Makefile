@@ -22,14 +22,13 @@ define Package/netbird-dashboard
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=VPN
-  TITLE:=NetBird Management server
+  TITLE:=NetBird Management Dashboard
   URL:=https://netbird.io
-  DEPENDS:=$(GO_ARCH_DEPENDS) +coturn +uhttpd
-  USERID:=netbird:netbird
+  ARCH:=all
 endef
 
 define Package/netbird-dashboard/description
-  Dashboard for NetBird menegement server.
+  Dashboard for NetBird menegement server (static files).
 endef
 
 define Build/Compile

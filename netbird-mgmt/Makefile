@@ -31,7 +31,7 @@ define Package/netbird-mgmt
   SUBMENU:=VPN
   TITLE:=NetBird Management server
   URL:=https://netbird.io
-  DEPENDS:=$(GO_ARCH_DEPENDS) +coturn +uhttpd
+  DEPENDS:=$(GO_ARCH_DEPENDS) +coturn +uhttpd +netbird-dashboard
   USERID:=netbird:netbird
 endef
 
