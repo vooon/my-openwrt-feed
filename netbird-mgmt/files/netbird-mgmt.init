@@ -26,6 +26,9 @@ _start_mgmt() {
 	procd_add_jail_mount /etc/netbird
 	procd_add_jail_mount_rw "$datadir"
 
+	# service needs /tmp to download geodns, unfortunately procd do not have private temp option
+	procd_add_jail_mount_rw /tmp
+
 	procd_set_param command /usr/bin/netbird-mgmt management --log-level "$log_level" --log-file "$log_file" \
 		--config /etc/netbird/management.json --datadir "$datadir" --dns-domain "$dns_domain" \
 		--metrics-port "$metrics_port" --port "$port"
@@ -36,6 +39,8 @@ _start_mgmt() {
 	config_list_foreach mgmt env list_append_env
 
 	procd_set_param respawn
+	procd_set_param user netbird
+	procd_set_param group netbird
 	procd_set_param stdout 1
 	procd_set_param stderr 1
 	procd_close_instance

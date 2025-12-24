@@ -32,6 +32,7 @@ define Package/netbird-mgmt
   TITLE:=NetBird Management server
   URL:=https://netbird.io
   DEPENDS:=$(GO_ARCH_DEPENDS) +coturn +uhttpd
+  USERID:=netbird:netbird
 endef
 
 define Package/netbird-mgmt/description
