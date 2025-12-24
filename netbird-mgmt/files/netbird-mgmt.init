@@ -66,9 +66,9 @@ _start_relay() {
 	config_get metrics_port relay metrics_port 9091
 	config_get listen_address relay listen_address ':33080'
 	config_get exposed_address relay exposed_address
+	config_get auth_secret relay auth_secret
 	config_get cert_file relay cert_file
 	config_get cert_key relay cert_key
-
 
 	procd_open_instance relay
 	procd_add_jail netbird-relay log procfs
