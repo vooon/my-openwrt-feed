@@ -55,13 +55,24 @@ define Package/netbird-mgmt/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/relay $(1)/usr/bin/netbird-relay
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/signal $(1)/usr/bin/netbird-signal
 
-	$(INSTALL_DIR) $(1)/etc/config
-	$(INSTALL_CONF) ./files/netbird-mgmt.config $(1)/etc/config/netbird-mgmt
-
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/netbird-mgmt.init $(1)/etc/init.d/netbird-mgmt
 
-	$(INSTALL_DIR) $(1)/etc/netbird
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) ./files/netbird-mgmt.config $(1)/etc/config/netbird-mgmt
+
+	$(INSTALL_DIR) $(1)/etc/netbird $(1)/var/lib/netbird
+
+	# config samples
+	$(INSTALL_DIR) $(1)/usr/share/netbird/config
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/infrastructure_files/*.tmpl \
+		$(PKG_BUILD_DIR)/infrastructure_files/base.setup.env \
+		$(PKG_BUILD_DIR)/infrastructure_files/setup.env.example \
+		$(PKG_BUILD_DIR)/infrastructure_files/nginx.tmpl.conf \
+		$(1)/usr/share/netbird/config/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/infrastructure_files/configure.sh \
+		$(1)/usr/share/netbird/config/
+
 endef
 
 $(eval $(call GoBinPackage,netbird-mgmt))
