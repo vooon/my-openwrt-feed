@@ -1,6 +1,6 @@
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=netbird
+PKG_NAME:=netbird-mgmt
 PKG_VERSION:=0.60.9
 PKG_RELEASE:=1
 
@@ -18,8 +18,7 @@ PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/netbirdio/netbird
-GO_PKG_EXCLUDES:=client
-#GO_PKG_BUILD_PKG:=$(GO_PKG)/client
+GO_PKG_BUILD_PKG:=$(GO_PKG)/management $(GO_PKG)/relay $(GO_PKG)/signal
 GO_PKG_LDFLAGS_X:=$(GO_PKG)/version.version=$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
@@ -30,9 +29,9 @@ define Package/netbird-mgmt
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=VPN
-  TITLE:=Connect your devices into a single secure private WireGuard®-based mesh network
+  TITLE:=NetBird Management server
   URL:=https://netbird.io
-  DEPENDS:=$(GO_ARCH_DEPENDS) +kmod-wireguard
+  DEPENDS:=$(GO_ARCH_DEPENDS) +coturn +uhttpd
 endef
 
 define Package/netbird-mgmt/description
@@ -44,14 +43,25 @@ define Package/netbird-mgmt/description
 endef
 
 define Package/netbird-mgmt/conffiles
-/root/.config/netbird/
+/etc/config/netbird-mgmt
+/etc/netbird/
 endef
 
 define Package/netbird-mgmt/install
 	$(call GoPackage/Package/Install/Bin,$(PKG_INSTALL_DIR))
-	$(INSTALL_DIR) $(1)/usr/bin $(1)/etc/init.d
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/client $(1)/usr/bin/netbird
-	$(INSTALL_BIN) ./files/netbird.init $(1)/etc/init.d/netbird
+
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/management $(1)/usr/bin/netbird-mgmt
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/relay $(1)/usr/bin/netbird-relay
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/signal $(1)/usr/bin/netbird-signal
+
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) ./files/netbird-mgmt.config $(1)/etc/config/netbird-mgmt
+
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/netbird-mgmt.init $(1)/etc/init.d/netbird-mgmt
+
+	$(INSTALL_DIR) $(1)/etc/netbird
 endef
 
 $(eval $(call GoBinPackage,netbird-mgmt))
