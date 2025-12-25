@@ -31,7 +31,7 @@ define Package/netbird-mgmt
   SUBMENU:=VPN
   TITLE:=NetBird Management server
   URL:=https://netbird.io
-  DEPENDS:=$(GO_ARCH_DEPENDS) +coturn +uhttpd +netbird-dashboard
+  DEPENDS:=$(GO_ARCH_DEPENDS) +coturn +netbird-dashboard
   USERID:=netbird:netbird
 endef
 
@@ -62,7 +62,10 @@ define Package/netbird-mgmt/install
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/netbird-mgmt.config $(1)/etc/config/netbird-mgmt
 
-	$(INSTALL_DIR) $(1)/etc/netbird $(1)/var/lib/netbird
+	$(INSTALL_DIR) $(1)/etc/netbird
+
+	# default state dir. will be creatred by init
+	# $(INSTALL_DIR) $(1)/var/lib/netbird
 
 	# config samples
 	$(INSTALL_DIR) $(1)/usr/share/netbird/config
