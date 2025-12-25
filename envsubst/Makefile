@@ -36,12 +36,8 @@ define Package/envsubst/description
   Alternative to envsubst from gettext.
 endef
 
-
-#define Package/envsubst/install
-#	$(call GoPackage/Package/Install/Bin,$(PKG_INSTALL_DIR))
-#
-#	$(INSTALL_DIR) $(1)/usr/bin/
-#	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/envsubst $(1)/usr/bin/envsubst
-#endef
+define Package/envsubst/install
+	$(call GoPackage/Package/Install/Bin,$(1))
+endef
 
 $(eval $(call BuildPackage,envsubst))
