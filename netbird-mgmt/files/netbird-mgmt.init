@@ -75,7 +75,7 @@ _start_relay() {
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
 
 	procd_set_param command /usr/bin/netbird-relay --log-level "$log_level" --log-file "$log_file" \
-		--metrics-port "$metrics_port" --listen_address "$listen_address" \
+		--metrics-port "$metrics_port" --listen-address "$listen_address" \
 		--exposed-address "$exposed_address"
 
 	[ -e "$cert_file" ] && {
@@ -140,13 +140,13 @@ _start_dashboard() {
 	procd_open_instance dashboard
 	procd_add_jail netbird-dashboard log
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
-	procd_add_jail_mount /usr/share/netbox/www
-	procd_add_jail_mount /usr/share/netbox/dashboard-entrypoint.sh
+	procd_add_jail_mount /usr/share/netbird/www
+	procd_add_jail_mount /usr/share/netbird/dashboard-entrypoint.sh
 	procd_add_jail_mount /usr/sbin/uhttpd
 	procd_add_jail_mount /usr/bin/envsubst
 	procd_add_jail_mount /bin/sh
 
-	procd_set_param command /usr/share/netbox/dashboard-entrypoint.sh -p "$listen_address"
+	procd_set_param command /usr/share/netbird/dashboard-entrypoint.sh -p "$listen_address"
 
 	config_list_foreach dashboard env list_append_env
 
