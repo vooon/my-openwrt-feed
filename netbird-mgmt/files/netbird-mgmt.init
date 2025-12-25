@@ -143,6 +143,8 @@ _start_dashboard() {
 	procd_add_jail_mount /usr/share/netbox/www
 	procd_add_jail_mount /usr/share/netbox/dashboard-entrypoint.sh
 	procd_add_jail_mount /usr/sbin/uhttpd
+	procd_add_jail_mount /usr/bin/envsubst
+	procd_add_jail_mount /bin/sh
 
 	procd_set_param command /usr/share/netbox/dashboard-entrypoint.sh -p "$listen_address"
 

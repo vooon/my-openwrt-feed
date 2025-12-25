@@ -24,7 +24,7 @@ define Package/netbird-dashboard
   SUBMENU:=VPN
   TITLE:=NetBird Management Dashboard
   URL:=https://netbird.io
-  DEPENDS:=+gettext-full +uhttpd
+  DEPENDS:=+uhttpd +envsubst
   ARCH:=all
 endef
 

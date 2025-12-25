@@ -79,7 +79,9 @@ ENV_STR="\$\$USE_AUTH0 \$\$AUTH_AUDIENCE \$\$AUTH_AUTHORITY \$\$AUTH_CLIENT_ID \
 # openwrt customization
 while read -r tmpl; do
 	echo "Templating out: $tmpl -> ${tmpl%.tmpl}"
-	envsubst "$ENV_STR" < "$tmpl" > "${tmpl%.tmpl}"
+	# gettext version, which we don't have
+	# envsubst "$ENV_STR" < "$tmpl" > "${tmpl%.tmpl}"
+	envsubst -i "$tmpl" -o "${tmpl%.tmpl}" "$ENV_STR"
 done < <(find /usr/share/netbird/www -name '*.tmpl' -type f)
 
 exec /usr/sbin/uhttpd -f -c /dev/null -h /usr/share/netbird/www -S -D -E 404.html -I index.html "$@"
