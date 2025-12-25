@@ -144,7 +144,7 @@ _start_dashboard() {
 	procd_add_jail_mount /usr/share/netbox/dashboard-entrypoint.sh
 	procd_add_jail_mount /usr/sbin/uhttpd
 
-	procd_set_param command /usr/share/netbox/dashboard-entrypoint.sh
+	procd_set_param command /usr/share/netbox/dashboard-entrypoint.sh -p "$listen_address"
 
 	config_list_foreach dashboard env list_append_env
 
@@ -155,6 +155,7 @@ _start_dashboard() {
 	procd_set_param respawn
 	procd_set_param user "$USER"
 	procd_set_param group "$GROUP"
+	procd_set_param no_new_privs 1
 	procd_set_param stdout 1
 	procd_set_param stderr 1
 	procd_close_instance

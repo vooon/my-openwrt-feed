@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 if [[ -z "${AUTH_AUTHORITY}" ]]; then
@@ -68,10 +68,18 @@ echo "NetBird latest version: ${NETBIRD_LATEST_VERSION}"
 # replace ENVs in the config
 ENV_STR="\$\$USE_AUTH0 \$\$AUTH_AUDIENCE \$\$AUTH_AUTHORITY \$\$AUTH_CLIENT_ID \$\$AUTH_CLIENT_SECRET \$\$AUTH_SUPPORTED_SCOPES \$\$NETBIRD_MGMT_API_ENDPOINT \$\$NETBIRD_MGMT_GRPC_API_ENDPOINT \$\$NETBIRD_HOTJAR_TRACK_ID \$\$NETBIRD_GOOGLE_ANALYTICS_ID \$\$NETBIRD_GOOGLE_TAG_MANAGER_ID \$\$AUTH_REDIRECT_URI \$\$AUTH_SILENT_REDIRECT_URI \$\$NETBIRD_TOKEN_SOURCE \$\$NETBIRD_DRAG_QUERY_PARAMS \$\$NETBIRD_WASM_PATH"
 
-OIDC_TRUSTED_DOMAINS="/usr/share/nginx/html/OidcTrustedDomains.js"
-envsubst "$ENV_STR" < "$OIDC_TRUSTED_DOMAINS".tmpl > "$OIDC_TRUSTED_DOMAINS"
-for f in $(grep -R -l AUTH_SUPPORTED_SCOPES /usr/share/nginx/html); do
-    cp "$f" "$f".copy
-    envsubst "$ENV_STR" < "$f".copy > "$f"
-    rm "$f".copy
-done
+# OIDC_TRUSTED_DOMAINS="/usr/share/nginx/html/OidcTrustedDomains.js"
+# envsubst "$ENV_STR" < "$OIDC_TRUSTED_DOMAINS".tmpl > "$OIDC_TRUSTED_DOMAINS"
+# for f in $(grep -R -l AUTH_SUPPORTED_SCOPES /usr/share/nginx/html); do
+#     cp "$f" "$f".copy
+#     envsubst "$ENV_STR" < "$f".copy > "$f"
+#     rm "$f".copy
+# done
+
+# openwrt customization
+while read -r tmpl; do
+	echo "Templating out: $tmpl -> ${tmpl%.tmpl}"
+	envsubst "$ENV_STR" < "$tmpl" > "${tmpl%.tmpl}"
+done < <(find /usr/share/netbird/www -name '*.tmpl' -type f)
+
+exec /usr/sbin/uhttpd -f -c /dev/null -h /usr/share/netbird/www -S -D -E 404.html -I index.html "$@"
