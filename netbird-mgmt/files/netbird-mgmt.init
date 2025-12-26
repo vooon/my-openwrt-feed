@@ -134,8 +134,15 @@ _start_dashboard() {
 	local listen_address
 	config_get listen_address dashboard listen_address '127.0.0.1:33081'
 
+	# init overlay for some files we have to template inside jail
 	local overlaydir=/tmp/netbird-dashboard-overlay
+	rm -rf "$overlaydir"
 	mkdir -p "$overlaydir"
+	find /usr/share/netbird/www -name '*.tmpl' -type f | while read -r tmpl; do
+		local overlayfile="${overlaydir}/upper/${tmpl%.tmpl}"
+		cp -a "$tmpl" "${overlayfile}"
+		chown "$USER:$GROUP" "${overlayfile}"
+	done
 
 	procd_open_instance dashboard
 	procd_add_jail netbird-dashboard log
@@ -144,7 +151,7 @@ _start_dashboard() {
 	procd_add_jail_mount /usr/share/netbird/dashboard-entrypoint.sh
 	procd_add_jail_mount /usr/sbin/uhttpd
 	procd_add_jail_mount /usr/bin/envsubst
-	procd_add_jail_mount /bin/sh
+	procd_add_jail_mount /bin/sh /bin/sed /usr/bin/find
 
 	procd_set_param command /usr/share/netbird/dashboard-entrypoint.sh -p "$listen_address"
 

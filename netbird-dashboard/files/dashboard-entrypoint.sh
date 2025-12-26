@@ -54,8 +54,7 @@ export AUTH_SILENT_REDIRECT_URI=${AUTH_SILENT_REDIRECT_URI}
 export USE_AUTH0=${USE_AUTH0:-true}
 export AUTH_SUPPORTED_SCOPES=${AUTH_SUPPORTED_SCOPES:-openid profile email api offline_access email_verified}
 
-#export NETBIRD_MGMT_API_ENDPOINT=$(echo $NETBIRD_MGMT_API_ENDPOINT | sed -E 's/(:80|:443)$//')
-export NETBIRD_MGMT_API_ENDPOINT=${NETBIRD_MGMT_API_ENDPOINT}
+export NETBIRD_MGMT_API_ENDPOINT=$(echo $NETBIRD_MGMT_API_ENDPOINT | sed -E 's/(:80|:443)$//')
 export NETBIRD_MGMT_GRPC_API_ENDPOINT=${NETBIRD_MGMT_GRPC_API_ENDPOINT}
 export NETBIRD_HOTJAR_TRACK_ID=${NETBIRD_HOTJAR_TRACK_ID}
 export NETBIRD_GOOGLE_ANALYTICS_ID=${NETBIRD_GOOGLE_ANALYTICS_ID}
@@ -78,11 +77,11 @@ ENV_STR="\$\$USE_AUTH0 \$\$AUTH_AUDIENCE \$\$AUTH_AUTHORITY \$\$AUTH_CLIENT_ID \
 # done
 
 # openwrt customization
-while read -r tmpl; do
+find /usr/share/netbird/www -name '*.tmpl' -type f | while read -r tmpl; do
 	echo "Templating out: $tmpl -> ${tmpl%.tmpl}"
 	# gettext version, which we don't have
 	# envsubst "$ENV_STR" < "$tmpl" > "${tmpl%.tmpl}"
 	envsubst -i "$tmpl" -o "${tmpl%.tmpl}" "$ENV_STR"
-done < <(find /usr/share/netbird/www -name '*.tmpl' -type f)
+done
 
-exec /usr/sbin/uhttpd -f -c /dev/null -h /usr/share/netbird/www -S -D -E 404.html -I index.html "$@"
+exec /usr/sbin/uhttpd -f -c /dev/null -h /usr/share/netbird/www -S -D -E /404.html -I index.html "$@"
