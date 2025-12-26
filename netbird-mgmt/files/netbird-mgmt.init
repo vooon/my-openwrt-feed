@@ -134,17 +134,6 @@ _start_dashboard() {
 	local listen_address
 	config_get listen_address dashboard listen_address '127.0.0.1:33081'
 
-	# init overlay for some files we have to template inside jail
-	local overlaydir=/tmp/netbird-dashboard-overlay
-	rm -rf "$overlaydir"
-	mkdir -p "$overlaydir"
-	find /usr/share/netbird/www -name '*.tmpl' -type f | while read -r tmpl; do
-		local overlayfile="${overlaydir}/upper/${tmpl%.tmpl}"
-		mkdir -p "$(dirname "$overlayfile")"
-		cp -a "$tmpl" "$overlayfile"
-		chown "$USER:$GROUP" "$overlayfile"
-	done
-
 	procd_open_instance dashboard
 	procd_add_jail netbird-dashboard log
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
@@ -159,13 +148,10 @@ _start_dashboard() {
 
 	config_list_foreach dashboard env list_append_env
 
-	# entrypoint must do envsubst for a few files to apply config
-	# keep that files in overlay
-	procd_set_param overlaydir "$overlaydir"
-
 	procd_set_param respawn
-	procd_set_param user "$USER"
-	procd_set_param group "$GROUP"
+	# FIXME: cannot make it working: entrypoint must generate files under root:root dir
+	# procd_set_param user "$USER"
+	# procd_set_param group "$GROUP"
 	procd_set_param no_new_privs 1
 	procd_set_param stdout 1
 	procd_set_param stderr 1
