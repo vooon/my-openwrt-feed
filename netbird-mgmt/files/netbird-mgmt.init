@@ -140,11 +140,12 @@ _start_dashboard() {
 	# NOTE: rw required to be able to override
 	procd_add_jail_mount_rw /usr/share/netbird/www
 	procd_add_jail_mount /usr/share/netbird/dashboard-entrypoint.sh
-	procd_add_jail_mount /usr/sbin/uhttpd
+	# procd_add_jail_mount /usr/sbin/uhttpd
+	procd_add_jail_mount /usr/sbin/nginx
 	procd_add_jail_mount /usr/bin/envsubst
 	procd_add_jail_mount /bin/sh /bin/sed /usr/bin/find
 
-	procd_set_param command /usr/share/netbird/dashboard-entrypoint.sh -p "$listen_address"
+	procd_set_param command /usr/share/netbird/dashboard-entrypoint.sh "$listen_address"
 
 	config_list_foreach dashboard env list_append_env
 

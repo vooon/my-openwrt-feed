@@ -41,7 +41,7 @@ define Package/netbird-dashboard
   SUBMENU:=VPN
   TITLE:=NetBird Management Dashboard
   URL:=https://netbird.io
-  DEPENDS:=+uhttpd +envsubst
+  DEPENDS:=+nginx-full +envsubst
   ARCH:=all
 endef
 
@@ -60,6 +60,7 @@ define Package/netbird-dashboard/install
 
 	# based on docker/init_react_envs.sh
 	$(INSTALL_BIN) ./files/dashboard-entrypoint.sh $(1)/usr/share/netbird/
+	$(INSTALL_DATA) ./files/nginx.conf.tmpl $(1)/usr/share/netbird/
 
 	# install static files
 	$(CP) $(PKG_BUILD_DIR)/out $(1)/usr/share/netbird/www
