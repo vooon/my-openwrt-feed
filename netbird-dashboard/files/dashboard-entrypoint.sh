@@ -84,4 +84,6 @@ done
 
 envsubst "\$\$LISTEN_ADDRESS \$\$USER \$\$GROUP" < /usr/share/netbird/nginx.conf.tmpl > /usr/share/netbird/nginx.conf
 
+/usr/sbin/nginx -T -c /usr/share/netbird/nginx.conf
+
 exec /usr/sbin/nginx -c /usr/share/netbird/nginx.conf

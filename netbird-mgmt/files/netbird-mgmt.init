@@ -135,7 +135,7 @@ _start_dashboard() {
 	config_get listen_address dashboard listen_address '127.0.0.1:33081'
 
 	procd_open_instance dashboard
-	procd_add_jail netbird-dashboard log
+	procd_add_jail netbird-dashboard log procfs
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
 	# NOTE: rw required to be able to override
 	procd_add_jail_mount_rw /usr/share/netbird/www
@@ -145,18 +145,22 @@ _start_dashboard() {
 	procd_add_jail_mount /usr/sbin/nginx
 	procd_add_jail_mount /usr/bin/envsubst
 	procd_add_jail_mount /bin/sh /bin/sed /usr/bin/find
+	procd_add_jail_mount /etc/passwd /etc/group # required to switch user
+	procd_add_jail_mount /etc/nginx
+	procd_add_jail_mount_rw /var/lib/nginx
+	procd_add_jail_mount_rw /var/run
 
 	procd_set_param command /usr/share/netbird/dashboard-entrypoint.sh
 
 	procd_set_param env \
 		"LISTEN_ADDRESS=$listen_address" \
-		"USER=$(id -u $USER)" \
-		"GROUP=$(id -g $GROUP)"
+		"USER=$USER" \
+		"GROUP=$GROUP"
 
 	config_list_foreach dashboard env list_append_env
 
 	procd_set_param respawn
-	# FIXME: cannot make it working: entrypoint must generate files under root:root dir
+	# NOTE: entrypoint must generate files under root:root dir, Nginx drop priv later
 	# procd_set_param user "$USER"
 	# procd_set_param group "$GROUP"
 	procd_set_param no_new_privs 1

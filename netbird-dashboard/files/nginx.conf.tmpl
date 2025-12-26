@@ -12,6 +12,8 @@ pcre_jit on;
 # Configures default error logger.
 error_log /proc/self/fd/2 warn;
 
+pid /var/run/netbird-dashboard.pid;
+
 # Includes files with directives to load dynamic modules.
 #include /etc/nginx/modules/*.conf;
 
