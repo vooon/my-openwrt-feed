@@ -1,7 +1,7 @@
 # /etc/nginx/nginx.conf
 daemon off;
 
-user netbird;
+user $USER $GROUP;
 
 # Set number of worker processes automatically based on number of CPU cores.
 worker_processes auto;

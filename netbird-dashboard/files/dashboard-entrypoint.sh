@@ -82,11 +82,6 @@ find /usr/share/netbird/www -name '*.tmpl' -type f | while read -r tmpl; do
 	envsubst "$ENV_STR" < "$tmpl" > "${tmpl%.tmpl}"
 done
 
-export LISTEN_ADDRESS="$1"
+envsubst "\$\$LISTEN_ADDRESS \$\$USER \$\$GROUP" < /usr/share/netbird/nginx.conf.tmpl > /usr/share/netbird/nginx.conf
 
-# unfortunately uhttpd do not have try_files mandatory to run the dashboard
-# exec /usr/sbin/uhttpd -f -c /dev/null -h /usr/share/netbird/www -S -D -E /404.html -I index.html -p "$LISTEN_ADDR"
-
-envsubst "$$LISTEN_ADDRESS" < /usr/share/netbird/nginx.conf.tmpl > /usr/share/netbird/nginx.conf
-
-exec /usr/bin/nginx -c /usr/share/netbird/nginx.conf
+exec /usr/sbin/nginx -c /usr/share/netbird/nginx.conf
