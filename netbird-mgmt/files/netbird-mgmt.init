@@ -140,14 +140,16 @@ _start_dashboard() {
 	mkdir -p "$overlaydir"
 	find /usr/share/netbird/www -name '*.tmpl' -type f | while read -r tmpl; do
 		local overlayfile="${overlaydir}/upper/${tmpl%.tmpl}"
-		cp -a "$tmpl" "${overlayfile}"
-		chown "$USER:$GROUP" "${overlayfile}"
+		mkdir -p "$(dirname "$overlayfile")"
+		cp -a "$tmpl" "$overlayfile"
+		chown "$USER:$GROUP" "$overlayfile"
 	done
 
 	procd_open_instance dashboard
 	procd_add_jail netbird-dashboard log
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
-	procd_add_jail_mount /usr/share/netbird/www
+	# NOTE: rw required to be able to override
+	procd_add_jail_mount_rw /usr/share/netbird/www
 	procd_add_jail_mount /usr/share/netbird/dashboard-entrypoint.sh
 	procd_add_jail_mount /usr/sbin/uhttpd
 	procd_add_jail_mount /usr/bin/envsubst
