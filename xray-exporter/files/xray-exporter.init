@@ -18,7 +18,7 @@ start_service() {
 	procd_add_jail_mount /etc/TZ
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
 
-	procd_set_param command /usr/bin/xray-exporter --listen "$_listen" --v2ray-endpoint "$_endpoint"
+	procd_set_param command /usr/bin/xray-exporter --listen "$_listen" --xray-endpoint "$_endpoint"
 
 	procd_set_param respawn
 	procd_set_param stdout 1
