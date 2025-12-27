@@ -9,15 +9,16 @@ CONF=v2ray-exporter
 start_service() {
 	procd_open_instance
 
-	local _htpasswd _listen _accept_proxy
+	local _listen _endpoint
 	config_load "$CONF"
-	config_get _listen daemon listen "localhost:9999"
+	config_get _listen daemon listen "localhost:9550"
+	config_get _endpoint daemon v2ray_endpoint "localhost:9090"
 
 	procd_add_jail v2ray-exporter log
 	procd_add_jail_mount /etc/TZ
 	procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
 
-	procd_set_param command /usr/bin/v2ray-exporter --listen "$_listen"
+	procd_set_param command /usr/bin/v2ray-exporter --listen "$_listen" --v2ray-endpoint "$_endpoint"
 
 	procd_set_param respawn
 	procd_set_param stdout 1
