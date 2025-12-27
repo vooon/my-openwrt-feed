@@ -17,7 +17,8 @@ PKG_BUILD_DEPENDS:=golang/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
-GO_PKG:=github.com/compassvpn/xray-exporter
+#GO_PKG:=github.com/compassvpn/xray-exporter
+GO_PKG:=xray-exporter
 GO_PKG_LDFLAGS_X:= \
 	main.buildCommit="todo" \
 	main.buildDate="$(shell date --iso-8601=s)" \
