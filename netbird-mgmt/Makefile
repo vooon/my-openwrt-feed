@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netbird-mgmt
-PKG_VERSION:=0.60.9
+PKG_VERSION:=0.61.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/netbirdio/netbird.git
-PKG_MIRROR_HASH:=b62c0b191dc92f3015712f07144d2c0ae96068d47ac2ab4560cf0afd34babab5
+PKG_MIRROR_HASH:=63da15d9df7092d0c36e6eb55c47f823678e3cc6594832179880e8dd8661887b
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Wesley Gimenes <wehagy@proton.me>

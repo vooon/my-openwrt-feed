@@ -1,4 +1,4 @@
-From 1dfca66862597563591abb17d3b05174b0a04610 Mon Sep 17 00:00:00 2001
+From 2ab279ba72c0b38f4ed8c1bc6c9a92ee71452b13 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Wed, 24 Dec 2025 14:47:51 +0100
 Subject: [PATCH] fix: make pprof address configurable and optional
