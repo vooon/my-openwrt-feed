@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netbird-dashboard
-PKG_VERSION:=2.23.1
+PKG_VERSION:=2.25.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/netbirdio/dashboard.git
-PKG_MIRROR_HASH:=efc0cd0aa211f469e5022aae0a3c7c1ec51897edddf6e8963d09c259afefd63e
+PKG_MIRROR_HASH:=bd9c2107e6a245f8a904cf3a2185d84a48f32093373bf370467a2c35b868285a
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Wesley Gimenes <wehagy@proton.me>
