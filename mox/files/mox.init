@@ -71,8 +71,12 @@ check() {
 
 extra_command "update_dane" "Generate and update DANE TLSA record"
 update_dane() {
-	local workdir fqdn zoneomatic_url usage selector matchtype cert_file
 	config_load "$CONF"
+
+	config_get_bool enabled dane enabled 1
+	[ "$enabled" = 1 ] || return
+
+	local workdir fqdn zoneomatic_url usage selector matchtype cert_file
 	config_get workdir daemon workdir '/tmp/mox'
 	config_get fqdn dane fqdn
 	config_get zoneomatic_url dane zoneomatic_url
@@ -93,11 +97,11 @@ update_dane() {
 		exit 1
 	fi
 
-	json_int
+	json_init
 	json_add_string fqdn "$fqdn"
 	json_add_string type 'TLSA'
 	json_add_array values
-	json_add_string "$tlsa_value"
+	json_add_string "" "$tlsa_value"
 	json_close_array
 	json_close_object
 
