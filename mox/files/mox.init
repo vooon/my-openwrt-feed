@@ -1,5 +1,7 @@
 #!/bin/sh /etc/rc.common
 
+. /usr/share/libubox/jshn.sh
+
 START=99
 
 USE_PROCD=1
@@ -51,16 +53,53 @@ start_service() {
 	procd_set_param stdout 1
 	procd_set_param stderr 1
 	#procd_set_param capabilities "/etc/capabilities/mox.json"
-	procd_set_param file "/etc/config/$CONF" "/etc/mox/"
+	procd_set_param file "/etc/mox/"
 	procd_close_instance
 }
 
 service_triggers() {
+	procd_add_reload_trigger "$CONF"
 	# NOTE: seems it does not have reload signal
 	procd_add_raw_trigger acme.renew 5000 /etc/init.d/mox restart
+	procd_add_raw_trigger acme.renew 5000 /etc/init.d/mox update_dane
 }
 
 extra_command "check" "Check mox config"
 check() {
 	$PROG -config /etc/mox/mox.conf config test
+}
+
+extra_command "update_dane" "Generate and update DANE TLSA record"
+update_dane() {
+	local workdir fqdn zoneomatic_url usage selector matchtype cert_file
+	config_load "$CONF"
+	config_get workdir daemon workdir '/tmp/mox'
+	config_get fqdn dane fqdn
+	config_get zoneomatic_url dane zoneomatic_url
+	config_get usage dane usage 'dane-ee'
+	config_get selector dane selector 'cert'
+	config_get matchtype dane matchtype 'sha2-256'
+	config_get cert_file dane cert_file
+
+	if [ -z "$fqdn" ] || [ -z "$zoneomatic_url" ] || [ -z "$cert_file" ]; then
+		return
+	fi
+
+	tlsa_value=$(/usr/libexec/mox "$workdir" dane makerecord "$usage" "$selector" "$matchtype" "$cert_file")
+	rc=$?
+
+	if [ "$rc" -ne 0 ]; then
+		echo "Failed to generate dane: rc: $rc" 1>&2
+		exit 1
+	fi
+
+	json_int
+	json_add_string fqdn "$fqdn"
+	json_add_string type 'TLSA'
+	json_add_array values
+	json_add_string "$tlsa_value"
+	json_close_array
+	json_close_object
+
+	curl "$zoneomatic_url" --json "$(json_dump)"
 }
