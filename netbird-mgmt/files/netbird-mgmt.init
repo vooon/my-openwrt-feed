@@ -13,7 +13,7 @@ list_append_env() {
 }
 
 _start_mgmt() {
-	local log_level log_file datadir dns_domain metrics_port port disable_anonymous_metrics allow_config_edit
+	local log_level log_file datadir dns_domain metrics_port port disable_anonymous_metrics allow_config_edit cert_file cert_key
 	config_get log_level mgmt log_level 'info'
 	config_get log_file mgmt log_file 'console'
 	config_get datadir mgmt datadir '/var/lib/netbird/'
@@ -22,6 +22,8 @@ _start_mgmt() {
 	config_get port mgmt port 33073
 	config_get_bool disable_anonymous_metrics mgmt disable_anonymous_metrics 0
 	config_get_bool allow_config_edit mgmt allow_config_edit 0
+	config_get cert_file mgmt cert_file
+	config_get cert_key mgmt cert_key
 
 	# init data dir
 	mkdir -p "$datadir"
@@ -48,6 +50,15 @@ _start_mgmt() {
 
 	[ "$disable_anonymous_metrics" = 1 ] && \
 		procd_append_param command --disable-anonymous-metrics
+
+	[ -e "$cert_file" ] && {
+		procd_add_jail_mount "$cert_file"
+		procd_append_param command --cert-file "$cert_file"
+	}
+	[ -e "$cert_key" ] && {
+		procd_add_jail_mount "$cert_key"
+		procd_append_param command --cert-key "$cert_key"
+	}
 
 	config_list_foreach mgmt env list_append_env
 
