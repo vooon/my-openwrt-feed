@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=prometheus-node-exporter-ucode
 PKG_VERSION:=2024.02.07
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=Andre Heider <a.heider@gmail.com>
 PKG_LICENSE:=Apache-2.0
@@ -35,4 +35,4 @@ define Collector
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(1)))
 endef
 
-$(eval $(call Collector,go2rtc,go2rtc collector,+uclient-fetch go2rtc))
+$(eval $(call Collector,go2rtc,go2rtc collector,+ucode-mod-uclient +ucode-mod-uloop go2rtc))

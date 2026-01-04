@@ -9,7 +9,7 @@ if (!api_url)
 // optional bearer secret
 const secret = config["secret"];
 // export each connection data, warning: label high cardinality!
-const enable_per_connection_data = (config["enable_per_connection_data"]) ? true : false;
+const per_connection = config["per_connection"] == "1";
 
 let m_up = gauge("singbox_up", "Sing-Box Clash API connected");
 let m_version_info = gauge("singbox_version_info", "Sing-Box version");
@@ -116,7 +116,7 @@ for (let conn in connections.connections) {
 	add_bytes(tx_counter, conn.type, conn.upload)
 	add_bytes(rx_counter, conn.type, conn.download)
 
-	if (enable_per_connection_data) {
+	if (per_connection) {
 		labels = {
 			id: conn.id,
 			rule: conn.rule,
