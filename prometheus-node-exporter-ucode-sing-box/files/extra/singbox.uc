@@ -94,6 +94,7 @@ function fetch_json(api_url, secret, endpoint) {
 	return json(data);
 }
 
+
 const version = fetch_json(api_url, secret, "/version");
 const connections = fetch_json(api_url, secret, "/connections");
 if (!version || !connections) {
