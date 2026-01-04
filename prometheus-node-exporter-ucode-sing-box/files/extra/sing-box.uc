@@ -32,9 +32,9 @@ function fetch_json(endpoint) {
 	let headers = {
 		"User-Agent": "prometheus-node-exporter-ucode/1.0",
 		"Content-Type": "application/json",
-	}
+	};
 	if (secret)
-		headers["Authorization"] = `Bearer ${secret}`
+		headers["Authorization"] = `Bearer ${secret}`;
 
 	uloop.init();
 	uc = uclient.new(url, null, {
@@ -94,27 +94,27 @@ m_version_info({
 	meta: version?.meta,
 	premium: version?.premium,
 	version: replace(version.version, "^sing-box\\ ", ""),
-})
+});
 
-m_memory_used({}, connections.memory)
-m_connections_total({}, length(connections.connections))
-m_connections_total_tx({}, connections.uploadTotal)
-m_connections_total_rx({}, connections.downloadTotal)
+m_memory_used({}, connections.memory);
+m_connections_total({}, length(connections.connections));
+m_connections_total_tx({}, connections.uploadTotal);
+m_connections_total_rx({}, connections.downloadTotal);
 
-tx_counter = {}
-rx_counter = {}
+tx_counter = {};
+rx_counter = {};
 
 function add_bytes(store, key, value) {
-	let old = store[key]
+	let old = store[key];
 	if (!old)
-		old = 0
+		old = 0;
 
-	store[key] = old + value
+	store[key] = old + value;
 }
 
 for (let conn in connections.connections) {
-	add_bytes(tx_counter, conn.type, conn.upload)
-	add_bytes(rx_counter, conn.type, conn.download)
+	add_bytes(tx_counter, conn.type, conn.upload);
+	add_bytes(rx_counter, conn.type, conn.download);
 
 	if (per_connection) {
 		labels = {
@@ -129,17 +129,17 @@ for (let conn in connections.connections) {
 			src_port: conn.metadata.sourcePort,
 			process_path: conn.metadata.processPath,
 			type: conn.metadata.type,
-		}
+		};
 
-		m_per_conn_tx(labels, conn.upload)
-		m_per_conn_rx(labels, conn.download)
+		m_per_conn_tx(labels, conn.upload);
+		m_per_conn_rx(labels, conn.download);
 	}
 }
 
 for (let type, value in tx_counter) {
-	m_connections_tx({type: type}, value)
+	m_connections_tx({type: type}, value);
 }
 
 for (let type, value in rx_counter) {
-	m_connections_rx({type: type}, value)
+	m_connections_rx({type: type}, value);
 }
