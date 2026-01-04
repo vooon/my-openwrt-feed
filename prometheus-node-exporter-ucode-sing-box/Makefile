@@ -35,4 +35,4 @@ define Collector
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(1)))
 endef
 
-$(eval $(call Collector,sing-box,sing-box collector,+ucode-mod-uclient +ucode-mod-uloop sing-box))
+$(eval $(call Collector,singbox,sing-box collector,+ucode-mod-uclient +ucode-mod-uloop sing-box))
