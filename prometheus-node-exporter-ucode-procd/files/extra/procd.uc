@@ -10,7 +10,7 @@ let m_exit_code = gauge("procd_service_exit_code", "procd stopped service exit c
 
 for (let service, srv_data in x) {
 	for (let instance, state in srv_data.instances) {
-		labels = {
+		let labels = {
 			procd_service: service,
 			procd_instance: instance,
 		};
