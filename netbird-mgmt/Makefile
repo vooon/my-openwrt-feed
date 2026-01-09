@@ -6,7 +6,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/netbirdio/netbird.git
-PKG_MIRROR_HASH:=
+PKG_MIRROR_HASH:=24459d9159c300f72dbc29f6c0c522bfca6b8cc07018c70575ac486085f361dd
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Wesley Gimenes <wehagy@proton.me>
@@ -25,7 +25,7 @@ include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
 include ../../packages/lang/golang/golang-package.mk
 
-define Package/netbird/default
+define Package/netbird/Default
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=VPN
@@ -33,7 +33,7 @@ define Package/netbird/default
   URL:=https://netbird.io
 endef
 
-define Package/netbird/description/default
+define Package/netbird/Default/description
   NetBird is an open-source VPN management platform built on top of WireGuard® making it easy to create
   secure private networks for your organization or home.
 
@@ -42,39 +42,42 @@ define Package/netbird/description/default
 endef
 
 define Package/netbird-mgmt
-  $(call Package/netbird/default)
+  $(call Package/netbird/Default)
+
   TITLE:=NetBird Management server
   DEPENDS:=$(GO_ARCH_DEPENDS) +coturn +netbird-dashboard
   USERID:=netbird:netbird
 endef
 
 define Package/netbird-mgmt/description
-  $(call Package/netbird/description/default)
+  $(call Package/netbird/Default/description)
 
   Management server components.
 endef
 
 define Package/netbird-wasm
-  $(call Package/netbird/default)
+  $(call Package/netbird/Default)
+
   TITLE:=NetBird WASM binary
   ARCH:=all
 endef
 
 define Package/netbird-wasm/description
-  $(call Package/netbird/description/default)
+  $(call Package/netbird/Default/description)
 
   WASM for NetBird Dashboard.
 endef
 
 define Package/netbird-alt
-  $(call Package/netbird/default)
+  $(call Package/netbird/Default)
+
   TITLE:=NetBird alternate
   DEPENDS:=$(GO_ARCH_DEPENDS) +kmod-wireguard
   PROVIDES:=netbird
 endef
 
 define Package/netbird-alt/description
-  $(call Package/netbird/description/default)
+  $(call Package/netbird/Default/description)
 
   NetBird client (from netbird-mgmt).
 endef
@@ -93,12 +96,12 @@ endef
 define Build/Compile
 	$(call GoPackage/Build/Compile,$(GO_PKG_BUILD_PKG))
 
-if ($(CONFIG_PACKAGE_netbird-wasm),y)
+ifeq ($(CONFIG_PACKAGE_netbird-wasm),y)
 	( \
 		cd $(PKG_BUILD_DIR); \
 		$(GO_PKG_BUILD_VARS) \
 		GOOS=js GOARCH=wasm \
-		go build -ldflags "$(GO_PKG_CUSTOM_LDFLAGS) $(GO_PKG_DEFAULT_LDFLAGS)" -o $(PKG_INSTALL_DIR)/netbird.wasm ./client/wasm/cmd
+		go build -ldflags "$(GO_PKG_CUSTOM_LDFLAGS) $(GO_PKG_DEFAULT_LDFLAGS)" -o $(PKG_INSTALL_DIR)/netbird.wasm ./client/wasm/cmd \
 	)
 endif
 
