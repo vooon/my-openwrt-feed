@@ -1,0 +1,92 @@
+From 797967b77c299d424019f4490bc07e029811468a Mon Sep 17 00:00:00 2001
+From: Ujaan Das <ujaandas03@gmail.com>
+Date: Thu, 18 Dec 2025 16:46:29 +0000
+Subject: [PATCH 1/2] add NB_PPROF_ADDR envvar support
+
+---
+ signal/cmd/pprof.go | 33 +++++++++++++++++++++++++++++++++
+ signal/cmd/run.go   | 14 +-------------
+ 2 files changed, 34 insertions(+), 13 deletions(-)
+ create mode 100644 signal/cmd/pprof.go
+
+diff --git a/signal/cmd/pprof.go b/signal/cmd/pprof.go
+new file mode 100644
+index 00000000..e85e9125
+--- /dev/null
++++ b/signal/cmd/pprof.go
+@@ -0,0 +1,33 @@
++//go:build pprof
++// +build pprof
++
++package cmd
++
++import (
++	"net/http"
++	_ "net/http/pprof"
++	"os"
++
++	log "github.com/sirupsen/logrus"
++)
++
++func init() {
++	addr := pprofAddr()
++	go pprof(addr)
++}
++
++func pprofAddr() string {
++	listenAddr := os.Getenv("NB_PPROF_ADDR")
++	if listenAddr == "" {
++		return "localhost:6060"
++	}
++
++	return listenAddr
++}
++
++func pprof(listenAddr string) {
++	log.Infof("listening pprof on: %s\n", listenAddr)
++	if err := http.ListenAndServe(listenAddr, nil); err != nil {
++		log.Fatalf("Failed to start pprof: %v", err)
++	}
++}
+diff --git a/signal/cmd/run.go b/signal/cmd/run.go
+index bf8f8e32..dcb79267 100644
+--- a/signal/cmd/run.go
++++ b/signal/cmd/run.go
+@@ -8,8 +8,7 @@ import (
+ 	"fmt"
+ 	"net"
+ 	"net/http"
+-	// nolint:gosec
+-	_ "net/http/pprof"
++
+ 	"time"
+ 
+ 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+@@ -92,8 +91,6 @@ var (
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+ 			flag.Parse()
+ 
+-			startPprof()
+-
+ 			opts, certManager, tlsConfig, err := getTLSConfigurations()
+ 			if err != nil {
+ 				return err
+@@ -194,15 +191,6 @@ var (
+ 	}
+ )
+ 
+-func startPprof() {
+-	go func() {
+-		log.Debugf("Starting pprof server on 127.0.0.1:6060")
+-		if err := http.ListenAndServe("127.0.0.1:6060", nil); err != nil {
+-			log.Fatalf("pprof server failed: %v", err)
+-		}
+-	}()
+-}
+-
+ func getTLSConfigurations() ([]grpc.ServerOption, *autocert.Manager, *tls.Config, error) {
+ 	var (
+ 		err         error
+-- 
+2.52.0
+
