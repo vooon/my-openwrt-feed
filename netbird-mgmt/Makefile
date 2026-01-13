@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netbird-mgmt
-PKG_VERSION:=0.62.1
+PKG_VERSION:=0.62.2
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/netbirdio/netbird.git
-PKG_MIRROR_HASH:=24459d9159c300f72dbc29f6c0c522bfca6b8cc07018c70575ac486085f361dd
+PKG_MIRROR_HASH:=1e2691790fa2b685054f4285c4b6877d59610bb23ac030eca379b6fcbfa83710
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Wesley Gimenes <wehagy@proton.me>
@@ -101,7 +101,7 @@ ifeq ($(CONFIG_PACKAGE_netbird-wasm),y)
 		cd $(PKG_BUILD_DIR); \
 		$(GO_PKG_BUILD_VARS) \
 		GOOS=js GOARCH=wasm \
-		go build -ldflags "$(GO_PKG_CUSTOM_LDFLAGS) $(GO_PKG_DEFAULT_LDFLAGS)" -o $(PKG_INSTALL_DIR)/netbird.wasm ./client/wasm/cmd \
+		go build -ldflags "$(GO_PKG_CUSTOM_LDFLAGS) -buildid '$(SOURCE_DATE_EPOCH)' -w -s" -o $(PKG_INSTALL_DIR)/netbird.wasm ./client/wasm/cmd \
 	)
 endif
 
