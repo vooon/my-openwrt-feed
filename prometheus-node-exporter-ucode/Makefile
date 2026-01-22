@@ -32,6 +32,7 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_BIN) ./files/init $(1)/etc/init.d/$(PKG_NAME)
 	$(INSTALL_DIR) $(1)/usr/share/ucode/node-exporter/lib
 	$(INSTALL_DATA) ./files/metrics.uc $(1)/usr/share/ucode/node-exporter/
+	$(INSTALL_DATA) ./files/http_client.uc $(1)/usr/share/ucode/node-exporter/
 	$(INSTALL_DATA) ./files/base/*.uc $(1)/usr/share/ucode/node-exporter/lib/
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) ./files/run.sh $(1)/usr/bin/$(PKG_NAME)
