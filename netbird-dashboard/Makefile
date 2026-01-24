@@ -6,7 +6,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/netbirdio/dashboard.git
-PKG_MIRROR_HASH:=
+PKG_MIRROR_HASH:=bb7d4ad6f87f4e65a907f05145e37e7da80002394360dbc5b203f7d57a0d0e8e
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Wesley Gimenes <wehagy@proton.me>
