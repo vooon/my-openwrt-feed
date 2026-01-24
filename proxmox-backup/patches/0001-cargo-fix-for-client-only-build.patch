@@ -1,4 +1,4 @@
-From c24e45ae8abcb04c8d8d0392a358fe55e6d1daca Mon Sep 17 00:00:00 2001
+From a15767a91e53a8b04d3fc2f1bc6e91ec3a963d69 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Wed, 23 Jul 2025 13:14:05 +0200
 Subject: [PATCH 1/3] cargo: fix for client only build
@@ -10,10 +10,13 @@ Subject: [PATCH 1/3] cargo: fix for client only build
 Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 ---
  .cargo/config.toml |   8 ----
- Cargo.toml         | 114 +++++++++++++++++++++++----------------------
- 2 files changed, 58 insertions(+), 64 deletions(-)
+ Cargo.toml         | 117 +++++++++++++++++++++++----------------------
+ 2 files changed, 59 insertions(+), 66 deletions(-)
  delete mode 100644 .cargo/config.toml
 
+diff --git a/.cargo/config.toml b/.cargo/config.toml
+deleted file mode 100644
+index a439c97b..00000000
 --- a/.cargo/config.toml
 +++ /dev/null
 @@ -1,8 +0,0 @@
@@ -25,6 +28,8 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 -
 -[profile.release]
 -debug=true
+diff --git a/Cargo.toml b/Cargo.toml
+index 0da18383..cbb4ec8a 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -39,10 +39,10 @@ members = [
@@ -44,10 +49,10 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  
  [workspace.dependencies]
  # proxmox workspace
--proxmox-apt = { version = "0.99", features = [ "cache" ] }
--proxmox-apt-api-types = "2"
-+#proxmox-apt = { version = "0.99", features = [ "cache" ] }
-+#proxmox-apt-api-types = "2"
+-proxmox-apt = { version = "0.99.7", features = [ "cache" ] }
+-proxmox-apt-api-types = "2.0.5"
++#proxmox-apt = { version = "0.99.7", features = [ "cache" ] }
++#proxmox-apt-api-types = "2.0.5"
  proxmox-async = "0.5"
  proxmox-auth-api = "1.0.5"
  proxmox-base64 = "1"
@@ -75,7 +80,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  proxmox-sys = "1"
  proxmox-systemd = "1"
  proxmox-tfa = { version = "6.0.3", features = [ "api", "api-types" ] }
-@@ -99,7 +99,7 @@ pbs-api-types = "1.0.8"
+@@ -100,7 +100,7 @@ pbs-api-types = "1.0.8"
  
  # other proxmox crates
  pathpatterns = "1"
@@ -84,7 +89,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  pxar = "1"
  
  # PBS workspace
-@@ -116,7 +116,7 @@ pbs-tools = { path = "pbs-tools" }
+@@ -117,7 +117,7 @@ pbs-tools = { path = "pbs-tools" }
  # regular crates
  anyhow = "1.0"
  async-trait = "0.1.56"
@@ -93,7 +98,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  bitflags = "2.4"
  bytes = "1.0"
  cidr = "0.3"
-@@ -209,8 +209,8 @@ zstd.workspace = true
+@@ -210,8 +210,8 @@ zstd.workspace = true
  #valgrind_request = { git = "https://github.com/edef1c/libvalgrind_request", version = "1.1.0", optional = true }
  
  # proxmox workspace
@@ -104,7 +109,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  proxmox-async.workspace = true
  proxmox-auth-api = { workspace = true, features = [ "api", "pam-authenticator" ] }
  proxmox-base64.workspace = true
-@@ -222,14 +222,14 @@ proxmox-human-byte.workspace = true
+@@ -223,14 +223,14 @@ proxmox-human-byte.workspace = true
  proxmox-io.workspace = true
  proxmox-lang.workspace = true
  proxmox-log.workspace = true
@@ -124,7 +129,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  proxmox-router = { workspace = true, features = [ "cli", "server"] }
  proxmox-s3-client.workspace = true
  proxmox-schema = { workspace = true, features = [ "api-macro" ] }
-@@ -238,7 +238,7 @@ proxmox-serde = { workspace = true, feat
+@@ -239,7 +239,7 @@ proxmox-serde = { workspace = true, features = [ "serde_json" ] }
  proxmox-shared-cache.workspace = true
  proxmox-shared-memory.workspace = true
  proxmox-sortable-macro.workspace = true
@@ -133,7 +138,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  proxmox-sys = { workspace = true, features = [ "timer" ] }
  proxmox-systemd.workspace = true
  proxmox-tfa.workspace = true
-@@ -248,7 +248,7 @@ proxmox-worker-task.workspace = true
+@@ -250,7 +250,7 @@ proxmox-worker-task.workspace = true
  pbs-api-types.workspace = true
  
  # in their respective repo
@@ -142,7 +147,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  pxar.workspace = true
  
  # proxmox-backup workspace/internal crates
-@@ -265,55 +265,57 @@ proxmox-rrd-api-types.workspace = true
+@@ -267,56 +267,57 @@ proxmox-rrd-api-types.workspace = true
  # Local path overrides
  # NOTE: You must run `cargo update` after changing this for it to take effect!
  [patch.crates-io]
@@ -188,8 +193,9 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 +proxmox-network-types = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
 +proxmox-notify = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
  #proxmox-openid = { path = "../proxmox/proxmox-openid" }
- #proxmox-product-config = { path = "../proxmox/proxmox-product-config" }
+-#proxmox-product-config = { path = "../proxmox/proxmox-product-config" }
 -#proxmox-rate-limiter = { path = "../proxmox/proxmox-rate-limiter" }
++proxmox-product-config = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
 +proxmox-rate-limiter = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
  #proxmox-rest-server = { path = "../proxmox/proxmox-rest-server" }
 -#proxmox-router = { path = "../proxmox/proxmox-router" }
@@ -219,15 +225,16 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 -#proxmox-systemd = { path = "../proxmox/proxmox-systemd" }
 -#proxmox-tfa = { path = "../proxmox/proxmox-tfa" }
 -#proxmox-time = { path = "../proxmox/proxmox-time" }
+-#proxmox-upgrade-checks = { path = "../proxmox/proxmox-upgrade-checks" }
 -#proxmox-uuid = { path = "../proxmox/proxmox-uuid" }
 -#proxmox-worker-task = { path = "../proxmox/proxmox-worker-task" }
 +proxmox-sys = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
 +proxmox-systemd = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
 +proxmox-tfa = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
 +proxmox-time = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
++proxmox-upgrade-checks = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
 +proxmox-uuid = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
 +proxmox-worker-task = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
-+proxmox-product-config = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
  
  #proxmox-fuse = {path = "../proxmox-fuse" }
 -#pathpatterns = {path = "../pathpatterns" }
@@ -237,3 +244,6 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  
  [features]
  default = []
+-- 
+2.52.0
+

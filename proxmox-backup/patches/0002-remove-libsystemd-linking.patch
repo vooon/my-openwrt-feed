@@ -1,4 +1,4 @@
-From 96a3ff155a61ee12fd3bbc71219638ac977dd6a9 Mon Sep 17 00:00:00 2001
+From 109c524f1f655d0f051b32185842786dd7fbd8e7 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Thu, 24 Jul 2025 12:33:00 +0200
 Subject: [PATCH 2/3] remove libsystemd linking
@@ -21,6 +21,8 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  create mode 100644 proxmox-systemd-escape/src/escape.rs
  create mode 100644 proxmox-systemd-escape/src/lib.rs
 
+diff --git a/Cargo.toml b/Cargo.toml
+index cbb4ec8a..6d216af1 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -45,6 +45,8 @@ members = [
@@ -32,7 +34,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  ]
  
  [lib]
-@@ -113,6 +115,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse"
+@@ -114,6 +116,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse" }
  pbs-tape = { path = "pbs-tape" }
  pbs-tools = { path = "pbs-tools" }
  
@@ -41,7 +43,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  # regular crates
  anyhow = "1.0"
  async-trait = "0.1.56"
-@@ -262,6 +266,8 @@ pbs-tools.workspace = true
+@@ -264,6 +268,8 @@ pbs-tools.workspace = true
  proxmox-rrd.workspace = true
  proxmox-rrd-api-types.workspace = true
  
@@ -50,10 +52,12 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  # Local path overrides
  # NOTE: You must run `cargo update` after changing this for it to take effect!
  [patch.crates-io]
+diff --git a/pbs-datastore/Cargo.toml b/pbs-datastore/Cargo.toml
+index 42f49a7b..42f0f76d 100644
 --- a/pbs-datastore/Cargo.toml
 +++ b/pbs-datastore/Cargo.toml
-@@ -42,7 +42,8 @@ proxmox-s3-client = { workspace = true,
- proxmox-schema = { workspace = true, features = [ "api-macro" ] }
+@@ -43,7 +43,8 @@ proxmox-schema = { workspace = true, features = [ "api-macro" ] }
+ proxmox-section-config.workspace = true
  proxmox-serde = { workspace = true, features = [ "serde_json" ] }
  proxmox-sys.workspace = true
 -proxmox-systemd.workspace = true
@@ -62,6 +66,8 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  proxmox-time.workspace = true
  proxmox-uuid.workspace = true
  proxmox-worker-task.workspace = true
+diff --git a/pbs-datastore/src/backup_info.rs b/pbs-datastore/src/backup_info.rs
+index 859039cf..9d8f3810 100644
 --- a/pbs-datastore/src/backup_info.rs
 +++ b/pbs-datastore/src/backup_info.rs
 @@ -11,7 +11,8 @@ use const_format::concatcp;
@@ -74,9 +80,11 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  
  use pbs_api_types::{
      Authid, BackupGroupDeleteStats, BackupNamespace, BackupType, GroupFilter, VerifyState,
+diff --git a/proxmox-backup-client/Cargo.toml b/proxmox-backup-client/Cargo.toml
+index 5f0140e7..30e53771 100644
 --- a/proxmox-backup-client/Cargo.toml
 +++ b/proxmox-backup-client/Cargo.toml
-@@ -31,7 +31,8 @@ proxmox-router = { workspace = true, fea
+@@ -31,7 +31,8 @@ proxmox-router = { workspace = true, features = [ "cli" ] }
  proxmox-schema = { workspace = true, features = [ "api-macro" ] }
  proxmox-sortable-macro.workspace = true
  proxmox-sys.workspace = true
@@ -86,9 +94,11 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  proxmox-time.workspace = true
  
  pbs-api-types.workspace = true
+diff --git a/proxmox-backup-client/src/mount.rs b/proxmox-backup-client/src/mount.rs
+index e815c8a9..8d9f0310 100644
 --- a/proxmox-backup-client/src/mount.rs
 +++ b/proxmox-backup-client/src/mount.rs
-@@ -33,6 +33,8 @@ use crate::{
+@@ -35,6 +35,8 @@ use crate::{
      extract_repository_from_value, optional_ns_param, record_repository, REPO_URL_SCHEMA,
  };
  
@@ -97,6 +107,9 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  #[sortable]
  const API_METHOD_MOUNT: ApiMethod = ApiMethod::new(
      &ApiHandler::Sync(&mount),
+diff --git a/proxmox-systemd-escape/Cargo.toml b/proxmox-systemd-escape/Cargo.toml
+new file mode 100644
+index 00000000..53463c84
 --- /dev/null
 +++ b/proxmox-systemd-escape/Cargo.toml
 @@ -0,0 +1,13 @@
@@ -113,6 +126,9 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 +edition.workspace = true
 +
 +[dependencies]
+diff --git a/proxmox-systemd-escape/src/escape.rs b/proxmox-systemd-escape/src/escape.rs
+new file mode 100644
+index 00000000..f73beed3
 --- /dev/null
 +++ b/proxmox-systemd-escape/src/escape.rs
 @@ -0,0 +1,125 @@
@@ -241,6 +257,9 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 +    }
 +    Err(UnescapeError::Msg("invalid hex digit"))
 +}
+diff --git a/proxmox-systemd-escape/src/lib.rs b/proxmox-systemd-escape/src/lib.rs
+new file mode 100644
+index 00000000..301f4c5d
 --- /dev/null
 +++ b/proxmox-systemd-escape/src/lib.rs
 @@ -0,0 +1,4 @@
@@ -248,3 +267,6 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 +
 +mod escape;
 +pub use escape::{escape_unit, unescape_unit, unescape_unit_path, UnescapeError};
+-- 
+2.52.0
+
