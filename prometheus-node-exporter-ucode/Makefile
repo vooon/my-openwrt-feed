@@ -2,7 +2,7 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=prometheus-node-exporter-ucode-alt
+PKG_NAME:=prometheus-node-exporter-ucode
 PKG_VERSION:=2025.12.04
 PKG_RELEASE:=1
 
@@ -22,8 +22,7 @@ endef
 
 define Package/$(PKG_NAME)
   $(call Package/$(PKG_NAME)/Default)
-  DEPENDS:=+uhttpd +uhttpd-mod-ucode +rpcd +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uclient +ucode-mod-uloop
-  PROVIDES:=prometheus-node-exporter-ucode
+  DEPENDS:=+uhttpd +uhttpd-mod-ucode +rpcd +ucode-mod-fs +ucode-mod-ubus
 endef
 
 define Package/$(PKG_NAME)/install
@@ -56,7 +55,6 @@ define Collector
     $$(call Package/$(PKG_NAME)/Default)
     TITLE+= ($(2))
     DEPENDS:=$(PKG_NAME) $(3)
-    PROVIDES:=prometheus-node-exporter-ucode-$(1)
   endef
 
   define Package/$(PKG_NAME)-$(1)/install
@@ -80,5 +78,5 @@ $(eval $(call Collector,uci_dhcp_host,UCI DHCP host collector,))
 $(eval $(call Collector,wifi,Wi-Fi collector,+ucode-mod-nl80211))
 $(eval $(call Collector,wireguard,Wireguard collector,+rpcd-mod-wireguard))
 $(eval $(call Collector,procd,openwrt procd collector,))
-$(eval $(call Collector,go2rtc,go2rtc collector,))
-$(eval $(call Collector,singbox,sing-box collector,))
+$(eval $(call Collector,go2rtc,go2rtc collector,+ucode-mod-uclient +ucode-mod-uloop))
+$(eval $(call Collector,singbox,sing-box collector,+ucode-mod-uclient +ucode-mod-uloop))
