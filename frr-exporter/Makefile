@@ -6,7 +6,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/tynany/frr_exporter.git
-PKG_MIRROR_HASH:=
+PKG_MIRROR_HASH:=6432f27446f3749e057b00c9bbf337e4daf2acbb86f61a755b2911a4c2a2dc17
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=MIT
@@ -19,11 +19,12 @@ PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/tynany/frr_exporter
 GO_PKG_LDFLAGS_X:= \
-        github.com/prometheus/common/version.Version=$(PKG_SOURCE_VERSION) \
-        github.com/prometheus/common/version.Revision=$(PKG_SOURCE_VERSION) \
-        github.com/prometheus/common/version.Branch=HEAD \
-	github.com/prometheus/common/version.BuildUser=${USER}:${HOSTNAME} \
-	github.com/prometheus/common/version.BuildDate=$(shell date +%Y%m%d-%H:%M:%S)
+	github.com/prometheus/common/version.Version="$(PKG_SOURCE_VERSION)" \
+	github.com/prometheus/common/version.Revision="$(PKG_SOURCE_VERSION)" \
+	github.com/prometheus/common/version.Branch="HEAD" \
+	github.com/prometheus/common/version.BuildUser="${USER}:${HOSTNAME}" \
+	github.com/prometheus/common/version.BuildDate="$(shell date +%Y%m%d-%H:%M:%S)" \
+
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
@@ -42,10 +43,6 @@ endef
 
 define Package/frr-exporter/conffiles
 /etc/config/frr-exporter
-endef
-
-define Build/Compile
-	$(call GoPackage/Build/Compile,$(GO_PKG_BUILD_PKG))
 endef
 
 define Package/frr-exporter/install
