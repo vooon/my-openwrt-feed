@@ -217,7 +217,7 @@ backup_instance() {
 	config_get gotify_url "$backup_server" gotify_url
 	config_get gotify_app_token "$backup_server" gotify_app_token
 
-	if [ -z "$PBS_REPOSITORY" ] || [ -z "$PBS_PASSWORD" ] || [ -z "$PBS_FINGERPRINT" ]; then
+	if [ -z "$PBS_REPOSITORY" ] || [ -z "$PBS_PASSWORD" ]; then
 		log_error "$instance" "pbs client unconfigured: $backup_server"
 		return
 	fi

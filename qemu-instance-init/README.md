@@ -52,7 +52,7 @@ config proxmox_backup_server 'pbs_server'
 |-----------------------|---------|-----------|----------|-------------|
 | `repository` 					| string  | yes       | *(none)* | repository |
 | `password` 						| string  | yes       | *(none)* | password |
-| `fingerprint` 				| string  | yes       | *(none)* | server certificate fingerprint |
+| `fingerprint` 				| string  | no        | *(none)* | server certificate fingerprint |
 | `namespace` 					| string  | no        | *(none)* | use namespace |
 |-----------------------|---------|-----------|----------|-------------|
 | `gotify_url` 					| string 	| no 				| *(none)* | URL to Gotify server for notifications. Disabled if unset. |
