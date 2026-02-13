@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=zoneomatic
-PKG_VERSION:=0.9.0
+PKG_VERSION:=0.10.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/zoneomatic.git
-PKG_MIRROR_HASH:=0ab7fbec9f01fb3ac25cb61050dd6607b3f5a49c35dcce2c9033ad9eb717f0f8
+PKG_MIRROR_HASH:=
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=ASL-2.0
