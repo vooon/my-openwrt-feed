@@ -1,7 +1,7 @@
-From 109c524f1f655d0f051b32185842786dd7fbd8e7 Mon Sep 17 00:00:00 2001
+From bceca925a5c8a203c36f4274e5e284b177fe86ba Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Thu, 24 Jul 2025 12:33:00 +0200
-Subject: [PATCH 2/3] remove libsystemd linking
+Subject: [PATCH 2/4] remove libsystemd linking
 
 Copy original proxmox-systemd crate, but left only escape.rs needed for
 client and pxar.
@@ -22,7 +22,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
  create mode 100644 proxmox-systemd-escape/src/lib.rs
 
 diff --git a/Cargo.toml b/Cargo.toml
-index cbb4ec8a..6d216af1 100644
+index aace6c33..7ca2c4ad 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -45,6 +45,8 @@ members = [
@@ -34,7 +34,7 @@ index cbb4ec8a..6d216af1 100644
  ]
  
  [lib]
-@@ -114,6 +116,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse" }
+@@ -116,6 +118,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse" }
  pbs-tape = { path = "pbs-tape" }
  pbs-tools = { path = "pbs-tools" }
  
@@ -43,7 +43,7 @@ index cbb4ec8a..6d216af1 100644
  # regular crates
  anyhow = "1.0"
  async-trait = "0.1.56"
-@@ -264,6 +268,8 @@ pbs-tools.workspace = true
+@@ -268,6 +272,8 @@ pbs-tools.workspace = true
  proxmox-rrd.workspace = true
  proxmox-rrd-api-types.workspace = true
  
@@ -268,5 +268,5 @@ index 00000000..301f4c5d
 +mod escape;
 +pub use escape::{escape_unit, unescape_unit, unescape_unit_path, UnescapeError};
 -- 
-2.52.0
+2.53.0
 

@@ -1,7 +1,7 @@
-From a15767a91e53a8b04d3fc2f1bc6e91ec3a963d69 Mon Sep 17 00:00:00 2001
+From a95a3a45a33bd05b2486e42715dcaef6cbef464b Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Wed, 23 Jul 2025 13:14:05 +0200
-Subject: [PATCH 1/3] cargo: fix for client only build
+Subject: [PATCH 1/4] cargo: fix for client only build
 
 - delete debian specific cargo config
 - disable build of the backup server, leave only client
@@ -9,9 +9,9 @@ Subject: [PATCH 1/3] cargo: fix for client only build
 
 Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 ---
- .cargo/config.toml |   8 ----
- Cargo.toml         | 117 +++++++++++++++++++++++----------------------
- 2 files changed, 59 insertions(+), 66 deletions(-)
+ .cargo/config.toml |   8 ---
+ Cargo.toml         | 121 +++++++++++++++++++++++----------------------
+ 2 files changed, 61 insertions(+), 68 deletions(-)
  delete mode 100644 .cargo/config.toml
 
 diff --git a/.cargo/config.toml b/.cargo/config.toml
@@ -29,7 +29,7 @@ index a439c97b..00000000
 -[profile.release]
 -debug=true
 diff --git a/Cargo.toml b/Cargo.toml
-index 0da18383..cbb4ec8a 100644
+index 9bf7b79a..aace6c33 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -39,10 +39,10 @@ members = [
@@ -56,7 +56,7 @@ index 0da18383..cbb4ec8a 100644
  proxmox-async = "0.5"
  proxmox-auth-api = "1.0.5"
  proxmox-base64 = "1"
-@@ -68,11 +68,11 @@ proxmox-human-byte = "1"
+@@ -68,12 +68,12 @@ proxmox-human-byte = "1"
  proxmox-io = "1.0.1" # tools and client use "tokio" feature
  proxmox-lang = "1.1"
  proxmox-log = "1"
@@ -65,13 +65,14 @@ index 0da18383..cbb4ec8a 100644
 +#proxmox-ldap = "1"
 +#proxmox-metrics = "1"
  proxmox-network-api = "1"
+ proxmox-network-types = "1.0.1"
  proxmox-notify = "1"
 -proxmox-openid = "1"
 +#proxmox-openid = "1"
  proxmox-product-config = "1"
  proxmox-rate-limiter = "1.0.0"
- proxmox-rest-server = { version = "1.0.3", features = [ "templates" ] }
-@@ -88,7 +88,7 @@ proxmox-serde = "1"
+ proxmox-rest-server = { version = "1.0.5", features = [ "templates" ] }
+@@ -89,7 +89,7 @@ proxmox-serde = "1"
  proxmox-shared-cache = "1"
  proxmox-shared-memory = "1"
  proxmox-sortable-macro = "1"
@@ -80,16 +81,18 @@ index 0da18383..cbb4ec8a 100644
  proxmox-sys = "1"
  proxmox-systemd = "1"
  proxmox-tfa = { version = "6.0.3", features = [ "api", "api-types" ] }
-@@ -100,7 +100,7 @@ pbs-api-types = "1.0.8"
+@@ -101,8 +101,8 @@ pbs-api-types = "1.0.8"
  
  # other proxmox crates
  pathpatterns = "1"
--proxmox-acme = "1"
-+#proxmox-acme = "1"
+-proxmox-acme = "1.1"
+-proxmox-acme-api = { version = "1.0.2", features = [ "impl" ] }
++#proxmox-acme = "1.1"
++#proxmox-acme-api = { version = "1.0.2", features = [ "impl" ] }
  pxar = "1"
  
  # PBS workspace
-@@ -117,7 +117,7 @@ pbs-tools = { path = "pbs-tools" }
+@@ -119,7 +119,7 @@ pbs-tools = { path = "pbs-tools" }
  # regular crates
  anyhow = "1.0"
  async-trait = "0.1.56"
@@ -98,7 +101,7 @@ index 0da18383..cbb4ec8a 100644
  bitflags = "2.4"
  bytes = "1.0"
  cidr = "0.3"
-@@ -210,8 +210,8 @@ zstd.workspace = true
+@@ -212,8 +212,8 @@ zstd.workspace = true
  #valgrind_request = { git = "https://github.com/edef1c/libvalgrind_request", version = "1.1.0", optional = true }
  
  # proxmox workspace
@@ -109,7 +112,7 @@ index 0da18383..cbb4ec8a 100644
  proxmox-async.workspace = true
  proxmox-auth-api = { workspace = true, features = [ "api", "pam-authenticator" ] }
  proxmox-base64.workspace = true
-@@ -223,14 +223,14 @@ proxmox-human-byte.workspace = true
+@@ -225,15 +225,15 @@ proxmox-human-byte.workspace = true
  proxmox-io.workspace = true
  proxmox-lang.workspace = true
  proxmox-log.workspace = true
@@ -118,6 +121,7 @@ index 0da18383..cbb4ec8a 100644
 +#proxmox-ldap.workspace = true
 +#proxmox-metrics.workspace = true
  proxmox-network-api = { workspace = true, features = [ "impl" ] }
+ proxmox-network-types.workspace = true
  proxmox-notify = { workspace = true, features = [ "pbs-context" ] }
 -proxmox-openid.workspace = true
 +#proxmox-openid.workspace = true
@@ -129,7 +133,7 @@ index 0da18383..cbb4ec8a 100644
  proxmox-router = { workspace = true, features = [ "cli", "server"] }
  proxmox-s3-client.workspace = true
  proxmox-schema = { workspace = true, features = [ "api-macro" ] }
-@@ -239,7 +239,7 @@ proxmox-serde = { workspace = true, features = [ "serde_json" ] }
+@@ -242,7 +242,7 @@ proxmox-serde = { workspace = true, features = [ "serde_json" ] }
  proxmox-shared-cache.workspace = true
  proxmox-shared-memory.workspace = true
  proxmox-sortable-macro.workspace = true
@@ -138,22 +142,25 @@ index 0da18383..cbb4ec8a 100644
  proxmox-sys = { workspace = true, features = [ "timer" ] }
  proxmox-systemd.workspace = true
  proxmox-tfa.workspace = true
-@@ -250,7 +250,7 @@ proxmox-worker-task.workspace = true
+@@ -253,8 +253,8 @@ proxmox-worker-task.workspace = true
  pbs-api-types.workspace = true
  
  # in their respective repo
 -proxmox-acme.workspace = true
+-proxmox-acme-api.workspace = true
 +#proxmox-acme.workspace = true
++#proxmox-acme-api.workspace = true
  pxar.workspace = true
  
  # proxmox-backup workspace/internal crates
-@@ -267,56 +267,57 @@ proxmox-rrd-api-types.workspace = true
+@@ -271,57 +271,58 @@ proxmox-rrd-api-types.workspace = true
  # Local path overrides
  # NOTE: You must run `cargo update` after changing this for it to take effect!
  [patch.crates-io]
 -#pbs-api-types = { path = "../proxmox/pbs-api-types" }
 +pbs-api-types = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
  #proxmox-acme = { path = "../proxmox/proxmox-acme" }
+ #proxmox-acme-api = { path = "../proxmox/proxmox-acme-api" }
  #proxmox-api-macro = { path = "../proxmox/proxmox-api-macro" }
  #proxmox-apt = { path = "../proxmox/proxmox-apt" }
  #proxmox-apt-api-types = { path = "../proxmox/proxmox-apt-api-types" }
@@ -245,5 +252,5 @@ index 0da18383..cbb4ec8a 100644
  [features]
  default = []
 -- 
-2.52.0
+2.53.0
 

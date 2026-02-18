@@ -1,0 +1,115 @@
+From 45713c0919b05d8d5155366ea4933a38f4534ff9 Mon Sep 17 00:00:00 2001
+From: Vladimir Ermakov <vooon341@gmail.com>
+Date: Wed, 18 Feb 2026 15:05:08 +0100
+Subject: [PATCH 4/4] cargo: pin git patch dependencies to fixed revs
+
+---
+ Cargo.toml | 80 +++++++++++++++++++++++++++---------------------------
+ 1 file changed, 40 insertions(+), 40 deletions(-)
+
+diff --git a/Cargo.toml b/Cargo.toml
+index ead973b4..7a695e81 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -277,58 +277,58 @@ proxmox-systemd-escape.workspace = true
+ # Local path overrides
+ # NOTE: You must run `cargo update` after changing this for it to take effect!
+ [patch.crates-io]
+-pbs-api-types = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
++pbs-api-types = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
+ #proxmox-acme = { path = "../proxmox/proxmox-acme" }
+ #proxmox-acme-api = { path = "../proxmox/proxmox-acme-api" }
+ #proxmox-api-macro = { path = "../proxmox/proxmox-api-macro" }
+ #proxmox-apt = { path = "../proxmox/proxmox-apt" }
+ #proxmox-apt-api-types = { path = "../proxmox/proxmox-apt-api-types" }
+-proxmox-async = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-auth-api = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-base64 = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-borrow = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-compression = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-config-digest = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-daemon = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-fuse = { git = "https://git.proxmox.com/git/proxmox-fuse.git", branch="master" }
+-proxmox-http = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-http-error = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-human-byte = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-io = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-lang = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
++proxmox-async = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-auth-api = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-base64 = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-borrow = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-compression = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-config-digest = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-daemon = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-fuse = { git = "https://git.proxmox.com/git/proxmox-fuse.git", rev="506314563706b0bcd95f99ebedc9b2d1c5532cc4" }
++proxmox-http = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-http-error = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-human-byte = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-io = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-lang = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
+ #proxmox-ldap = { path = "../proxmox/proxmox-ldap" }
+-proxmox-log = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
++proxmox-log = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
+ #proxmox-metrics = { path = "../proxmox/proxmox-metrics" }
+-proxmox-network-api = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-network-types = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-notify = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
++proxmox-network-api = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-network-types = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-notify = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
+ #proxmox-openid = { path = "../proxmox/proxmox-openid" }
+-proxmox-product-config = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-rate-limiter = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
++proxmox-product-config = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-rate-limiter = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
+ #proxmox-rest-server = { path = "../proxmox/proxmox-rest-server" }
+-proxmox-router = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-rrd = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-rrd-api-types = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-s3-client = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-schema = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-section-config = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-sendmail = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-serde = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-shared-cache = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-shared-memory = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-sortable-macro = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
++proxmox-router = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-rrd = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-rrd-api-types = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-s3-client = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-schema = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-section-config = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-sendmail = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-serde = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-shared-cache = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-shared-memory = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-sortable-macro = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
+ #proxmox-subscription = { path = "../proxmox/proxmox-subscription" }
+-proxmox-sys = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-systemd = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-tfa = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-time = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-upgrade-checks = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-uuid = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
+-proxmox-worker-task = { git = "https://git.proxmox.com/git/proxmox.git", branch="master" }
++proxmox-sys = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-systemd = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-tfa = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-time = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-upgrade-checks = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-uuid = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
++proxmox-worker-task = { git = "https://git.proxmox.com/git/proxmox.git", rev="615a1078e09ff5230f0c14047aabe4dcc855f200" }
+ 
+ #proxmox-fuse = {path = "../proxmox-fuse" }
+-pathpatterns = { git = "https://git.proxmox.com/git/pathpatterns.git", branch="master" }
+-pxar = { git = "https://git.proxmox.com/git/pxar.git", branch="master" }
++pathpatterns = { git = "https://git.proxmox.com/git/pathpatterns.git", rev="5323cbe49ae5d592eb8a3fa2e215550e83dd7fba" }
++pxar = { git = "https://git.proxmox.com/git/pxar.git", rev="957acc8917294a62d829d51e06cff9dc88845fb3" }
+ 
+ [features]
+ default = []
+-- 
+2.53.0
+
