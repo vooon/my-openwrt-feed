@@ -15,17 +15,17 @@ _log() {
 }
 
 log_error() {
-	_log ERROR "$@"
+	_log err "$@"
 }
 log_warn() {
-	_log WARN "$@"
+	_log warning "$@"
 }
 log_info() {
-	_log INFO "$@"
+	_log info "$@"
 }
 log_debug() {
 	[ "$enable_debug" -eq 0 ] && return
-	_log DEBUG "$@"
+	_log debug "$@"
 }
 
 sync_host() {
@@ -58,7 +58,9 @@ sync_host() {
 
 	# NOTE: possible to query if address needs update, like ddns.sh does,
 	#       but zoneomatic compares addresses anyway...
-	curl "$update_url" -u "$username:$password" -G -d "hostname=$name.$origin" -d "myip=$ip"
+	curl -fsS --connect-timeout 5 --max-time 15 \
+		"$update_url" -u "$username:$password" -G \
+		-d "hostname=$name.$origin" -d "myip=$ip"
 	local rc=$?
 
 	if [ $rc -ne 0 ]; then

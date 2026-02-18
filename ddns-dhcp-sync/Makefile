@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=ddns-dhcp-sync
-PKG_VERSION:=0.2.0
+PKG_VERSION:=0.3.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=ASL-2.0
@@ -15,7 +15,7 @@ define Package/ddns-dhcp-sync
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Sync local DHCP static hosts with DDNS
-  DEPENDS:=+jshn +curl
+  DEPENDS:=+curl
   ARCH:=all
 endef
 
