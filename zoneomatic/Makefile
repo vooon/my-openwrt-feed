@@ -19,9 +19,9 @@ PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/vooon/zoneomatic/cmd/zoneomatic
 GO_PKG_LDFLAGS_X:= \
-	-X github.com/prometheus/common/version.Version="$(PKG_SOURCE_VERSION)" \
-	-X github.com/prometheus/common/version.Revision="$(PKG_SOURCE_VERSION)" \
-	-X github.com/prometheus/common/version.BuildDate="$(shell date --iso-8601=s)" \
+	github.com/prometheus/common/version.Version="$(PKG_SOURCE_VERSION)" \
+	github.com/prometheus/common/version.Revision="$(PKG_SOURCE_VERSION)" \
+	github.com/prometheus/common/version.BuildDate="$(shell date --iso-8601=s)" \
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
