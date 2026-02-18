@@ -6,6 +6,13 @@ https://openwrt.org/docs/guide-user/virtualization/qemu_host#init_script
 A init script initially based on openwrt wiki, but ported to procd.
 Also supports backup by `proxmox-backup-client`.
 
+Runtime dependencies used by the script:
+- `proxmox-backup-client`
+- `curl`
+- `uuidgen`
+- `jshn`
+- `socat`
+
 
 Instance configuration
 ----------------------
@@ -22,7 +29,7 @@ config instance 'instance-name'
 | `cpu_type`            | string  | no        | host     | CPU type |
 | `uuid`                | string  | no        | *generated* | Machine UUID, may be generated |
 | `vnc`                 | string  | no        | `none`   | Value for -vnc, e.g. `:0` |
-| `qmp_port`            | string  | yes       | 4444     | port for QMP server, must be unique for each instance |
+| `qmp_socket`          | string  | no        | `/var/run/qemu.$instance.qmp.sock` | QMP unix socket path |
 | `root_disk`           | string  | yes       | *(none)* | path to the root disk |
 | `root_disk_type`      | string  | no        | qcow2    | type of the disk: `qcow2` or `lvm` |
 | `uefi_code`           | string  | no        | *(none)* | path to `OMVF_CODE.fd` - required to enable UEFI |

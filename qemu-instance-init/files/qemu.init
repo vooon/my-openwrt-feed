@@ -12,6 +12,8 @@ PROG=/usr/bin/qemu-system-x86_64
 # XXX may be optional
 extra_command "backup" "run proxmox-backup-client (all or one instance)"
 
+. /usr/share/libubox/jshn.sh
+
 _log() {
 	local level="$1"
 	shift
@@ -38,13 +40,29 @@ list_append_args() {
 	[ -n "$1" ] && procd_append_param command "$1"
 }
 
+qmp_append_command() {
+	local out_file="$1"
+	local cmd="$2"
+	local device="$3"
+
+	json_init
+	json_add_string execute "$cmd"
+	if [ -n "$device" ]; then
+		json_add_object arguments
+		json_add_string device "$device"
+		json_close_object
+	fi
+	json_dump >> "$out_file"
+	printf '\n' >> "$out_file"
+}
+
 start_instance() {
 	local instance="$1" enabled
 
 	config_get_bool enabled "$instance" enabled 1
 	[ "$enabled" = 1 ] || return
 
-	local vcpus ram cpu_type uuid vnc qmp_port term_timeout
+	local vcpus ram cpu_type uuid vnc qmp_socket term_timeout
 	local root_disk root_disk_type uefi_code uefi_vars
 	local net0_mac net0_bridge
 	local guest_agent guest_agent_socket
@@ -53,7 +71,7 @@ start_instance() {
 	config_get cpu_type "$instance" cpu_type 'host'
 	config_get uuid "$instance" uuid
 	config_get vnc "$instance" vnc 'none'
-	config_get qmp_port "$instance" qmp_port 4444
+	config_get qmp_socket "$instance" qmp_socket "/var/run/qemu.$instance.qmp.sock"
 	config_get term_timeout "$instance" term_timeout 300
 	config_get root_disk "$instance" root_disk
 	config_get root_disk_type "$instance" root_disk_type 'qcow2'
@@ -118,7 +136,7 @@ start_instance() {
 	fi
 
 	[ -n "$vnc" ] && procd_append_param command -vnc "$vnc"
-	procd_append_param command -qmp "tcp:127.0.0.1:$qmp_port,server,nowait"
+	procd_append_param command -qmp "unix:$qmp_socket,server,nowait"
 
 	if [ "$guest_agent" = 1 ]; then
 		procd_append_param command -chardev "socket,path=$guest_agent_socket,server,nowait,id=qga0"
@@ -138,7 +156,7 @@ start_instance() {
 }
 
 _stop_instance_task(){
-	local instance="$1" qmp_port="$2" term_timeout="$3" qemu_pid="$4"
+	local instance="$1" qmp_socket="$2" term_timeout="$3" qemu_pid="$4"
 
 	if [ ! -e "/proc/$qemu_pid" ]; then
 		log_info "$instance" "VM process already absent"
@@ -146,7 +164,7 @@ _stop_instance_task(){
 	fi
 
 	log_info "$instance" "sending 'system_powerdown' to VM with PID $qemu_pid."
-	nc 127.0.0.1 "$qmp_port" <<-QMP
+	socat - "UNIX-CONNECT:$qmp_socket" <<-QMP
 	{ "execute": "qmp_capabilities" }
 	{ "execute": "system_powerdown" }
 	QMP
@@ -174,8 +192,8 @@ stop_instance() {
 	config_get_bool enabled "$instance" enabled 1
 	[ "$enabled" = 1 ] || return
 
-	local qmp_port term_timeout qemu_pid
-	config_get qmp_port "$instance" qmp_port 4444
+	local qmp_socket term_timeout qemu_pid
+	config_get qmp_socket "$instance" qmp_socket "/var/run/qemu.$instance.qmp.sock"
 	config_get term_timeout "$instance" term_timeout 300
 
 	local pidfile="/var/run/qemu.$instance.pid"
@@ -185,7 +203,7 @@ stop_instance() {
 	fi
 
 	qemu_pid=$(cat "$pidfile")
-	_stop_instance_task "$instance" "$qmp_port" "$term_timeout" "$qemu_pid" &
+	_stop_instance_task "$instance" "$qmp_socket" "$term_timeout" "$qemu_pid" &
 }
 
 backup_instance() {
@@ -196,8 +214,8 @@ backup_instance() {
 
 	hostname=$(uname -n)
 
-	local qmp_port backup_server backup_id
-	config_get qmp_port "$instance" qmp_port 4444
+	local qmp_socket backup_server backup_id
+	config_get qmp_socket "$instance" qmp_socket "/var/run/qemu.$instance.qmp.sock"
 	config_get root_disk "$instance" root_disk
 	config_get uefi_code "$instance" uefi_code
 	config_get uefi_vars "$instance" uefi_vars
@@ -233,11 +251,60 @@ backup_instance() {
 		local qemu_pid
 		qemu_pid=$(cat "$pidfile")
 
-		log_info "$instance" "sending 'block-flush' to VM with PID $qemu_pid."
-		nc 127.0.0.1 "$qmp_port" <<-QMP
+		log_info "$instance" "querying block devices for VM with PID $qemu_pid"
+		local query_resp flush_devs flush_dev flush_resp qmp_flush_file line key
+		query_resp="$(socat - "UNIX-CONNECT:$qmp_socket" <<-QMP
 		{ "execute": "qmp_capabilities" }
-		{ "execute": "block-flush", "arguments": { "device": "drive0" } }
+		{ "execute": "query-block" }
 		QMP
+		)"
+
+		flush_devs=""
+		while IFS= read -r line; do
+			case "$line" in
+				*'"return"'*)
+					json_cleanup
+					json_init
+					json_load "$line" || continue
+					json_select return 2>/dev/null || continue
+
+					for key in $(json_get_keys); do
+						json_select "$key" || continue
+						json_get_var flush_dev device
+						if [ -n "$flush_dev" ]; then
+							case " $flush_devs " in
+								*" $flush_dev "*) ;;
+								*) flush_devs="$flush_devs $flush_dev" ;;
+							esac
+						fi
+						json_select ..
+					done
+
+					json_select ..
+					;;
+			esac
+		done <<-EOF
+		$query_resp
+		EOF
+
+		if [ -z "$flush_devs" ]; then
+			log_warn "$instance" "no block devices found via QMP query-block, skipping block-flush"
+		else
+			qmp_flush_file="$(mktemp -t qmp-flush.${instance}.XXXXXX)"
+			: > "$qmp_flush_file"
+			qmp_append_command "$qmp_flush_file" qmp_capabilities
+			for flush_dev in $flush_devs; do
+				log_info "$instance" "queue 'block-flush' for device '$flush_dev'"
+				qmp_append_command "$qmp_flush_file" block-flush "$flush_dev"
+			done
+
+			flush_resp="$(socat - "UNIX-CONNECT:$qmp_socket" < "$qmp_flush_file")"
+			rm -f "$qmp_flush_file"
+
+			if printf '%s' "$flush_resp" | grep -q '"error"'; then
+				log_warn "$instance" "one or more block-flush commands failed"
+			fi
+		fi
 
 		# NOTE: ideally should make a lvm snapshot, then backup.
 		#       but porting all logic of vzdump is too much work...
@@ -278,11 +345,24 @@ backup_instance() {
 	fi
 
 	if [ -n "$gotify_url" ]; then
-		curl "$gotify_url/message" -H "X-Gotify-Key: $gotify_app_token" -X POST \
-			-F "title=$hostname $backup_id backup: $gotify_stat" \
-			-F "$(printf 'message=```\n%s\n```\n' "$(cat $backup_log)")" \
-			-F "priority=$gotify_prio" \
-			-F 'extras={"client::display": {"contentType": "text/markdown"}}'
+		local msg_md
+		msg_md="$(printf '```\n%s\n```\n' "$(cat "$backup_log")")"
+
+		json_init
+		json_add_string title "$hostname $backup_id backup: $gotify_stat"
+		json_add_string message "$msg_md"
+		json_add_int priority "$gotify_prio"
+		json_add_object extras
+		json_add_object "client::display"
+		json_add_string contentType "text/markdown"
+		json_close_object
+		json_close_object
+
+		json_dump | curl -fsS "$gotify_url/message" \
+			-H "X-Gotify-Key: $gotify_app_token" \
+			-H "Content-Type: application/json" \
+			-X POST \
+			--data-binary @-
 		rc2=$?
 		if [ "$rc2" -ne 0 ]; then
 			log_error "$instance" "failed to notify gotify: rc: $rc2"

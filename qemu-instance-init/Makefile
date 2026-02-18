@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qemu-instance-init
-PKG_VERSION:=0.1.0
-PKG_RELEASE:=1
+PKG_VERSION:=0.2.0
+PKG_RELEASE:=2
 
 PKG_LICENSE:=ASL-2.0
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
@@ -16,7 +16,7 @@ define Package/qemu-instance-init
   CATEGORY:=Utilities
   SUBMENU:=Virtualization
   TITLE:=QEMU Instance init.d helper
-  DEPENDS:=@TARGET_x86_64:qemu-x86_64-softmmu +proxmox-backup-client +curl +uuidgen
+  DEPENDS:=@TARGET_x86_64:qemu-x86_64-softmmu +proxmox-backup-client +curl +uuidgen +jshn +socat
   ARCH:=all
 endef
 
