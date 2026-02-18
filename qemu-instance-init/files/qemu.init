@@ -23,16 +23,16 @@ _log() {
 }
 
 log_error() {
-	_log ERROR "$@"
+	_log err "$@"
 }
 log_warn() {
-	_log WARN "$@"
+	_log warning "$@"
 }
 log_info() {
-	_log INFO "$@"
+	_log info "$@"
 }
 log_debug() {
-	_log DEBUG "$@"
+	_log debug "$@"
 }
 
 list_append_args() {
@@ -93,16 +93,16 @@ start_instance() {
 
 	if [ -n "$uefi_code" ]; then
 		if [ ! -e "$uefi_code" ]; then
-			log_error "$instance" "uefi code: $root_disk: does not exist"
-			procd_set_param error "uefi code: $root_disk: does not exist"
+			log_error "$instance" "uefi code: $uefi_code: does not exist"
+			procd_set_param error "uefi code: $uefi_code: does not exist"
 		fi
 
 		procd_append_param command -drive "if=pflash,file=$uefi_code,format=raw,readonly=on"
 	fi
 	if [ -n "$uefi_vars" ]; then
 		if [ ! -e "$uefi_vars" ]; then
-			log_error "$instance" "uefi vars: $root_disk: does not exist"
-			procd_set_param error "uefi vars: $root_disk: does not exist"
+			log_error "$instance" "uefi vars: $uefi_vars: does not exist"
+			procd_set_param error "uefi vars: $uefi_vars: does not exist"
 		fi
 
 		procd_append_param command -drive "if=pflash,file=$uefi_vars,format=raw"
