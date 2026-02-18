@@ -24,10 +24,11 @@ expand_src() {
 	_append_command_src "$1" "$2"
 }
 
-expand_filter() {
+append_filter_line() {
 	local rule="$1"
+	local filter_file="$2"
 
-	eval "filter=\"$filter -f '$rule'\""
+	printf '%s\n' "$rule" >> "$filter_file"
 }
 
 start_watch() {
@@ -43,16 +44,17 @@ start_watch() {
 	config_get rsync_args "$instance" rsync_args '-Ppra --delete --delete-delay'
 
 	local script="/tmp/inotify-rsync-$instance"
+	local filter_file="/tmp/inotify-rsync-$instance.filters"
 	local tag="inotify-rsync.$instance"
 
-	local filter
-	config_list_foreach "$instance" filter expand_filter
+	: > "$filter_file"
+	config_list_foreach "$instance" filter append_filter_line "$filter_file"
 
 	cat > "$script" <<-EOF
 	#!/bin/sh
 	# event="\$1" file="\$2" subfile="\$3"
 	logger -s -t $tag "change notified: \$@"
-	rsync $rsync_args $filter $src "$dest"
+	rsync $rsync_args -f ". $filter_file" $src "$dest"
 	EOF
 
 	chmod +x "$script"
