@@ -6,7 +6,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/zoneomatic.git
-PKG_MIRROR_HASH:=
+PKG_MIRROR_HASH:=9f340289e3d947b406ecaa591a9739aff89cfcbd115b2cf1809668c8f2d8a0c9
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=ASL-2.0
@@ -18,9 +18,10 @@ PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/vooon/zoneomatic/cmd/zoneomatic
-# GO_PKG_LDFLAGS_X:= \
-#	github.com/vooon/zoneomatic/internal/utils.BuildTag="$(PKG_SOURCE_VERSION)" \
-#	github.com/vooon/zoneomatic/internal/utils.BuildDate="$(shell date --iso-8601=s)" \
+GO_PKG_LDFLAGS_X:= \
+	-X github.com/prometheus/common/version.Version="$(PKG_SOURCE_VERSION)" \
+	-X github.com/prometheus/common/version.Revision="$(PKG_SOURCE_VERSION)" \
+	-X github.com/prometheus/common/version.BuildDate="$(shell date --iso-8601=s)" \
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
