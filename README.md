@@ -1,50 +1,34 @@
 Vooon's OpenWRT Feed
 ====================
 
-That's may custom packages feed that contains some extra programs I use on some instances.
+This is my custom OpenWrt feed with extra packages I use on my systems.
 
 
 Installation
 ------------
 
-This repository is an OpenWRT feed with extra packages.
+This repository is an OpenWrt feed with additional packages.
 
 1. Add this line to `feeds.conf`:
 ```
 src-git vooon https://github.com/vooon/my-openwrt-feed.git
 ```
 
-2. Run feeds update & install:
+2. Run feeds update and install:
 ```shell
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 ```
 
-LLDAP + Authelia
-----------------
-
-SSO combo i found easiest to build and deploy.
-
-
-Mox
----
-
-Lightweight E-mail server with easy deploy for self-host.
-
-
-Gotify
-------
-
-Push notification server supported by Proxmox.
-
-
-Proxmox Backup Client
----------------------
-
-Simple backup for services above...
-
-
-QEMU Instance init
+Package Highlights
 ------------------
 
-Helper script for qemu vm init.d.
+- `lldap`, `authelia`: lightweight auth stack
+- `mox`: self-hosted mail server
+- `gotify`, `gotify2telegram`, `gotify-alertmanager-plugin`: notification tooling
+- `proxmox-backup`, `pbs-helper`: backup client and helper scripts
+- `qemu-instance-init`: procd init helper for QEMU VMs
+- `inotify-rsync`: rsync on filesystem changes
+- `ddns-dhcp-sync`, `zoneomatic`: DNS and DHCP sync/update helpers
+- `prometheus-node-exporter-ucode`, `frr-exporter`: monitoring/exporter packages
+- `watchcat-fix`, `envsubst`: utility packages
