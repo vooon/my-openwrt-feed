@@ -1,0 +1,41 @@
+From 62fca76a8ca0b9d2e0f8dc5a9e06cfc7f28fdb41 Mon Sep 17 00:00:00 2001
+From: Vladimir Ermakov <vooon341@gmail.com>
+Date: Wed, 18 Feb 2026 17:25:00 +0100
+Subject: [PATCH 5/5] cargo: pin native-tls to 0.2.14
+
+Cargo.lock is not used here, so force the dependency resolver through
+Cargo.toml manifests instead.
+
+native-tls 0.2.17 fails with rustc 1.90 in the OpenSSL backend due to
+missing Tlsv13 match arms in the not(have_min_max_version) path.
+---
+ Cargo.toml            | 1 +
+ pbs-client/Cargo.toml | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/Cargo.toml b/Cargo.toml
+index 7a695e81..4f6416be 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -141,6 +141,7 @@ log = "0.4.17"
+ nix = "0.29"
+ nom = "7"
+ num-traits = "0.2"
++native-tls = "=0.2.14"
+ once_cell = "1.3.1"
+ openssl = "0.10.40"
+ percent-encoding = "2.1"
+diff --git a/pbs-client/Cargo.toml b/pbs-client/Cargo.toml
+index fa02083b..f381056e 100644
+--- a/pbs-client/Cargo.toml
++++ b/pbs-client/Cargo.toml
+@@ -17,6 +17,7 @@ hyper-util = { workspace = true, features = ["client", "client-legacy", "h
+ hyper.workspace = true
+ libc.workspace = true
+ nix.workspace = true
++native-tls.workspace = true
+ openssl.workspace = true
+ percent-encoding.workspace = true
+ pin-project-lite.workspace = true
+-- 
+2.53.0
