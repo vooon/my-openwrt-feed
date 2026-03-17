@@ -26,7 +26,7 @@ start_service() {
 	# procd_add_jail_mount /etc/TZ
 	# procd_add_jail_mount /etc/ssl/certs/ca-certificates.crt
 
-	procd_set_param command "$PROG" --web.listen-address "$listen" --log-level "$log_level"
+	procd_set_param command "$PROG" --web.listen-address "$listen" --log.level "$log_level"
 
 	config_list_foreach daemon env list_append_env
 	config_list_foreach daemon extra_arg list_append_args
