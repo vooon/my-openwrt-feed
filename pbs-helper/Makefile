@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pbs-helper
-PKG_VERSION:=0.2.0
+PKG_VERSION:=0.3.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=ASL-2.0
@@ -24,7 +24,7 @@ define Package/pbs-helper/description
 endef
 
 define Package/pbs-helper/conffiles
-/etc/pbs.env
+/etc/config/pbs
 endef
 
 define Build/Configure
@@ -34,8 +34,8 @@ define Build/Compile
 endef
 
 define Package/pbs-helper/install
-	$(INSTALL_DIR) $(1)/etc/
-	$(INSTALL_CONF) $(CURDIR)/files/pbs.env $(1)/etc/pbs.env
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) $(CURDIR)/files/pbs.conf $(1)/etc/config/pbs
 
 	$(INSTALL_DIR) $(1)/usr/bin/
 	$(INSTALL_BIN) $(CURDIR)/files/pbs.sh $(1)/usr/bin/pbs.sh
