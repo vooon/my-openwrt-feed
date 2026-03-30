@@ -1,0 +1,166 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+USE_PROCD=1
+PROG=/usr/bin/smokeping_prober
+CONF=smokeping-prober
+GENERATED_CONFIG=/var/etc/smokeping-prober.yml
+
+. /usr/share/libubox/jshn.sh
+
+list_append_env() {
+	procd_append_param env "$1"
+}
+
+list_append_args() {
+	procd_append_param command "$1"
+}
+
+json_add_host_item() {
+	TARGET_HOSTS_COUNT=$((TARGET_HOSTS_COUNT + 1))
+	append TARGET_HOSTS "$1" "
+"
+}
+
+json_add_label_item() {
+	local kv="$1" key value
+	case "$kv" in
+		*=*)
+			key="${kv%%=*}"
+			value="${kv#*=}"
+			;;
+		*)
+			return
+			;;
+	esac
+
+	if [ "$TARGET_LABELS_COUNT" -eq 0 ]; then
+		json_add_object labels
+	fi
+	TARGET_LABELS_COUNT=$((TARGET_LABELS_COUNT + 1))
+	json_add_string "$key" "$value"
+}
+
+emit_json_target() {
+	local section="$1"
+	local enabled interval network protocol source size tos
+	local size_num tos_num
+
+	config_get_bool enabled "$section" enabled 1
+	[ "$enabled" -ne 0 ] || return
+
+	config_get interval "$section" interval ""
+	config_get network "$section" network ""
+	config_get protocol "$section" protocol ""
+	config_get source "$section" source ""
+	config_get size "$section" size ""
+	config_get tos "$section" tos ""
+
+	# daemon section keeps historical option names
+	[ -n "$interval" ] || config_get interval "$section" ping_interval ""
+	[ -n "$size" ] || config_get size "$section" ping_size ""
+	[ -n "$tos" ] || config_get tos "$section" ping_tos ""
+	[ -n "$network" ] || config_get network "$section" ping_network ""
+	[ -n "$protocol" ] || config_get protocol "$section" ping_protocol ""
+	[ -n "$source" ] || config_get source "$section" ping_source ""
+
+	TARGET_HOSTS_COUNT=0
+	TARGET_LABELS_COUNT=0
+	TARGET_HOSTS=""
+	config_list_foreach "$section" host json_add_host_item
+	[ "$TARGET_HOSTS_COUNT" -ne 0 ] || return
+
+	json_add_object ""
+	json_add_array hosts
+	local _host
+	for _host in $TARGET_HOSTS; do
+		[ -n "$_host" ] && json_add_string "" "$_host"
+	done
+	json_close_array
+
+	[ -n "$interval" ] && json_add_string interval "$interval"
+	[ -n "$network" ] && json_add_string network "$network"
+	[ -n "$protocol" ] && json_add_string protocol "$protocol"
+	[ -n "$source" ] && json_add_string source "$source"
+	if [ -n "$size" ]; then
+		size_num=$((size + 0)) 2>/dev/null && json_add_int size "$size_num"
+	fi
+	if [ -n "$tos" ]; then
+		tos_num=$((tos + 0)) 2>/dev/null && json_add_int tos "$tos_num"
+	fi
+
+	config_list_foreach "$section" label json_add_label_item
+	[ "$TARGET_LABELS_COUNT" -ne 0 ] && json_close_object
+	json_close_object
+	GEN_TARGET_COUNT=$((GEN_TARGET_COUNT + 1))
+}
+
+render_generated_config() {
+	local out="$1"
+	GEN_TARGET_COUNT=0
+
+	json_init
+	json_add_array targets
+	emit_json_target daemon
+	config_foreach emit_json_target target
+	json_close_array
+
+	mkdir -p "$(dirname "$out")" || {
+		return 1
+	}
+	json_dump > "$out"
+	return 0
+}
+
+start_service() {
+	procd_open_instance
+
+	local listen telemetry_path log_level log_format ping_interval ping_size ping_tos
+	local privileged config_file buckets
+
+	config_load "$CONF"
+	config_get listen daemon listen "127.0.0.1:9374"
+	config_get telemetry_path daemon telemetry_path "/metrics"
+	config_get log_level daemon log_level "info"
+	config_get log_format daemon log_format "logfmt"
+	config_get ping_interval daemon ping_interval "1s"
+	config_get ping_size daemon ping_size "56"
+	config_get ping_tos daemon ping_tos "0x00"
+	config_get_bool privileged daemon privileged 1
+	config_get config_file daemon config_file ""
+	config_get buckets daemon buckets ""
+
+	if [ -z "$config_file" ]; then
+		config_file="$GENERATED_CONFIG"
+		if ! render_generated_config "$config_file"; then
+			procd_set_param error "failed to render generated config: $config_file"
+		fi
+	fi
+
+	procd_set_param command "$PROG" \
+		--web.listen-address "$listen" \
+		--web.telemetry-path "$telemetry_path" \
+		--log.level "$log_level" \
+		--log.format "$log_format" \
+		--ping.interval "$ping_interval" \
+		--ping.size "$ping_size" \
+		--ping.tos "$ping_tos"
+
+	[ "$privileged" -eq 0 ] && procd_append_param command --no-privileged
+	[ "$privileged" -ne 0 ] && procd_append_param command --privileged
+	[ -n "$config_file" ] && procd_append_param command --config.file "$config_file"
+	[ -n "$buckets" ] && procd_append_param command --buckets "$buckets"
+
+	config_list_foreach daemon env list_append_env
+	config_list_foreach daemon extra_arg list_append_args
+
+	procd_set_param respawn
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$CONF"
+}
