@@ -1,0 +1,69 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+USE_PROCD=1
+PROG=/usr/bin/squid-exporter
+CONF=squid-exporter
+
+list_append_env() {
+	procd_append_param env "$1"
+}
+
+list_append_args() {
+	procd_append_param command "$1"
+}
+
+list_append_label() {
+	procd_append_param command --label "$1"
+}
+
+start_service() {
+	procd_open_instance
+
+	local listen metrics_path squid_hostname squid_port squid_login squid_password
+	local squid_pidfile extract_service_times use_proxy_header
+
+	config_load "$CONF"
+	config_get listen daemon listen "127.0.0.1:9301"
+	config_get metrics_path daemon metrics_path "/metrics"
+	config_get squid_hostname daemon squid_hostname "127.0.0.1"
+	config_get squid_port daemon squid_port "3128"
+	config_get squid_login daemon squid_login ""
+	config_get squid_password daemon squid_password ""
+	config_get squid_pidfile daemon squid_pidfile ""
+	config_get_bool extract_service_times daemon extract_service_times 1
+	config_get_bool use_proxy_header daemon use_proxy_header 0
+
+	procd_add_jail squid-exporter log procfs
+	procd_add_jail_mount /etc/TZ
+	[ -n "$squid_pidfile" ] && procd_add_jail_mount "$(dirname "$squid_pidfile")"
+
+	procd_set_param command "$PROG" \
+		--listen "$listen" \
+		--metrics-path "$metrics_path" \
+		--squid-hostname "$squid_hostname" \
+		--squid-port "$squid_port"
+
+	[ "$extract_service_times" -ne 0 ] && procd_append_param command --extractservicetimes
+	[ "$use_proxy_header" -ne 0 ] && procd_append_param command --squid-use-proxy-header
+
+	[ -n "$squid_login" ] && procd_append_param command --squid-login "$squid_login"
+	[ -n "$squid_password" ] && procd_append_param command --squid-password "$squid_password"
+	[ -n "$squid_pidfile" ] && procd_append_param command --squid-pidfile "$squid_pidfile"
+
+	config_list_foreach daemon label list_append_label
+	config_list_foreach daemon ro_mount procd_add_jail_mount
+	config_list_foreach daemon rw_mount procd_add_jail_mount_rw
+	config_list_foreach daemon env list_append_env
+	config_list_foreach daemon extra_arg list_append_args
+
+	procd_set_param respawn
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$CONF"
+}
