@@ -1,0 +1,13 @@
+*.py[cod]
+
+.venv
+.idea
+.mypy_cache/
+.cache/
+
+# Editors
+*~
+.*.swp
+.*sw?
+.vscode/
+.codex
