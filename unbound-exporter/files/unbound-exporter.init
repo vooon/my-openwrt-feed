@@ -1,0 +1,77 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+USE_PROCD=1
+PROG=/usr/bin/unbound_exporter
+CONF=unbound-exporter
+
+add_mount_dir_if_set() {
+	local path="$1"
+	[ -n "$path" ] || return 0
+	case "$path" in
+		/*) procd_add_jail_mount "$(dirname "$path")" ;;
+	esac
+}
+
+list_append_env() {
+	procd_append_param env "$1"
+}
+
+list_append_args() {
+	procd_append_param command "$1"
+}
+
+start_service() {
+	procd_open_instance
+
+	local listen metrics_path unbound_host unbound_ca unbound_cert unbound_key
+	local jail unbound_sock_dir
+
+	config_load "$CONF"
+	config_get listen daemon listen "127.0.0.1:9167"
+	config_get metrics_path daemon metrics_path "/metrics"
+	config_get unbound_host daemon unbound_host "tcp://127.0.0.1:8953"
+	config_get unbound_ca daemon unbound_ca ""
+	config_get unbound_cert daemon unbound_cert ""
+	config_get unbound_key daemon unbound_key ""
+	config_get_bool jail daemon jail 1
+
+	if [ "$jail" -ne 0 ]; then
+		procd_add_jail unbound-exporter log procfs
+		procd_add_jail_mount /etc/TZ
+
+		case "$unbound_host" in
+			unix:///*)
+				unbound_sock_dir="$(dirname "${unbound_host#unix://}")"
+				procd_add_jail_mount "$unbound_sock_dir"
+				;;
+		esac
+
+		add_mount_dir_if_set "$unbound_ca"
+		add_mount_dir_if_set "$unbound_cert"
+		add_mount_dir_if_set "$unbound_key"
+		config_list_foreach daemon ro_mount procd_add_jail_mount
+		config_list_foreach daemon rw_mount procd_add_jail_mount_rw
+	fi
+
+	procd_set_param command "$PROG" \
+		--web.listen-address "$listen" \
+		--web.telemetry-path "$metrics_path" \
+		--unbound.host "$unbound_host" \
+		--unbound.ca "$unbound_ca" \
+		--unbound.cert "$unbound_cert" \
+		--unbound.key "$unbound_key"
+
+	config_list_foreach daemon env list_append_env
+	config_list_foreach daemon extra_arg list_append_args
+
+	procd_set_param respawn
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$CONF"
+}
