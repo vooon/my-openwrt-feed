@@ -30,5 +30,6 @@ Package Highlights
 - `qemu-instance-init`: procd init helper for QEMU VMs
 - `inotify-rsync`: rsync on filesystem changes
 - `ddns-dhcp-sync`, `zoneomatic`: DNS and DHCP sync/update helpers
+- `pathosd`: health-driven BGP Anycast announcer daemon
 - `prometheus-node-exporter-ucode`, `frr-exporter`: monitoring/exporter packages
 - `watchcat-fix`, `envsubst`: utility packages

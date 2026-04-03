@@ -1,0 +1,44 @@
+---
+schema: v1
+
+router:
+  asn: 65001
+  router_id: 192.0.2.1
+  local_address: 192.0.2.1
+
+api:
+  listen: 127.0.0.1:59179
+
+logging:
+  level: info
+  format: text
+
+bgp:
+  graceful_restart: true
+  hold_time: 90s
+  keepalive_time: 30s
+  neighbors:
+    - name: upstream
+      address: 192.0.2.254
+      peer_asn: 65000
+      required: true
+      port: 179
+
+vips:
+  - name: service-vip
+    prefix: 198.51.100.10/32
+    check:
+      type: http
+      interval: 2s
+      timeout: 500ms
+      rise: 2
+      fall: 3
+      http:
+        proto: http
+        host: 127.0.0.1
+        port: 80
+        url: /healthz
+        method: GET
+        response_codes: [200]
+    policy:
+      fail_action: withdraw
