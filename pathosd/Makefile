@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pathosd
-PKG_VERSION:=0.1.0
+PKG_VERSION:=0.1.1
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/pathosd.git
-PKG_MIRROR_HASH:=2793e0ee2b63ac5404a176858a6f07317cee27fd5906077f250cb99c7fb713ae
+PKG_MIRROR_HASH:=5b7f137e35bfa0758c05c1d1a0c8b4d950116328d76bff02db691dc96c9b41ea
 PKG_SOURCE_VERSION:=v$(PKG_VERSION)
 
 PKG_LICENSE:=Apache-2.0
@@ -56,6 +56,9 @@ define Package/pathosd/install
 
 	$(INSTALL_DIR) $(1)/etc/pathosd
 	$(INSTALL_CONF) $(CURDIR)/files/pathosd.yaml $(1)/etc/pathosd/pathosd.yaml
+
+	$(INSTALL_DIR) $(1)/etc/capabilities
+	$(INSTALL_DATA) $(CURDIR)/files/pathosd.json $(1)/etc/capabilities/pathosd.json
 
 	$(INSTALL_DIR) $(1)/usr/share/pathosd/schema
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/schema/pathosd-config-v1.schema.json $(1)/usr/share/pathosd/schema/
