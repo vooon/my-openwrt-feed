@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pathosd
-PKG_VERSION:=0.1.2
+PKG_VERSION:=0.2.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/pathosd.git
-PKG_MIRROR_HASH:=aa491f78b0c800093cf6f0fdcc8d4df08d04e63094e0292a9245bac081b3f5da
+PKG_MIRROR_HASH:=skip
 PKG_SOURCE_VERSION:=v$(PKG_VERSION)
 
 PKG_LICENSE:=Apache-2.0
@@ -32,7 +32,7 @@ define Package/pathosd
   CATEGORY:=Network
   TITLE:=Health-driven BGP Anycast announcer daemon
   URL:=https://github.com/vooon/pathosd
-  DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle
+  DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle +gobgp
 endef
 
 define Package/pathosd/description
