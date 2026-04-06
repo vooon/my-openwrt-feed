@@ -9,9 +9,28 @@ if (!enabled) {
 	return;
 }
 
-let lan_if = daemon.lan_if ?? "br-lan";
+let lan_ifs = [];
 let mark_mask = daemon.mark_mask ?? "0x70000000";
 let ifaces = [];
+
+if (type(daemon.lan_if) == "array")
+	lan_ifs = daemon.lan_if;
+else if (daemon.lan_if)
+	lan_ifs = [ daemon.lan_if ];
+else
+	lan_ifs = [ "br-lan" ];
+
+let seen_lan_ifs = {};
+let uniq_lan_ifs = [];
+for (let lan_if in lan_ifs) {
+	if (!lan_if || seen_lan_ifs[lan_if])
+		continue;
+
+	seen_lan_ifs[lan_if] = true;
+	push(uniq_lan_ifs, lan_if);
+}
+
+lan_ifs = length(uniq_lan_ifs) ? uniq_lan_ifs : [ "br-lan" ];
 
 uci.foreach("vpn-sticky", "iface", section => {
 	let name = section.name ?? section[".name"];
@@ -31,7 +50,9 @@ table inet vpn_sticky {
 {% for (let iface in ifaces): %}
 		iifname "{{ iface.name }}" ct state new ct mark set {{ iface.mark }}
 {% endfor %}
+{% for (let lan_if in lan_ifs): %}
 		iifname "{{ lan_if }}" ct state { established, related } ct mark & {{ mark_mask }} != 0x0 meta mark set ct mark
+{% endfor %}
 	}
 
 	chain output {

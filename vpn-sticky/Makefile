@@ -15,7 +15,7 @@ define Package/vpn-sticky
   SUBMENU:=Routing and Redirection
   TITLE:=Sticky VPN policy routing with connmark propagation
   PKGARCH:=all
-  DEPENDS:=+ip-full +firewall4 +ucode +ucode-mod-uci
+  DEPENDS:=+ip-full +nftables +ucode +ucode-mod-uci
 endef
 
 define Package/vpn-sticky/description
@@ -39,18 +39,21 @@ define Package/vpn-sticky/install
 
 	$(INSTALL_DIR) $(1)/usr/share/vpn-sticky
 	$(INSTALL_DATA) ./files/vpn-sticky.nft.uc $(1)/usr/share/vpn-sticky/vpn-sticky.nft.uc
-	$(INSTALL_BIN) ./files/vpn-sticky.include $(1)/usr/share/vpn-sticky/vpn-sticky.include
-
-	$(INSTALL_DIR) $(1)/etc/uci-defaults
-	$(INSTALL_BIN) ./files/90-vpn-sticky-firewall $(1)/etc/uci-defaults/90-vpn-sticky-firewall
 endef
 
 define Package/vpn-sticky/postinst
 #!/bin/sh
 if [ -z "$${IPKG_INSTROOT}" ]; then
+	changed=0
+	for sec in $$(uci -q show firewall | sed -n "s/^firewall\\.\\(@include\\[[0-9]\\+\\]\\)\\.path='\\/usr\\/share\\/vpn-sticky\\/vpn-sticky\\.include'$$/\\1/p"); do
+		uci -q delete "firewall.$$sec"
+		changed=1
+	done
+	[ "$$changed" -eq 0 ] || uci -q commit firewall
+
 	rm -f /etc/hotplug.d/iface/99-vpn-sticky
 	rm -f /etc/vpn-sticky.nft /usr/sbin/vpn-sticky-apply
-	[ -x /etc/uci-defaults/90-vpn-sticky-firewall ] && /etc/uci-defaults/90-vpn-sticky-firewall
+	rm -f /etc/uci-defaults/90-vpn-sticky-firewall
 fi
 exit 0
 endef
@@ -65,7 +68,6 @@ if [ -z "$${IPKG_INSTROOT}" ]; then
 	done
 	[ "$$changed" -eq 0 ] || uci -q commit firewall
 	/etc/init.d/vpn-sticky stop >/dev/null 2>&1 || true
-	fw4 -q reload >/dev/null 2>&1 || true
 fi
 exit 0
 endef
