@@ -1,0 +1,34 @@
+#!/bin/sh
+
+TEMPLATE="/usr/share/vpn-sticky/vpn-sticky.nft.uc"
+
+vpn_sticky_apply() {
+	local tmpfile
+
+	command -v nft >/dev/null 2>&1 || return 0
+	command -v utpl >/dev/null 2>&1 || return 0
+	[ -r "$TEMPLATE" ] || return 0
+
+	nft delete table inet vpn_sticky >/dev/null 2>&1 || true
+
+	[ "${VPN_STICKY_FORCE_DISABLE:-0}" = "1" ] && return 0
+
+	tmpfile="$(mktemp -p /tmp vpn-sticky.nft.XXXXXX)" || return 1
+
+	if ! utpl -S "$TEMPLATE" >"$tmpfile"; then
+		rm -f "$tmpfile"
+		return 1
+	fi
+
+	if ! nft -f "$tmpfile"; then
+		rm -f "$tmpfile"
+		return 1
+	fi
+
+	rm -f "$tmpfile"
+	return 0
+}
+
+vpn_sticky_apply "$@"
+rc="$?"
+return "$rc" 2>/dev/null || exit "$rc"

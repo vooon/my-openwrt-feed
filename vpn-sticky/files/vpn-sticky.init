@@ -1,0 +1,134 @@
+#!/bin/sh /etc/rc.common
+# shellcheck shell=busybox
+
+START=95
+STOP=10
+USE_PROCD=1
+
+CONFIG_FILE="/etc/config/vpn-sticky"
+FW4_INCLUDE_SCRIPT="/usr/share/vpn-sticky/vpn-sticky.include"
+
+. /lib/functions.sh
+
+VS_ENABLED=1
+VS_MARK_MASK="0x70000000"
+VS_PREFIXES=""
+VS_IFACES=""
+
+collect_prefix() {
+	local prefix="$1"
+	[ -n "$prefix" ] || return 0
+	VS_PREFIXES="${VS_PREFIXES} ${prefix}"
+}
+
+collect_iface() {
+	local section="$1"
+	local name mark rule_pref route_table
+
+	config_get name "$section" name
+	config_get mark "$section" mark
+	config_get rule_pref "$section" rule_pref
+	config_get route_table "$section" route_table
+
+	[ -n "$name" ] || return 0
+	[ -n "$mark" ] || return 0
+	[ -n "$rule_pref" ] || return 0
+	[ -n "$route_table" ] || return 0
+
+	VS_IFACES="${VS_IFACES}${name}|${mark}|${rule_pref}|${route_table}
+"
+}
+
+load_config_data() {
+	VS_ENABLED=1
+	VS_MARK_MASK="0x70000000"
+	VS_PREFIXES=""
+	VS_IFACES=""
+
+	config_load vpn-sticky || return 1
+	config_get_bool VS_ENABLED daemon enabled 1
+	config_get VS_MARK_MASK daemon mark_mask "0x70000000"
+	config_list_foreach daemon target_prefix collect_prefix
+	config_foreach collect_iface iface
+}
+
+flush_routes() {
+	local name mark rule_pref route_table
+
+	printf "%s" "$VS_IFACES" | while IFS='|' read -r name mark rule_pref route_table; do
+		[ -n "$name" ] || continue
+		ip -4 rule del pref "$rule_pref" 2>/dev/null || true
+		ip -4 route flush table "$route_table" 2>/dev/null || true
+	done
+}
+
+apply_routes() {
+	local name mark rule_pref route_table prefix
+
+	printf "%s" "$VS_IFACES" | while IFS='|' read -r name mark rule_pref route_table; do
+		[ -n "$name" ] || continue
+
+		if ip link show dev "$name" >/dev/null 2>&1; then
+			for prefix in $VS_PREFIXES; do
+				ip -4 route replace table "$route_table" "$prefix" dev "$name"
+			done
+
+			ip -4 rule add pref "$rule_pref" fwmark "$mark/$VS_MARK_MASK" lookup "$route_table"
+		fi
+	done
+}
+
+apply_firewall_rules() {
+	[ -x "$FW4_INCLUDE_SCRIPT" ] || return 0
+	"$FW4_INCLUDE_SCRIPT"
+}
+
+disable_firewall_rules() {
+	[ -x "$FW4_INCLUDE_SCRIPT" ] || return 0
+	VPN_STICKY_FORCE_DISABLE=1 "$FW4_INCLUDE_SCRIPT"
+}
+
+start_service() {
+	reload_service
+}
+
+reload_routes() {
+	[ -f "$CONFIG_FILE" ] || return 0
+	load_config_data || return 1
+
+	flush_routes
+	[ "$VS_ENABLED" = "1" ] && apply_routes
+}
+
+reload_service() {
+	reload_routes || return 1
+	apply_firewall_rules
+}
+
+stop_service() {
+	if [ -f "$CONFIG_FILE" ]; then
+		load_config_data || return 1
+		flush_routes
+	fi
+
+	disable_firewall_rules
+}
+
+add_iface_trigger() {
+	local section="$1"
+	local name
+
+	config_get name "$section" name
+	[ -n "$name" ] || return 0
+
+	procd_add_interface_trigger "interface.*" "$name" /etc/init.d/vpn-sticky reload_routes
+}
+
+service_triggers() {
+	procd_add_reload_trigger "vpn-sticky"
+	procd_add_interface_trigger "interface.*" "lan" /etc/init.d/vpn-sticky reload_routes
+
+	[ -f "$CONFIG_FILE" ] || return 0
+	config_load vpn-sticky || return 0
+	config_foreach add_iface_trigger iface
+}
