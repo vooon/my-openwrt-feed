@@ -81,10 +81,13 @@ proto_nebula_setup() {
 		json_close_object
 	json_close_array
 	proto_close_data
-	addresses="$(ip -4 a list dev "$interface" 2>/dev/null | grep inet | awk '{print $2}')"
+	addresses="$(ip -o a list dev "$interface" 2>/dev/null | awk '$3 == "inet" || $3 == "inet6" {print $4}')"
 	log "Running ${interface} from $(basename "$config_file")${addresses+:  with addresses: $addresses}."
 	for address in ${addresses}; do
 		case "${address}" in
+			fe80:*/*)
+				# Skip link-local addresses; export only overlay cert-assigned addresses.
+				;;
 			*:*/*)
 				proto_add_ipv6_address "${address%%/*}" "${address##*/}"
 				;;
