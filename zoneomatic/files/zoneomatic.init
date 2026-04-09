@@ -20,11 +20,24 @@ list_append_zone() {
 start_service() {
 	procd_open_instance
 
-	local _htpasswd _listen _accept_proxy
+	local _htpasswd _listen _accept_proxy _proxy_header_timeout _debug
+	local _otel_endpoint _otel_enable_traces _otel_traces_endpoint
+	local _otel_enable_metrics _otel_metrics_endpoint
+	local _otel_enable_logs _otel_logs_endpoint _otel_service_name
 	config_load "$CONF"
 	config_get _htpasswd daemon htpasswd
 	config_get _listen daemon listen "localhost:9999"
 	config_get_bool _accept_proxy daemon accept_proxy 0
+	config_get _proxy_header_timeout daemon proxy_header_timeout
+	config_get_bool _debug daemon debug 0
+	config_get _otel_endpoint daemon otel_endpoint
+	config_get_bool _otel_enable_traces daemon otel_enable_traces 0
+	config_get _otel_traces_endpoint daemon otel_traces_endpoint
+	config_get_bool _otel_enable_metrics daemon otel_enable_metrics 0
+	config_get _otel_metrics_endpoint daemon otel_metrics_endpoint
+	config_get_bool _otel_enable_logs daemon otel_enable_logs 0
+	config_get _otel_logs_endpoint daemon otel_logs_endpoint
+	config_get _otel_service_name daemon otel_service_name
 
 	procd_add_jail zoneomatic log
 	procd_add_jail_mount /etc/TZ
@@ -37,6 +50,16 @@ start_service() {
 
 	procd_set_param command /usr/bin/zoneomatic --listen "$_listen" -p "$_htpasswd"
 	[ "$_accept_proxy" -ne 0 ] && procd_append_param command --accept-proxy
+	[ -n "$_proxy_header_timeout" ] && procd_append_param command --proxy-header-timeout "$_proxy_header_timeout"
+	[ "$_debug" -ne 0 ] && procd_append_param command --debug
+	[ -n "$_otel_endpoint" ] && procd_append_param command --otel-endpoint "$_otel_endpoint"
+	[ "$_otel_enable_traces" -ne 0 ] && procd_append_param command --otel-enable-traces
+	[ -n "$_otel_traces_endpoint" ] && procd_append_param command --otel-traces-endpoint "$_otel_traces_endpoint"
+	[ "$_otel_enable_metrics" -ne 0 ] && procd_append_param command --otel-enable-metrics
+	[ -n "$_otel_metrics_endpoint" ] && procd_append_param command --otel-metrics-endpoint "$_otel_metrics_endpoint"
+	[ "$_otel_enable_logs" -ne 0 ] && procd_append_param command --otel-enable-logs
+	[ -n "$_otel_logs_endpoint" ] && procd_append_param command --otel-logs-endpoint "$_otel_logs_endpoint"
+	[ -n "$_otel_service_name" ] && procd_append_param command --otel-service-name "$_otel_service_name"
 	config_list_foreach daemon zone list_append_zone
 
 	procd_set_param respawn
