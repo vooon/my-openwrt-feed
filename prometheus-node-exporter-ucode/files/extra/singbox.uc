@@ -1,4 +1,4 @@
-import { fetch_json } from "http_client.uc";
+import { fetch_json } from "../http_client.uc";
 
 // clash api url
 const api_url = config["api_url"];

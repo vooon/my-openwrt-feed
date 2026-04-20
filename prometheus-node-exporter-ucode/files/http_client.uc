@@ -1,8 +1,10 @@
 let uloop = require("uloop");
 let uclient = require("uclient");
 
-function fetch_json(api_url, endpoint, bearer_token='') {
+function fetch_json(api_url, endpoint, bearer_token) {
 	let data = '';
+	if (bearer_token == null)
+		bearer_token = "";
 
 	const url = `${api_url}${endpoint}`;
 	let headers = {
@@ -13,7 +15,7 @@ function fetch_json(api_url, endpoint, bearer_token='') {
 		headers["Authorization"] = `Bearer ${bearer_token}`;
 
 	uloop.init();
-	uc = uclient.new(url, null, {
+	let uc = uclient.new(url, null, {
 		data_read: (cb) => {
 			let chunk;
 			while (length(chunk = uc.read()) > 0)
