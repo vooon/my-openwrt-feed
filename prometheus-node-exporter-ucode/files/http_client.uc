@@ -15,7 +15,8 @@ function fetch_json(api_url, endpoint, bearer_token) {
 		headers["Authorization"] = `Bearer ${bearer_token}`;
 
 	uloop.init();
-	let uc = uclient.new(url, null, {
+	let uc;
+	uc = uclient.new(url, null, {
 		data_read: (cb) => {
 			let chunk;
 			while (length(chunk = uc.read()) > 0)
