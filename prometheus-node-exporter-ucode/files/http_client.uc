@@ -1,7 +1,7 @@
 let uloop = require("uloop");
 let uclient = require("uclient");
 
-function fetch_json(api_url, endpoint, bearer_token) {
+export function fetch_json(api_url, endpoint, bearer_token) {
 	let data = '';
 	if (bearer_token == null)
 		bearer_token = "";
@@ -71,4 +71,4 @@ function fetch_json(api_url, endpoint, bearer_token) {
 	}
 
 	return json(data);
-}
+};
