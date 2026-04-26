@@ -1,0 +1,55 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2026 OpenWrt.org
+
+START=80
+
+USE_PROCD=1
+
+PROG="/usr/sbin/angie"
+CONF="/etc/angie/angie.conf"
+G_OPTS="daemon off;"
+
+prepare_dirs() {
+	[ -d /var/log/angie ] || mkdir -p /var/log/angie
+	[ -d /var/lib/angie ] || mkdir -p /var/lib/angie
+}
+
+config_test() {
+	local message
+
+	message="$($PROG -t -c "$CONF" -g "$G_OPTS" 2>&1)" || {
+		echo "$message" | logger -t "angie_init" -p "daemon.err"
+		logger -s -t "angie_init" -p "daemon.err" "configuration test failed"
+		return 1
+	}
+}
+
+start_service() {
+	prepare_dirs
+	config_test || return 1
+
+	procd_open_instance
+	procd_set_param command "$PROG" -c "$CONF" -g "$G_OPTS"
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_set_param file "$CONF" /etc/angie/*.conf /etc/angie/conf.d/*.conf \
+		/etc/angie/module.d/*.module
+	procd_set_param respawn
+	procd_close_instance
+}
+
+reload_service() {
+	prepare_dirs
+	config_test || return 1
+	procd_send_signal angie
+}
+
+service_triggers() {
+	procd_add_raw_trigger acme.renew 5000 /etc/init.d/angie reload
+}
+
+extra_command "relog" "Reopen log files without reloading"
+relog() {
+	[ -d /var/log/angie ] || mkdir -p /var/log/angie
+	procd_send_signal angie '*' USR1
+}

@@ -1,0 +1,263 @@
+#
+# Copyright (C) 2026 OpenWrt.org
+#
+# This is free software, licensed under the GNU General Public License v2.
+# See /LICENSE for more information.
+#
+
+menu "Configuration"
+	depends on PACKAGE_angie
+
+config ANGIE_DAV
+	bool
+	prompt "Enable WebDAV module"
+	help
+		Enable the HTTP and WebDAV methods PUT, DELETE, MKCOL, COPY and MOVE.
+	default n
+
+config ANGIE_FLV
+	bool
+	prompt "Enable FLV module"
+	help
+		Provides the ability to seek within FLV (Flash) files using time-based offsets.
+	default n
+
+config ANGIE_STUB_STATUS
+	bool
+	prompt "Enable stub status module"
+	help
+		Enable the stub status module which gives some status from the server.
+	default n
+
+config ANGIE_HTTP_CHARSET
+	bool
+	prompt "Enable HTTP charset module"
+	default y
+
+config ANGIE_HTTP_GZIP
+	bool
+	prompt "Enable HTTP gzip module"
+	default y
+
+config ANGIE_HTTP_GZIP_STATIC
+	bool
+	prompt "Enable HTTP gzip static module"
+	default y
+
+config ANGIE_HTTP_SSI
+	bool
+	prompt "Enable HTTP ssi module"
+	default y
+
+config ANGIE_HTTP_USERID
+	bool
+	prompt "Enable HTTP userid module"
+	default y
+
+config ANGIE_HTTP_ACCESS
+	bool
+	prompt "Enable HTTP access module"
+	default y
+
+config ANGIE_HTTP_AUTH_BASIC
+	bool
+	prompt "Enable HTTP auth basic"
+	default y
+
+config ANGIE_HTTP_AUTH_REQUEST
+	bool
+	prompt "Enable HTTP auth request module"
+	default n
+
+config ANGIE_HTTP_AUTOINDEX
+	bool
+	prompt "Enable HTTP autoindex file listing module"
+	help
+		Enable directory listings. Angie can emit listings as HTML, XML, JSON,
+		or JSONP; the package also installs a reusable snippet with rounded
+		file sizes and local timestamps.
+	default y
+
+config ANGIE_HTTP_GEO
+	bool
+	prompt "Enable HTTP geo module"
+	default y
+
+config ANGIE_HTTP_MAP
+	bool
+	prompt "Enable HTTP map module"
+	default y
+
+config ANGIE_HTTP_SPLIT_CLIENTS
+	bool
+	prompt "Enable HTTP split clients"
+	default y
+
+config ANGIE_HTTP_REFERER
+	bool
+	prompt "Enable HTTP referer module"
+	default y
+
+config ANGIE_HTTP_REWRITE
+	bool
+	prompt "Enable HTTP rewrite module"
+	select ANGIE_PCRE
+	default y
+
+config ANGIE_HTTP_PROXY
+	bool
+	prompt "Enable HTTP proxy module"
+	default y
+
+config ANGIE_HTTP_FASTCGI
+	bool
+	prompt "Enable HTTP fastcgi module"
+	default y
+
+config ANGIE_HTTP_UWSGI
+	bool
+	prompt "Enable HTTP uwsgi module"
+	default y
+
+config ANGIE_HTTP_SCGI
+	bool
+	prompt "Enable HTTP scgi module"
+	default y
+
+config ANGIE_HTTP_GRPC
+	bool
+	prompt "Enable HTTP gRPC module"
+	default y
+
+config ANGIE_HTTP_MEMCACHED
+	bool
+	prompt "Enable HTTP memcached module"
+	default y
+
+config ANGIE_HTTP_LIMIT_CONN
+	bool
+	prompt "Enable HTTP limit conn"
+	default y
+
+config ANGIE_HTTP_LIMIT_REQ
+	bool
+	prompt "Enable HTTP limit req"
+	default y
+
+config ANGIE_HTTP_EMPTY_GIF
+	bool
+	prompt "Enable HTTP empty gif"
+	default y
+
+config ANGIE_HTTP_BROWSER
+	bool
+	prompt "Enable HTTP browser module"
+	default y
+
+config ANGIE_HTTP_UPSTREAM_HASH
+	bool
+	prompt "Enable HTTP upstream hash module"
+	default y
+
+config ANGIE_HTTP_UPSTREAM_IP_HASH
+	bool
+	prompt "Enable HTTP upstream IP hash module"
+	default y
+
+config ANGIE_HTTP_UPSTREAM_LEAST_CONN
+	bool
+	prompt "Enable HTTP upstream least conn module"
+	default y
+
+config ANGIE_HTTP_UPSTREAM_RANDOM
+	bool
+	prompt "Enable HTTP upstream random module"
+	default y
+
+config ANGIE_HTTP_UPSTREAM_KEEPALIVE
+	bool
+	prompt "Enable HTTP upstream keepalive module"
+	default y
+
+config ANGIE_HTTP_UPSTREAM_ZONE
+	bool
+	prompt "Enable HTTP upstream zone module"
+	default y
+
+config ANGIE_HTTP_UPSTREAM_STICKY
+	bool
+	prompt "Enable HTTP upstream sticky module"
+	default y
+
+config ANGIE_HTTP_CACHE
+	bool
+	prompt "Enable HTTP cache"
+	default y
+
+config ANGIE_HTTP_API
+	bool
+	prompt "Enable HTTP API module"
+	default y
+
+config ANGIE_HTTP_METRIC
+	bool
+	prompt "Enable HTTP metric module"
+	default y
+
+config ANGIE_HTTP_PROMETHEUS
+	bool
+	prompt "Enable HTTP Prometheus module"
+	select ANGIE_HTTP_API
+	select ANGIE_PCRE
+	help
+		Enable Angie's native Prometheus endpoint support. The packaged default
+		exporter snippet uses the bundled prometheus_all.conf template, which
+		requires the API module and PCRE-backed path matching.
+	default y
+
+config ANGIE_HTTP_DOCKER
+	bool
+	prompt "Enable HTTP Docker module"
+	default y
+
+config ANGIE_HTTP_ACME
+	bool
+	prompt "Enable HTTP ACME module"
+	default n
+
+config ANGIE_HTTP_V2
+	bool
+	prompt "Enable HTTP/2 module"
+	default y
+
+config ANGIE_HTTP_QUIC
+	bool
+	prompt "Enable HTTP/3 module"
+	default n
+
+config ANGIE_PCRE
+	bool
+	prompt "Enable PCRE library usage"
+	default y
+
+config ANGIE_HTTP_REAL_IP
+	bool
+	prompt "Enable HTTP real ip module"
+	default n
+
+config ANGIE_HTTP_SECURE_LINK
+	bool
+	prompt "Enable HTTP secure link module"
+	default n
+
+config ANGIE_HTTP_SUB
+	bool
+	prompt "Enable HTTP sub module"
+	default n
+
+config ANGIE_STREAM_REAL_IP
+	bool
+	prompt "Enable stream real ip module"
+	default n
+
+endmenu
