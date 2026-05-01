@@ -144,12 +144,12 @@ add_iface_trigger() {
 	config_get name "$section" name
 	[ -n "$name" ] || return 0
 
-	procd_add_interface_trigger "interface.*" "$name" /etc/init.d/vpn-sticky reload_routes
+	procd_add_interface_trigger "interface.*" "$name" /etc/init.d/vpn-sticky reload
 }
 
 service_triggers() {
 	procd_add_reload_trigger "vpn-sticky"
-	procd_add_interface_trigger "interface.*" "lan" /etc/init.d/vpn-sticky reload_routes
+	procd_add_interface_trigger "interface.*" "lan" /etc/init.d/vpn-sticky reload
 
 	[ -f "$CONFIG_FILE" ] || return 0
 	config_load vpn-sticky || return 0
