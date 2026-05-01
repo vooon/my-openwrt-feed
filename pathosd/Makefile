@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pathosd
-PKG_VERSION:=0.2.0
+PKG_VERSION:=0.3.3
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/pathosd.git
-PKG_MIRROR_HASH:=skip
+PKG_MIRROR_HASH:=4493b226e5071bbd1c70e8db408faddb5017c9dc5ed0939b6780eaf19669a83f
 PKG_SOURCE_VERSION:=v$(PKG_VERSION)
 
 PKG_LICENSE:=Apache-2.0
