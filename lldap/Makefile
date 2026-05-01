@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lldap
-PKG_VERSION:=0.6.2
+PKG_VERSION:=0.6.3
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/lldap/lldap.git
-PKG_MIRROR_HASH:=a405061ec08e0fd531e31c959ea305514df545549349e0252d5521de5f5aac8a
+PKG_MIRROR_HASH:=6d2d5d96a1b6112cc75b26eea888445fc9bc5c315f0d6e2c06b1928cc3605bf0
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
@@ -26,7 +26,7 @@ define Download/lldap-frontend
   URL:=https://github.com/lldap/lldap/releases/download/v$(PKG_VERSION)/
   URL_FILE:=amd64-lldap.tar.gz
   FILE:=$(FRONTEND_FILE)
-  HASH:=a69a3d547cbef17d440753a206ad94ea3735f3cf55caa292df0faf77dab3b81b
+  HASH:=e80b50ef39be61de9f1d75182b1e1fa5d82c672261c7e34fd8ffec5455ed3883
 endef
 
 define Package/lldap
