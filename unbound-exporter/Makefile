@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=unbound-exporter
-PKG_VERSION:=0.5.0
+PKG_VERSION:=0.6.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/letsencrypt/unbound_exporter.git
-PKG_MIRROR_HASH:=cfbed38c54dd157f51075758d3940b883c650cb7e8699e965d08c543e009fbfa
+PKG_MIRROR_HASH:=ae17420e4a642a30ada69fdb9f1586b37d13ee92fa5dd4538df5a8598d2bca48
 PKG_SOURCE_VERSION:=v$(PKG_VERSION)
 
 PKG_LICENSE:=Apache-2.0
