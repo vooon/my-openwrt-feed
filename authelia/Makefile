@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=authelia
-PKG_VERSION:=4.39.19
+PKG_VERSION:=4.39.20
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/authelia/authelia.git
-PKG_MIRROR_HASH:=18a314fc8d083e25b4d9a160e404b3c8f400e0de9e5150c72517e74ae2f672ab
+PKG_MIRROR_HASH:=625e4d6255c91e73210d28e9ed0b50116cb509d577cbee34874a89c1a4e790e4
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=ASL-2.0
@@ -56,10 +56,11 @@ endef
 
 define Host/Install
 	# XXX: quite ad-hoc solution...
-	npm install -g pnpm@latest-10
+	npm install -g pnpm@latest-11
 endef
 
 define Build/Compile
+	git -C $(PKG_BUILD_DIR) init; \
 	cd $(PKG_BUILD_DIR)/web; \
 	pnpm install; \
 	pnpm build;
