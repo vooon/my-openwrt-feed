@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gobgp
-PKG_VERSION:=4.6.0
+PKG_VERSION:=4.7.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
