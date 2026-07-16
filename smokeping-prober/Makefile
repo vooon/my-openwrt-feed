@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=smokeping-prober
-PKG_VERSION:=0.11.0
+PKG_VERSION:=0.12.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/SuperQ/smokeping_prober.git
-PKG_MIRROR_HASH:=5e121372e09517f6a9cce2cbfdd3be1e9ad9865bbe4dddeac2c5eb48fbb94132
+PKG_MIRROR_HASH:=e9d0d1d7de348c308020b9c5d7061a6cb936ef2cde9f04dca4c39f37001eb26b
 PKG_SOURCE_VERSION:=v$(PKG_VERSION)
 
 PKG_LICENSE:=Apache-2.0
