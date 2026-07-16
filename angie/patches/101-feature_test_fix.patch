@@ -9,7 +9,7 @@
      ngx_feature_incs=
      ngx_feature_path=
      ngx_feature_libs=
-@@ -204,7 +204,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
+@@ -192,7 +192,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
      else
          ngx_feature="gcc builtin atomic operations"
          ngx_feature_name=NGX_HAVE_GCC_ATOMIC
@@ -18,23 +18,14 @@
          ngx_feature_incs=
          ngx_feature_path=
          ngx_feature_libs=
-@@ -225,7 +225,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
-     else
-         ngx_feature="C99 variadic macros"
-         ngx_feature_name="NGX_HAVE_C99_VARIADIC_MACROS"
--        ngx_feature_run=yes
-+        ngx_feature_run=no
-         ngx_feature_incs="#include <stdio.h>
- #define var(dummy, ...)  sprintf(__VA_ARGS__)"
-         ngx_feature_path=
-@@ -239,7 +239,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
+@@ -210,7 +210,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
  
-     ngx_feature="gcc variadic macros"
-     ngx_feature_name="NGX_HAVE_GCC_VARIADIC_MACROS"
+     ngx_feature="C99 variadic macros"
+     ngx_feature_name="NGX_HAVE_C99_VARIADIC_MACROS"
 -    ngx_feature_run=yes
 +    ngx_feature_run=no
      ngx_feature_incs="#include <stdio.h>
- #define var(dummy, args...)  sprintf(args)"
+ #define var(dummy, ...)  sprintf(__VA_ARGS__)"
      ngx_feature_path=
 --- a/auto/os/linux
 +++ b/auto/os/linux
