@@ -1,4 +1,4 @@
-From bceca925a5c8a203c36f4274e5e284b177fe86ba Mon Sep 17 00:00:00 2001
+From eae05e77492eb00f59fa71f9436b2f6d6c4e5329 Mon Sep 17 00:00:00 2001
 From: Vladimir Ermakov <vooon341@gmail.com>
 Date: Thu, 24 Jul 2025 12:33:00 +0200
 Subject: [PATCH 2/4] remove libsystemd linking
@@ -10,19 +10,17 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 ---
  Cargo.toml                           |   6 ++
  pbs-datastore/Cargo.toml             |   3 +-
- pbs-datastore/src/backup_info.rs     |   3 +-
+ pbs-datastore/src/backup_info.rs     |   2 +-
  proxmox-backup-client/Cargo.toml     |   3 +-
  proxmox-backup-client/src/mount.rs   |   2 +
  proxmox-systemd-escape/Cargo.toml    |  13 +++
  proxmox-systemd-escape/src/escape.rs | 125 +++++++++++++++++++++++++++
  proxmox-systemd-escape/src/lib.rs    |   4 +
- 8 files changed, 156 insertions(+), 3 deletions(-)
+ 8 files changed, 155 insertions(+), 3 deletions(-)
  create mode 100644 proxmox-systemd-escape/Cargo.toml
  create mode 100644 proxmox-systemd-escape/src/escape.rs
  create mode 100644 proxmox-systemd-escape/src/lib.rs
 
-diff --git a/Cargo.toml b/Cargo.toml
-index aace6c33..7ca2c4ad 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -45,6 +45,8 @@ members = [
@@ -34,7 +32,7 @@ index aace6c33..7ca2c4ad 100644
  ]
  
  [lib]
-@@ -116,6 +118,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse" }
+@@ -119,6 +121,8 @@ pbs-pxar-fuse = { path = "pbs-pxar-fuse"
  pbs-tape = { path = "pbs-tape" }
  pbs-tools = { path = "pbs-tools" }
  
@@ -43,7 +41,7 @@ index aace6c33..7ca2c4ad 100644
  # regular crates
  anyhow = "1.0"
  async-trait = "0.1.56"
-@@ -268,6 +272,8 @@ pbs-tools.workspace = true
+@@ -276,6 +280,8 @@ pbs-tools.workspace = true
  proxmox-rrd.workspace = true
  proxmox-rrd-api-types.workspace = true
  
@@ -52,11 +50,9 @@ index aace6c33..7ca2c4ad 100644
  # Local path overrides
  # NOTE: You must run `cargo update` after changing this for it to take effect!
  [patch.crates-io]
-diff --git a/pbs-datastore/Cargo.toml b/pbs-datastore/Cargo.toml
-index 42f49a7b..42f0f76d 100644
 --- a/pbs-datastore/Cargo.toml
 +++ b/pbs-datastore/Cargo.toml
-@@ -43,7 +43,8 @@ proxmox-schema = { workspace = true, features = [ "api-macro" ] }
+@@ -43,7 +43,8 @@ proxmox-schema = { workspace = true, fea
  proxmox-section-config.workspace = true
  proxmox-serde = { workspace = true, features = [ "serde_json" ] }
  proxmox-sys.workspace = true
@@ -66,25 +62,20 @@ index 42f49a7b..42f0f76d 100644
  proxmox-time.workspace = true
  proxmox-uuid.workspace = true
  proxmox-worker-task.workspace = true
-diff --git a/pbs-datastore/src/backup_info.rs b/pbs-datastore/src/backup_info.rs
-index 859039cf..9d8f3810 100644
 --- a/pbs-datastore/src/backup_info.rs
 +++ b/pbs-datastore/src/backup_info.rs
-@@ -11,7 +11,8 @@ use const_format::concatcp;
+@@ -12,7 +12,7 @@ use tracing::info;
  
- use proxmox_s3_client::S3PathPrefix;
- use proxmox_sys::fs::{lock_dir_noblock, lock_dir_noblock_shared, replace_file, CreateOptions};
+ use proxmox_s3_client::{S3ObjectKey, S3PathPrefix};
+ use proxmox_sys::fs::{CreateOptions, lock_dir_noblock, lock_dir_noblock_shared, replace_file};
 -use proxmox_systemd::escape_unit;
-+// use proxmox_systemd::escape_unit;
 +use proxmox_systemd_escape::escape_unit;
  
  use pbs_api_types::{
-     Authid, BackupGroupDeleteStats, BackupNamespace, BackupType, GroupFilter, VerifyState,
-diff --git a/proxmox-backup-client/Cargo.toml b/proxmox-backup-client/Cargo.toml
-index 5f0140e7..30e53771 100644
+     ArchiveType, Authid, BACKUP_DATE_REGEX, BackupGroupDeleteStats, BackupNamespace, BackupType,
 --- a/proxmox-backup-client/Cargo.toml
 +++ b/proxmox-backup-client/Cargo.toml
-@@ -31,7 +31,8 @@ proxmox-router = { workspace = true, features = [ "cli" ] }
+@@ -31,7 +31,8 @@ proxmox-router = { workspace = true, fea
  proxmox-schema = { workspace = true, features = [ "api-macro" ] }
  proxmox-sortable-macro.workspace = true
  proxmox-sys.workspace = true
@@ -94,22 +85,17 @@ index 5f0140e7..30e53771 100644
  proxmox-time.workspace = true
  
  pbs-api-types.workspace = true
-diff --git a/proxmox-backup-client/src/mount.rs b/proxmox-backup-client/src/mount.rs
-index e815c8a9..8d9f0310 100644
 --- a/proxmox-backup-client/src/mount.rs
 +++ b/proxmox-backup-client/src/mount.rs
 @@ -35,6 +35,8 @@ use crate::{
-     extract_repository_from_value, optional_ns_param, record_repository, REPO_URL_SCHEMA,
+     extract_repository_from_value, optional_ns_param, record_repository,
  };
  
 +use proxmox_systemd_escape as proxmox_systemd;
 +
  #[sortable]
- const API_METHOD_MOUNT: ApiMethod = ApiMethod::new(
+ const API_METHOD_MOUNT: ApiMethod = ApiMethod::new_full(
      &ApiHandler::Sync(&mount),
-diff --git a/proxmox-systemd-escape/Cargo.toml b/proxmox-systemd-escape/Cargo.toml
-new file mode 100644
-index 00000000..53463c84
 --- /dev/null
 +++ b/proxmox-systemd-escape/Cargo.toml
 @@ -0,0 +1,13 @@
@@ -126,9 +112,6 @@ index 00000000..53463c84
 +edition.workspace = true
 +
 +[dependencies]
-diff --git a/proxmox-systemd-escape/src/escape.rs b/proxmox-systemd-escape/src/escape.rs
-new file mode 100644
-index 00000000..f73beed3
 --- /dev/null
 +++ b/proxmox-systemd-escape/src/escape.rs
 @@ -0,0 +1,125 @@
@@ -257,9 +240,6 @@ index 00000000..f73beed3
 +    }
 +    Err(UnescapeError::Msg("invalid hex digit"))
 +}
-diff --git a/proxmox-systemd-escape/src/lib.rs b/proxmox-systemd-escape/src/lib.rs
-new file mode 100644
-index 00000000..301f4c5d
 --- /dev/null
 +++ b/proxmox-systemd-escape/src/lib.rs
 @@ -0,0 +1,4 @@
@@ -267,6 +247,3 @@ index 00000000..301f4c5d
 +
 +mod escape;
 +pub use escape::{escape_unit, unescape_unit, unescape_unit_path, UnescapeError};
--- 
-2.53.0
-
