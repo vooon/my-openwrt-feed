@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gotify2telegram
-PKG_VERSION:=2.4.0
+PKG_VERSION:=3.0.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/gotify2telegram.git
-PKG_MIRROR_HASH:=690bd98bee38ecdcb0fe8a40bf79fc9b8c1531dd1555a9af8d266e5a1c09a7ec
+PKG_MIRROR_HASH:=07ddd159f9ec5a4bfed3d5e7b0cbeb82eb8881350fe52c9101769031fedd23c8
 PKG_SOURCE_VERSION:=${PKG_VERSION}
 # PKG_SOURCE_VERSION:=a726e18f6eb81626e67d857ea3d0d8d070bfaffb
 
