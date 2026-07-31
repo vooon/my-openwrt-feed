@@ -23,13 +23,9 @@ start_service() {
 
 	[ -f "$central_config" ] || {
 		procd_set_param error "central config not found: $central_config"
-		procd_close_instance
-		return
 	}
 	[ -f "$node_config" ] || {
 		procd_set_param error "node config not found: $node_config"
-		procd_close_instance
-		return
 	}
 
 	procd_set_param command "$PROG" run \
