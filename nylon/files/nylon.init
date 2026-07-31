@@ -1,0 +1,55 @@
+#!/bin/sh /etc/rc.common
+
+START=80
+USE_PROCD=1
+
+PROG=/usr/sbin/nylon
+CONF=nylon
+
+start_service() {
+	local enabled central_config node_config verbose json_logging log_path
+
+	config_load "$CONF"
+	config_get_bool enabled daemon enabled 1
+	[ "$enabled" -ne 0 ] || return
+
+	config_get central_config daemon central_config /etc/nylon/central.yaml
+	config_get node_config daemon node_config /etc/nylon/node.yaml
+	config_get_bool verbose daemon verbose 0
+	config_get_bool json_logging daemon json_logging 0
+	config_get log_path daemon log_path ""
+
+	[ -f "$central_config" ] || {
+		logger -t "$CONF" "central config not found: $central_config"
+		return
+	}
+	[ -f "$node_config" ] || {
+		logger -t "$CONF" "node config not found: $node_config"
+		return
+	}
+
+	procd_open_instance
+
+	procd_set_param command "$PROG" run \
+		--config "$central_config" \
+		--node "$node_config"
+
+	[ "$verbose" -ne 0 ] && procd_append_param command -v
+	[ "$json_logging" -ne 0 ] && procd_append_param command -j
+	[ -n "$log_path" ] && procd_append_param command --log "$log_path"
+
+	config_list_foreach daemon extra_arg list_append_args
+
+	procd_set_param respawn
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+list_append_args() {
+	procd_append_param command "$1"
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$CONF"
+}
