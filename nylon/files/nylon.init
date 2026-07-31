@@ -19,16 +19,18 @@ start_service() {
 	config_get_bool json_logging daemon json_logging 0
 	config_get log_path daemon log_path ""
 
+	procd_open_instance
+
 	[ -f "$central_config" ] || {
-		logger -t "$CONF" "central config not found: $central_config"
+		procd_set_param error "central config not found: $central_config"
+		procd_close_instance
 		return
 	}
 	[ -f "$node_config" ] || {
-		logger -t "$CONF" "node config not found: $node_config"
+		procd_set_param error "node config not found: $node_config"
+		procd_close_instance
 		return
 	}
-
-	procd_open_instance
 
 	procd_set_param command "$PROG" run \
 		--config "$central_config" \
