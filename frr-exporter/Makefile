@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=frr-exporter
-PKG_VERSION:=1.11.0
+PKG_VERSION:=1.12.0
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/tynany/frr_exporter.git
-PKG_MIRROR_HASH:=342011c7ba4558e899361991e4f517a5c5eab8fda1cfdfbb95cfa16dfa506fbf
+PKG_MIRROR_HASH:=cdccd84cdcef8834cd2b3ba4634ea67bbc75f8c68766e838251f0decc36e3917
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=MIT

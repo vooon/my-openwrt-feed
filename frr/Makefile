@@ -7,12 +7,12 @@
 
 include $(TOPDIR)/rules.mk
 PKG_NAME:=frr
-PKG_VERSION:=10.6.1
+PKG_VERSION:=10.7.0
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/FRRouting/frr/tar.gz/$(PKG_NAME)-$(PKG_VERSION)?
-PKG_HASH:=35f2cb4328617261db687e1d4e400c7c491b41b3aa4a109d7da9ebff0cf7e402
+PKG_HASH:=5c56b27756854b8d0a62b3e152d3f9ea08091851b2d686e140fdfb95cd88f612
 
 
 PKG_MAINTAINER:=Lucian Cristian <lucian.cristian@gmail.com>
