@@ -2,7 +2,7 @@
 //
 // Mocks the "bmx7" ubus object and the gauge/counter metric helpers, loads
 // files/extra/bmx7.uc and asserts that the emitted metric set is correct.
-// Run via test-bmx7.sh.
+// Run via test.sh.
 
 const STATUS_TXT =
 "   shortId=abc123 nodeId=def456 name=node1 version=7.0-rev nodeKey=x linkKeys=y " +
@@ -27,9 +27,9 @@ const ORIGINATORS_TXT =
 "nQTo=100 friend=1 recom=1 trustees=2 S=1 s=1 T=1 t=1 myIid=1 descSqn=5 descSqnMin=1 descSqnNext=6 " +
 "nodeKey=x linkKeys=y primaryIp=10.0.0.2 dev=wlan0 myIdx=1 nbIdx=2\n";
 
-global.config = { socket: "/var/run/bmx7/sock" };
+const config = { socket: "/var/run/bmx7/sock" };
 
-global.ubus = {
+const ubus = {
 	call: function(obj, method, args) {
 		switch (args.command) {
 		case "list status":
@@ -47,14 +47,20 @@ global.ubus = {
 
 let emitted = [];
 
-global.gauge = function(name, help) {
+const gauge = function(name, help) {
 	return function(labels, value) {
 		push(emitted, { name: name, labels: labels, value: value });
 	};
 };
-global.counter = global.gauge;
+const counter = gauge;
 
-include("files/extra/bmx7.uc");
+let func = loadfile("./files/extra/bmx7.uc", { strict_declarations: true, raw_mode: true });
+if (!func) {
+	warn("failed to load bmx7.uc\n");
+	exit(1);
+}
+
+call(func, null, { config, ubus, gauge, counter });
 
 let failures = 0;
 

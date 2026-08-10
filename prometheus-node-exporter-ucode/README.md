@@ -359,6 +359,15 @@ Source: ubus (`dsl.metrics`)
 | `dsl_errors_total` | counter | `err`, `loc` | Error counts |
 | `dsl_erb_total` | counter | `counter` | ERB counters |
 
+### nat_traffic
+
+Package: `prometheus-node-exporter-ucode-nat_traffic`
+Source: `/proc/net/nf_conntrack`
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `node_nat_traffic` | gauge | `src`, `dst` | Bytes transferred per src/dst conntrack pair |
+
 ### netstat
 
 Package: `prometheus-node-exporter-ucode-netstat`
@@ -552,6 +561,31 @@ Source: ubus (`wireguard.status`)
 | `wireguard_latest_handshake_seconds` | gauge | `public_key` | Last handshake time |
 | `wireguard_received_bytes_total` | gauge | `public_key` | Bytes received |
 | `wireguard_sent_bytes_total` | gauge | `public_key` | Bytes sent |
+
+## Testing
+
+The collectors can be tested without a running daemon by mocking their
+dependencies.  Each collector has a test in `test/<name>.uc` that loads
+`files/extra/<name>.uc` with a mocked `ubus`/`fs`/`gauge`/`raw` and asserts
+the emitted metrics.  Fixtures live in `test/fixtures/`.
+
+Run all tests:
+
+```sh
+./test.sh
+```
+
+Run specific tests:
+
+```sh
+./test.sh bird textfile
+```
+
+For a locally built ucode that doesn't have the modules installed natively:
+
+```sh
+UCODE=/path/to/ucode UCODE_MODULES=/path/to/modules ./test.sh
+```
 
 ## Writing a Custom Collector
 

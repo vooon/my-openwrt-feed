@@ -2,7 +2,7 @@
 //
 // Mocks the "bird" ubus object and the gauge/counter metric helpers, loads
 // files/extra/bird.uc and asserts that the emitted metric set matches the
-// expected bird_exporter schema.  Run via test-bird.sh.
+// expected bird_exporter schema.  Run via test.sh.
 
 const PROTO_TXT =
 "Name       Proto       Table         State      Since         Info\n" +
@@ -72,9 +72,9 @@ const BFD_TXT =
 " 10.0.0.2    eth0        Up          2024-01-15 10:30:05  1000.000  3000.000\n" +
 " 10.0.0.3    eth1        Down        00:01:02  1000.000  3000.000\n";
 
-global.config = { socket: "/run/bird/bird.ctl" };
+const config = { socket: "/run/bird/bird.ctl" };
 
-global.ubus = {
+const ubus = {
 	call: function(obj, method, args) {
 		switch (args.command) {
 		case "show protocols all":
@@ -92,14 +92,20 @@ global.ubus = {
 
 let emitted = [];
 
-global.gauge = function(name, help) {
+const gauge = function(name, help) {
 	return function(labels, value) {
 		push(emitted, { name: name, labels: labels, value: value });
 	};
 };
-global.counter = global.gauge;
+const counter = gauge;
 
-include("files/extra/bird.uc");
+let func = loadfile("./files/extra/bird.uc", { strict_declarations: true, raw_mode: true });
+if (!func) {
+	warn("failed to load bird.uc\n");
+	exit(1);
+}
+
+call(func, null, { config, ubus, gauge, counter });
 
 let failures = 0;
 

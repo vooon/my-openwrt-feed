@@ -3,7 +3,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=prometheus-node-exporter-ucode
-PKG_VERSION:=2025.12.04
+PKG_VERSION:=2026.08.10
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=Andre Heider <a.heider@gmail.com>
@@ -84,3 +84,4 @@ $(eval $(call Collector,singbox,sing-box collector,+ucode-mod-uclient +ucode-mod
 $(eval $(call Collector,bird,BIRD routing daemon collector,+rpcd-mod-bird))
 $(eval $(call Collector,bmx7,BMX7 mesh routing daemon collector,+rpcd-mod-bmx7))
 $(eval $(call Collector,textfile,textfile collector,))
+$(eval $(call Collector,nat_traffic,NAT traffic collector,))
