@@ -11,9 +11,9 @@ _log() {
 start_service() {
 	. /lib/functions/network.sh
 
-	local interface port bind4 bind6
+	local interface port bind4 bind6 tf_dir
 
-	config_load prometheus-node-exporter-ucode.main
+	config_load prometheus-node-exporter-ucode
 	config_get interface "main" listen_interface "loopback"
 	config_get port "main" listen_port 9101
 	config_get keepalive "main" http_keepalive 70
@@ -48,6 +48,16 @@ start_service() {
 	procd_add_jail_mount "/usr/lib/libnl*.so*"
 	procd_add_jail_mount "/usr/share/ucode/node-exporter"
 	procd_add_jail_mount "/etc/config"
+
+	# Mount the textfile collector directory into the jail and create it if
+	# needed, unless the collector is disabled.
+	config_get tf_dir "textfile" directory "/run/prometheus/textfile"
+	config_get_bool tf_disabled "textfile" disabled 0
+
+	if [ "$tf_disabled" != "1" ]; then
+		mkdir -p "$tf_dir"
+		procd_add_jail_mount "$tf_dir"
+	fi
 
 	# TODO breaks the dsl collector?
 	#procd_set_param user nobody

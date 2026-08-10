@@ -450,6 +450,33 @@ Source: `/proc/net/snmp6`, `/proc/net/dev_snmp6`
 |--------|------|--------|-------------|
 | `snmp6_*` | counter | `device` | IPv6 SNMP counters |
 
+### textfile
+
+Package: `prometheus-node-exporter-ucode-textfile`
+Source: `*.prom` files in a directory
+
+Reads Prometheus text-exposition files (`*.prom`) from a directory and serves
+their contents verbatim.  This lets external tools (cron jobs, shell scripts,
+...) drop metrics into the exporter without writing a dedicated collector,
+mirroring the upstream node_exporter textfile collector.
+
+The directory lives under `/run` (volatile runtime data) and is created and
+mounted into the exporter's ujail on service start, so the collector can read
+the files.  To disable the collector, set `disabled 1` in its config section —
+this applies to all collectors.
+
+Configuration (`/etc/config/prometheus-node-exporter-ucode`):
+
+```
+config collector 'textfile'
+	option directory '/run/prometheus/textfile'
+	# option disabled '0'
+```
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `node_textfile_mtime_seconds` | gauge | `file` | Unix time of the last modification of a textfile collector file |
+
 ### thermal
 
 Package: `prometheus-node-exporter-ucode-thermal`
@@ -538,6 +565,8 @@ Create a `.uc` file in `files/extra/`. The following are available in scope:
 - `nextline(f)` — read one line from file handle
 - `oneline(path)` — read first line of a file
 - `wsplit(line)` — split on whitespace
+- `raw(text)` — emit `text` verbatim to the output (e.g. for the textfile
+  collector, which serves pre-formatted Prometheus metrics)
 
 Return `false` to signal failure. Example:
 

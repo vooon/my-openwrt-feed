@@ -129,6 +129,12 @@ global.handle_request = function(env) {
 
 			return nextline(f);
 		},
+		raw: function(s) {
+			if (s == null)
+				return;
+
+			puts(s);
+		},
 	};
 
 	if (length(collectors) < 1) {
@@ -205,6 +211,11 @@ for (let col in cols) {
 		delete config[".anonymous"];
 		delete config[".type"];
 		delete config[".name"];
+	}
+
+	if (config["disabled"] == "1") {
+		warn(`collector '${name}' is disabled\n`);
+		continue;
 	}
 
 	collectors[name] = {
