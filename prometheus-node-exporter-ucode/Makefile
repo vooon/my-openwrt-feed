@@ -66,6 +66,7 @@ define Collector
 endef
 
 $(eval $(call Collector,dnsmasq,Dnsmasq collector,@dnsmasq))
+$(eval $(call Collector,nat_traffic,NAT traffic collector,))
 $(eval $(call Collector,hwmon,hwmon collector,))
 $(eval $(call Collector,ltq-dsl,Lantiq/Intel/MaxLinear DSL collector,@ltq-dsl-app))
 $(eval $(call Collector,netstat,netstat collector,))
@@ -84,4 +85,3 @@ $(eval $(call Collector,singbox,sing-box collector,+ucode-mod-uclient +ucode-mod
 $(eval $(call Collector,bird,BIRD routing daemon collector,+rpcd-mod-bird))
 $(eval $(call Collector,bmx7,BMX7 mesh routing daemon collector,+rpcd-mod-bmx7))
 $(eval $(call Collector,textfile,textfile collector,))
-$(eval $(call Collector,nat_traffic,NAT traffic collector,))
