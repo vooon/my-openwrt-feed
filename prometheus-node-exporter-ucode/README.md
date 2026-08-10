@@ -141,6 +141,59 @@ Included in the main package. Data sourced from `/proc` and `/sys`.
 
 Installed as separate packages.
 
+### bird
+
+Package: `prometheus-node-exporter-ucode-bird`
+Dependencies: `rpcd-mod-bird`
+Source: ubus (`bird.query` — BIRD control socket)
+
+Collects BIRD routing daemon metrics with full metric parity with the
+upstream [`czerwonk/bird_exporter`](https://github.com/czerwonk/bird_exporter)
+(new/default format).  The exporter runs inside a ujail, so it cannot reach
+the BIRD control socket directly; instead it talks to the `bird` rpcd module,
+which runs outside the jail and forwards the request to the socket.
+
+Configuration (`/etc/config/prometheus-node-exporter-ucode`):
+
+```
+config collector 'bird'
+	option socket '/run/bird/bird.ctl'
+```
+
+For meaningful uptime values, configure BIRD with
+`timeformat protocol iso long;`.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `bird_socket_query_success` | gauge | — | Result of querying the bird socket (0/1) |
+| `bird_daemon_up` | gauge | — | Whether the BIRD daemon is up (0/1) |
+| `bird_daemon_info` | gauge | `router_id`, `version` | Static information about BIRD |
+| `bird_last_reboot_timestamp_seconds` | gauge | — | Timestamp of the last BIRD reboot |
+| `bird_last_reconfig_timestamp_seconds` | gauge | — | Timestamp of the last reconfiguration |
+| `bird_server_time_timestamp_seconds` | gauge | — | Server time reported by BIRD |
+| `bird_protocol_up` | gauge | `name`, `proto`, `ip_version`, `import_filter`, `export_filter`, `state` | Protocol is up (0/1) |
+| `bird_protocol_uptime` | gauge | `name`, `proto`, `ip_version`, `import_filter`, `export_filter` | Protocol uptime in seconds |
+| `bird_protocol_prefix_import_count` | gauge | ↑ | Number of imported routes |
+| `bird_protocol_prefix_export_count` | gauge | ↑ | Number of exported routes |
+| `bird_protocol_prefix_filter_count` | gauge | ↑ | Number of filtered routes |
+| `bird_protocol_prefix_preferred_count` | gauge | ↑ | Number of preferred routes |
+| `bird_protocol_changes_update_import_*_count` | gauge | ↑ | Incoming update route-change counters (`receive`, `reject`, `filter`, `ignore`, `accept`, plus `rx_limit`, `limit` on BIRD 3) |
+| `bird_protocol_changes_withdraw_import_*_count` | gauge | ↑ | Incoming withdraw route-change counters |
+| `bird_protocol_changes_update_export_*_count` | gauge | ↑ | Outgoing update route-change counters |
+| `bird_protocol_changes_withdraw_export_*_count` | gauge | ↑ | Outgoing withdraw route-change counters |
+| `bird_ospf_running` | gauge | `name` | OSPF state: 0 = Alone, 1 = Running |
+| `bird_ospf_interface_count` | gauge | `name`, `area` | Number of interfaces in the area |
+| `bird_ospf_neighbor_count` | gauge | `name`, `area` | Number of neighbors in the area |
+| `bird_ospf_neighbor_adjacent_count` | gauge | `name`, `area` | Number of adjacent neighbors in the area |
+| `bird_ospfv3_running` | gauge | `name` | OSPFv3 state: 0 = Alone, 1 = Running |
+| `bird_ospfv3_interface_count` | gauge | `name`, `area` | Number of interfaces in the area |
+| `bird_ospfv3_neighbor_count` | gauge | `name`, `area` | Number of neighbors in the area |
+| `bird_ospfv3_neighbor_adjacent_count` | gauge | `name`, `area` | Number of adjacent neighbors in the area |
+| `bird_bfd_session_up` | gauge | `name`, `ip`, `interface` | BFD session is up (0/1) |
+| `bird_bfd_session_uptime_seconds` | gauge | `name`, `ip`, `interface` | BFD session uptime in seconds |
+| `bird_bfd_session_interval_seconds` | gauge | `name`, `ip`, `interface` | BFD session interval in seconds |
+| `bird_bfd_session_timeout_seconds` | gauge | `name`, `ip`, `interface` | BFD session timeout in seconds |
+
 ### babeld
 
 Package: `prometheus-node-exporter-ucode-babeld`
