@@ -194,6 +194,76 @@ For meaningful uptime values, configure BIRD with
 | `bird_bfd_session_interval_seconds` | gauge | `name`, `ip`, `interface` | BFD session interval in seconds |
 | `bird_bfd_session_timeout_seconds` | gauge | `name`, `ip`, `interface` | BFD session timeout in seconds |
 
+### bmx7
+
+Package: `prometheus-node-exporter-ucode-bmx7`
+Dependencies: `rpcd-mod-bmx7`
+Source: ubus (`bmx7.query` — BMX7 control socket)
+
+Collects metrics from the BMX7 mesh routing daemon.  The exporter runs inside
+a ujail, so it cannot reach the BMX7 control socket directly; instead it talks
+to the `bmx7` rpcd module, which runs outside the jail and forwards the
+`list <context>` commands to the socket.
+
+Configuration (`/etc/config/prometheus-node-exporter-ucode`):
+
+```
+config collector 'bmx7'
+	option socket '/var/run/bmx7/sock'
+```
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `bmx7_up` | gauge | — | Whether the BMX7 daemon is up (0/1) |
+| `bmx7_info` | gauge | `node_id`, `short_id`, `name`, `version`, `revision`, `primary_ip`, `tun6_address`, `tun4_address` | Node information |
+| `bmx7_uptime_seconds` | gauge | — | Daemon uptime in seconds |
+| `bmx7_cpu_percent` | gauge | — | CPU load in percent |
+| `bmx7_memory_bytes` | gauge | — | Memory usage in bytes |
+| `bmx7_txqueue` | gauge | — | Tx queue size |
+| `bmx7_tx_bucket_size` | gauge | — | Tx bucket size |
+| `bmx7_neighbors` | gauge | — | Number of neighbor nodes |
+| `bmx7_routes` | gauge | — | Number of routes |
+| `bmx7_originators_total` | gauge | — | Number of known originators |
+| `bmx7_keys_total` | gauge | — | Number of known node keys |
+| `bmx7_interface_info` | gauge | `dev`, `state`, `type`, `phy`, `channel`, `local_mac`, `local_ip`, `idx` | Interface information |
+| `bmx7_interface_rts` | gauge | `dev` | Routes on the interface |
+| `bmx7_interface_rate_max` | gauge | `dev` | Maximum interface rate (bps) |
+| `bmx7_interface_rx_bytes_per_second` | gauge | `dev` | Interface receive bytes per second |
+| `bmx7_interface_tx_bytes_per_second` | gauge | `dev` | Interface transmit bytes per second |
+| `bmx7_interface_tx_tasks` | gauge | `dev` | Open tx tasks on the interface |
+| `bmx7_link_info` | gauge | `short_id`, `node_id`, `name`, `link_key`, `dev`, `local_ip`, `nb_local_ip`, `nb_mac` | Link to a neighbor node |
+| `bmx7_link_rq` | gauge | `node_id`, `name`, `dev` | Link receive quality |
+| `bmx7_link_best_rq` | gauge | `node_id`, `name`, `dev` | Best link receive quality |
+| `bmx7_link_tq` | gauge | `node_id`, `name`, `dev` | Link transmission quality |
+| `bmx7_link_best_tq` | gauge | `node_id`, `name`, `dev` | Best link transmission quality |
+| `bmx7_link_rx_rate` | gauge | `node_id`, `name`, `dev` | Link receive rate (bps) |
+| `bmx7_link_tx_rate` | gauge | `node_id`, `name`, `dev` | Link transmit rate (bps) |
+| `bmx7_link_wrx_rate` | gauge | `node_id`, `name`, `dev` | Wifi receive rate (bps) |
+| `bmx7_link_wtx_rate` | gauge | `node_id`, `name`, `dev` | Wifi transmit rate (bps) |
+| `bmx7_link_wtx_rate_avg` | gauge | `node_id`, `name`, `dev` | Average wifi transmit rate (bps) |
+| `bmx7_link_wtx_rate_eff` | gauge | `node_id`, `name`, `dev` | Effective wifi transmit rate (bps) |
+| `bmx7_link_wtx_throughput` | gauge | `node_id`, `name`, `dev` | Wifi transmit throughput (bps) |
+| `bmx7_link_wtx_throughput_avg` | gauge | `node_id`, `name`, `dev` | Average wifi transmit throughput (bps) |
+| `bmx7_link_wtx_throughput_eff` | gauge | `node_id`, `name`, `dev` | Effective wifi transmit throughput (bps) |
+| `bmx7_link_signal_dbm` | gauge | `node_id`, `name`, `dev` | Link signal in dBm |
+| `bmx7_link_noise_dbm` | gauge | `node_id`, `name`, `dev` | Link noise in dBm |
+| `bmx7_link_snr` | gauge | `node_id`, `name`, `dev` | Link signal-to-noise ratio |
+| `bmx7_link_mcs` | gauge | `node_id`, `name`, `dev` | Link MCS index |
+| `bmx7_link_mhz` | gauge | `node_id`, `name`, `dev` | Link frequency in MHz |
+| `bmx7_link_nss` | gauge | `node_id`, `name`, `dev` | Link spatial streams |
+| `bmx7_link_channel_width` | gauge | `node_id`, `name`, `dev` | Link channel width in MHz |
+| `bmx7_link_aggregation_size` | gauge | `node_id`, `name`, `dev` | Link aggregation size |
+| `bmx7_link_aggregation_max` | gauge | `node_id`, `name`, `dev` | Link max aggregation size |
+| `bmx7_originator_info` | gauge | `short_id`, `node_id`, `name`, `primary_ip`, `dev`, `state` | Originator node information |
+| `bmx7_originator_pref` | gauge | `node_id`, `name` | Originator preference value |
+| `bmx7_originator_broadcast_timeout` | gauge | `node_id`, `name` | Originator broadcast timeout |
+| `bmx7_originator_security_timeout` | gauge | `node_id`, `name` | Originator security timeout |
+| `bmx7_originator_response_timeout` | gauge | `node_id`, `name` | Originator response timeout |
+| `bmx7_originator_trustees` | gauge | `node_id`, `name` | Number of trustees |
+| `bmx7_originator_friend` | gauge | `node_id`, `name` | Originator is a friend (0/1) |
+| `bmx7_originator_recommended` | gauge | `node_id`, `name` | Originator is recommended (0/1) |
+| `bmx7_originator_desc_sqn` | gauge | `node_id`, `name` | Originator description sequence number |
+
 ### babeld
 
 Package: `prometheus-node-exporter-ucode-babeld`

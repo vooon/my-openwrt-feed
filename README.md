@@ -31,7 +31,8 @@ Package Highlights
 - Routing and overlays: `frr`, `gobgp`, `nebula`, `nylon`, `pathosd`, `vpn-sticky`
 - DNS automation: `ddns-dhcp-sync`, `zoneomatic`
 - Monitoring: `prometheus-node-exporter-ucode`, `frr-exporter`,
-  `smokeping-prober`, `squid-exporter`, `unbound-exporter`, `rpcd-mod-bird`
+  `smokeping-prober`, `squid-exporter`, `unbound-exporter`, `rpcd-mod-bird`,
+  `rpcd-mod-bmx7`
 - Backup and virtualization: `proxmox-backup`, `pbs-helper`,
   `qemu-instance-init`, `rsync-sysupgrade`
 - File synchronization: `inotify-rsync`
