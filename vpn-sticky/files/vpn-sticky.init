@@ -15,6 +15,14 @@ VS_ENABLED=1
 VS_MARK_MASK="0x70000000"
 VS_PREFIXES=""
 VS_IFACES=""
+VS_DEBUG=0
+VS_APPLY_RETRIES=5
+VS_APPLY_DELAY=1
+
+vlog() {
+	[ "$VS_DEBUG" = "1" ] || return 0
+	logger -p daemon.info -t vpn-sticky "$*"
+}
 
 collect_prefix() {
 	local prefix="$1"
@@ -45,12 +53,16 @@ load_config_data() {
 	VS_MARK_MASK="0x70000000"
 	VS_PREFIXES=""
 	VS_IFACES=""
+	VS_DEBUG=0
 
 	config_load vpn-sticky || return 1
 	config_get_bool VS_ENABLED daemon enabled 1
 	config_get VS_MARK_MASK daemon mark_mask "0x70000000"
+	config_get_bool VS_DEBUG daemon debug 0
 	config_list_foreach daemon target_prefix collect_prefix
 	config_foreach collect_iface iface
+
+	vlog "config: enabled=$VS_ENABLED mark_mask=$VS_MARK_MASK prefixes='$VS_PREFIXES'"
 }
 
 flush_routes() {
@@ -60,22 +72,44 @@ flush_routes() {
 		[ -n "$name" ] || continue
 		ip -4 rule del pref "$rule_pref" 2>/dev/null || true
 		ip -4 route flush table "$route_table" 2>/dev/null || true
+		vlog "flushed routes for $name (table $route_table)"
 	done
 }
 
 apply_routes() {
 	local name mark rule_pref route_table prefix
+	local attempt link_up
 
 	printf "%s" "$VS_IFACES" | while IFS='|' read -r name mark rule_pref route_table; do
 		[ -n "$name" ] || continue
 
-		if ip link show dev "$name" >/dev/null 2>&1; then
-			for prefix in $VS_PREFIXES; do
-				ip -4 route replace table "$route_table" "$prefix" dev "$name"
-			done
+		attempt=0
+		link_up=0
+		while [ "$attempt" -lt "$VS_APPLY_RETRIES" ]; do
+			if ip link show dev "$name" >/dev/null 2>&1; then
+				link_up=1
+				break
+			fi
+			attempt=$((attempt + 1))
+			vlog "iface $name not up, retry $attempt/$VS_APPLY_RETRIES"
+			sleep "$VS_APPLY_DELAY"
+		done
 
-			ip -4 rule add pref "$rule_pref" fwmark "$mark/$VS_MARK_MASK" lookup "$route_table"
+		if [ "$link_up" -ne 1 ]; then
+			logger -p daemon.warn -t vpn-sticky "iface $name not available after $VS_APPLY_RETRIES retries, skipping routes/rule"
+			continue
 		fi
+
+		for prefix in $VS_PREFIXES; do
+			ip -4 route replace table "$route_table" "$prefix" dev "$name" \
+				|| logger -p daemon.err -t vpn-sticky "route add failed: $prefix dev $name table $route_table"
+		done
+
+		ip -4 rule del pref "$rule_pref" 2>/dev/null || true
+		ip -4 rule add pref "$rule_pref" fwmark "$mark/$VS_MARK_MASK" lookup "$route_table" \
+			|| logger -p daemon.err -t vpn-sticky "rule add failed: pref $rule_pref mark $mark table $route_table"
+
+		vlog "applied routes for $name (table $route_table, mark $mark)"
 	done
 }
 
@@ -119,11 +153,13 @@ reload_routes() {
 	[ -f "$CONFIG_FILE" ] || return 0
 	load_config_data || return 1
 
+	vlog "reload triggered (enabled=$VS_ENABLED)"
 	flush_routes
 	[ "$VS_ENABLED" = "1" ] && apply_routes
 }
 
 reload_service() {
+	logger -p daemon.info -t vpn-sticky "reload_service called"
 	reload_routes || return 1
 	apply_nft_rules
 }
@@ -144,10 +180,13 @@ add_iface_trigger() {
 	config_get name "$section" name
 	[ -n "$name" ] || return 0
 
+	vlog "registering netifd trigger for iface $name"
 	procd_add_interface_trigger "interface.*" "$name" /etc/init.d/vpn-sticky reload
 }
 
 service_triggers() {
+	config_get_bool VS_DEBUG daemon debug 0
+	vlog "registering triggers"
 	procd_add_reload_trigger "vpn-sticky"
 	procd_add_interface_trigger "interface.*" "lan" /etc/init.d/vpn-sticky reload
 
