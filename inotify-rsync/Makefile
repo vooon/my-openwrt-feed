@@ -15,7 +15,7 @@ define Package/inotify-rsync
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Inotify Rsync Helper script
-  DEPENDS:=+@BUSYBOX_CONFIG_INOTIFYD +@BUSYBOX_DEFAULT_INOTIFYD +rsync
+  DEPENDS:=+ucode +ucode-mod-uloop +ucode-mod-uci +ucode-mod-log +@BUSYBOX_CONFIG_INOTIFYD +@BUSYBOX_DEFAULT_INOTIFYD +rsync
   ARCH:=all
 endef
 
@@ -39,6 +39,9 @@ define Package/inotify-rsync/install
 
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) $(CURDIR)/files/inotify-rsync.init $(1)/etc/init.d/inotify-rsync
+
+	$(INSTALL_DIR) $(1)/usr/lib/inotify-rsync
+	$(INSTALL_BIN) $(CURDIR)/files/inotify-rsync.uc $(1)/usr/lib/inotify-rsync/inotify-rsync.uc
 endef
 
 $(eval $(call BuildPackage,inotify-rsync))
