@@ -41,7 +41,15 @@ start_service() {
 reload_service() {
 	prepare_dirs
 	config_test || return 1
-	procd_send_signal angie
+
+	local pid
+	pid="$(cat /var/run/angie.pid 2>/dev/null)"
+	if [ -n "$pid" ] && [ -r "/proc/$pid/cmdline" ] && \
+		tr '\0' ' ' < "/proc/$pid/cmdline" | grep -q "angie: master process" 2>/dev/null; then
+		procd_send_signal angie
+	else
+		restart
+	fi
 }
 
 service_triggers() {
