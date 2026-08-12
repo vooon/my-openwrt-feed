@@ -40,8 +40,8 @@ define Package/inotify-rsync/install
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) $(CURDIR)/files/inotify-rsync.init $(1)/etc/init.d/inotify-rsync
 
-	$(INSTALL_DIR) $(1)/usr/lib/inotify-rsync
-	$(INSTALL_BIN) $(CURDIR)/files/inotify-rsync.uc $(1)/usr/lib/inotify-rsync/inotify-rsync.uc
+	$(INSTALL_DIR) $(1)/usr/libexec
+	$(INSTALL_BIN) $(CURDIR)/files/inotify-rsync.uc $(1)/usr/libexec/inotify-rsync.uc
 endef
 
 $(eval $(call BuildPackage,inotify-rsync))
