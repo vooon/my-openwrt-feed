@@ -4,6 +4,7 @@ let fs = require("fs");
 let uloop = require("uloop");
 let uci = require("uci");
 let log = require("log");
+let inotify = require("inotify");
 
 log.ulog_open(log.ULOG_STDIO, log.LOG_DAEMON, "inotify-rsync");
 
@@ -223,72 +224,30 @@ function debounce_rsync()
 		});
 }
 
-let fd;
-let read_events = null;
-let inot = null;
-
-try {
-	inot = require("inotify");
+let fd = inotify.init();
+if (!fd) {
+	log.ERR("inotify init failed");
+	exit(1);
 }
-catch (e) {}
 
-if (inot) {
-	fd = inot.init();
-	if (!fd) {
-		log.ERR("inotify init failed");
+for (let d in watch_dirs) {
+	if (!inotify.add(fd, d, event_mask)) {
+		log.ERR("inotify add watch failed: " + d);
 		exit(1);
 	}
-
-	for (let d in watch_dirs) {
-		if (!inot.add(fd, d, event_mask)) {
-			log.ERR("inotify add watch failed: " + d);
-			exit(1);
-		}
-	}
-
-	read_events = function() {
-		let evs = inot.read(fd);
-		return evs || [];
-	};
 }
-else {
-	let args = "inotifyd -";
-	for (let d in watch_dirs)
-		args += " " + d + ":" + event_mask;
 
-	let proc = fs.popen(args);
-	if (!proc) {
-		log.ERR("inotifyd start failed");
-		exit(1);
-	}
-
-	fd = proc.fileno();
-	read_events = function() {
-		let line;
-		try {
-			line = proc.read("line");
-		}
-		catch (e) {
-			line = null;
-		}
-
-		if (!line)
-			return null;
-
-		return [ line ];
-	};
+function read_events()
+{
+	return inotify.read(fd) || [];
 }
 
 function on_event(flags, eof)
 {
 	let evs = read_events();
 
-	if (evs == null) {
-		m_errors++;
-		write_metrics();
-		log.ERR("watch source ended, respawning");
-		exit(3);
-	}
+	if (!length(evs))
+		return;
 
 	m_events += length(evs);
 	write_metrics();

@@ -15,7 +15,7 @@ define Package/inotify-rsync
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Inotify Rsync Helper script
-  DEPENDS:=+ucode +ucode-mod-uloop +ucode-mod-uci +ucode-mod-log +ucode-mod-inotify +@BUSYBOX_CONFIG_INOTIFYD +@BUSYBOX_DEFAULT_INOTIFYD +rsync
+  DEPENDS:=+ucode +ucode-mod-uloop +ucode-mod-uci +ucode-mod-log +ucode-mod-inotify +rsync
   ARCH:=all
 endef
 
