@@ -5,19 +5,23 @@ let uloop = require("uloop");
 let uci = require("uci");
 let log = require("log");
 
-log.ulog_open(log.ULOG_SYSLOG, log.LOG_DAEMON, "inotify-rsync");
+log.ulog_open(log.ULOG_STDIO, log.LOG_DAEMON, "inotify-rsync");
 
 const CONF = "inotify-rsync";
 const INSTANCE = ARGV[0];
 const SYNC_ONLY = ARGV[1] == "sync";
 
-if (!INSTANCE)
-	exit(1, "usage: inotify-rsync.uc <instance> [sync]\n");
+if (!INSTANCE) {
+	log.ERR("usage: inotify-rsync.uc <instance> [sync]");
+	exit(1);
+}
 
 let ctx = uci.cursor();
 
-if (!ctx.get(CONF, INSTANCE))
-	exit(1, "no such watch section: " + INSTANCE + "\n");
+if (!ctx.get(CONF, INSTANCE)) {
+	log.ERR("no such watch section: " + INSTANCE);
+	exit(1);
+}
 
 let enabled = ctx.get(CONF, INSTANCE, "enabled");
 if (enabled === "0" || enabled === "false")
@@ -27,18 +31,53 @@ let dest = ctx.get(CONF, INSTANCE, "dest");
 let debounce_ms = int(ctx.get(CONF, INSTANCE, "debounce_ms") || "1000");
 let event_mask = ctx.get(CONF, INSTANCE, "event_mask") || "wDMndc";
 let textfile_dir = ctx.get(CONF, INSTANCE, "textfile_dir");
-let rsync_args = split(trim(ctx.get(CONF, INSTANCE, "rsync_args") || "-Ppra --delete --delete-delay"), /\s+/);
+function tokenize(str)
+{
+	let tokens = [];
+	let cur = "";
+	let quote = null;
+
+	for (let i = 0; i < length(str); i++) {
+		let ch = substr(str, i, 1);
+
+		if (quote) {
+			if (ch == quote)
+				quote = null;
+			else
+				cur += ch;
+		}
+		else if (ch == "'" || ch == "\"")
+			quote = ch;
+		else if (ch == " " || ch == "\t" || ch == "\n") {
+			if (cur != "") {
+				push(tokens, cur);
+				cur = "";
+			}
+		}
+		else
+			cur += ch;
+	}
+
+	if (cur != "")
+		push(tokens, cur);
+
+	return tokens;
+}
+
+let rsync_args = tokenize(trim(ctx.get(CONF, INSTANCE, "rsync_args") || "-Ppra --delete --delete-delay"));
 
 let srcs = [];
-for (let s in ctx.get_all(CONF, INSTANCE, "src") || [])
+for (let s in ctx.get(CONF, INSTANCE, "src") || [])
 	push(srcs, s);
 
 let filters = [];
-for (let f in ctx.get_all(CONF, INSTANCE, "filter") || [])
+for (let f in ctx.get(CONF, INSTANCE, "filter") || [])
 	push(filters, f);
 
-if (length(srcs) == 0 || !dest)
-	exit(1, "watch '" + INSTANCE + "': missing src/dest\n");
+if (length(srcs) == 0 || !dest) {
+	log.ERR("watch '" + INSTANCE + "': missing src/dest");
+	exit(1);
+}
 
 function build_rsync_argv()
 {
@@ -164,8 +203,10 @@ for (let s in srcs) {
 		push(watch_dirs, d + ":" + event_mask);
 }
 
-if (length(watch_dirs) == 0)
-	exit(1, "watch '" + INSTANCE + "': no watchable dirs\n");
+if (length(watch_dirs) == 0) {
+	log.ERR("watch '" + INSTANCE + "': no watchable dirs");
+	exit(1);
+}
 
 let inotify_args = "inotifyd -";
 for (let w in watch_dirs)
@@ -174,8 +215,10 @@ for (let w in watch_dirs)
 let fd;
 let proc = fs.popen(inotify_args);
 
-if (!proc)
-	exit(1, "inotifyd start failed\n");
+if (!proc) {
+	log.ERR("inotifyd start failed");
+	exit(1);
+}
 
 fd = proc.fileno();
 
