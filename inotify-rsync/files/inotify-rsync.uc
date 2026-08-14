@@ -28,7 +28,7 @@ if (enabled === "0" || enabled === "false")
 	exit(0);
 
 let dest = ctx.get(CONF, INSTANCE, "dest");
-let debounce_ms = int(ctx.get(CONF, INSTANCE, "debounce_ms") || "1000");
+let debounce_ms = int(ctx.get(CONF, INSTANCE, "debounce_ms") || "100");
 let event_mask = ctx.get(CONF, INSTANCE, "event_mask") || "wDMndc";
 let textfile_dir = ctx.get(CONF, INSTANCE, "textfile_dir");
 function tokenize(str)
@@ -200,7 +200,7 @@ function dirs(root)
 let watch_dirs = [];
 for (let s in srcs) {
 	for (let d in dirs(s))
-		push(watch_dirs, d + ":" + event_mask);
+		push(watch_dirs, d);
 }
 
 if (length(watch_dirs) == 0) {
@@ -208,45 +208,12 @@ if (length(watch_dirs) == 0) {
 	exit(1);
 }
 
-let inotify_args = "inotifyd -";
-for (let w in watch_dirs)
-	inotify_args += " " + w;
-
-let fd;
-let proc = fs.popen(inotify_args);
-
-if (!proc) {
-	log.ERR("inotifyd start failed");
-	exit(1);
-}
-
-fd = proc.fileno();
-
 uloop.init();
 
 let timer = null;
 
-function on_event(flags, eof)
+function debounce_rsync()
 {
-	try {
-		let line = proc.read("line");
-		if (!line)
-			eof = true;
-	}
-	catch (e) {
-		eof = true;
-	}
-
-	if (eof) {
-		m_errors++;
-		write_metrics();
-		log.ERR("inotifyd exited, respawning");
-		exit(3);
-	}
-
-	m_events++;
-	write_metrics();
-
 	if (timer)
 		timer.set(debounce_ms);
 	else
@@ -254,6 +221,78 @@ function on_event(flags, eof)
 			run_rsync();
 			timer = null;
 		});
+}
+
+let fd;
+let read_events = null;
+let inot = null;
+
+try {
+	inot = require("inotify");
+}
+catch (e) {}
+
+if (inot) {
+	fd = inot.init();
+	if (!fd) {
+		log.ERR("inotify init failed");
+		exit(1);
+	}
+
+	for (let d in watch_dirs) {
+		if (!inot.add(fd, d, event_mask)) {
+			log.ERR("inotify add watch failed: " + d);
+			exit(1);
+		}
+	}
+
+	read_events = function() {
+		let evs = inot.read(fd);
+		return evs || [];
+	};
+}
+else {
+	let args = "inotifyd -";
+	for (let d in watch_dirs)
+		args += " " + d + ":" + event_mask;
+
+	let proc = fs.popen(args);
+	if (!proc) {
+		log.ERR("inotifyd start failed");
+		exit(1);
+	}
+
+	fd = proc.fileno();
+	read_events = function() {
+		let line;
+		try {
+			line = proc.read("line");
+		}
+		catch (e) {
+			line = null;
+		}
+
+		if (!line)
+			return null;
+
+		return [ line ];
+	};
+}
+
+function on_event(flags, eof)
+{
+	let evs = read_events();
+
+	if (evs == null) {
+		m_errors++;
+		write_metrics();
+		log.ERR("watch source ended, respawning");
+		exit(3);
+	}
+
+	m_events += length(evs);
+	write_metrics();
+	debounce_rsync();
 }
 
 uloop.handle(fd, on_event, uloop.ULOOP_READ);

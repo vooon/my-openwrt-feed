@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=inotify-rsync
 PKG_VERSION:=0.4.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_LICENSE:=ASL-2.0
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
@@ -15,7 +15,7 @@ define Package/inotify-rsync
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Inotify Rsync Helper script
-  DEPENDS:=+ucode +ucode-mod-uloop +ucode-mod-uci +ucode-mod-log +@BUSYBOX_CONFIG_INOTIFYD +@BUSYBOX_DEFAULT_INOTIFYD +rsync
+  DEPENDS:=+ucode +ucode-mod-uloop +ucode-mod-uci +ucode-mod-log +ucode-mod-inotify +@BUSYBOX_CONFIG_INOTIFYD +@BUSYBOX_DEFAULT_INOTIFYD +rsync
   ARCH:=all
 endef
 
@@ -25,12 +25,6 @@ endef
 
 define Package/inotify-rsync/conffiles
 /etc/config/inotify-rsync
-endef
-
-define Build/Configure
-endef
-
-define Build/Compile
 endef
 
 define Package/inotify-rsync/install
