@@ -76,6 +76,13 @@ flush_routes() {
 	done
 }
 
+iface_netifd_up() {
+	# Authoritative readiness: netifd reports the interface as up (addresses
+	# applied, device present). Fails fast when the iface is down or gone so a
+	# down/teardown event (interface.down trigger) never gets stuck waiting.
+	ubus call "network.interface.$1" status 2>/dev/null | grep -q '"up": *true'
+}
+
 apply_routes() {
 	local name mark rule_pref route_table prefix
 	local attempt link_up
@@ -86,7 +93,7 @@ apply_routes() {
 		attempt=0
 		link_up=0
 		while [ "$attempt" -lt "$VS_APPLY_RETRIES" ]; do
-			if ip link show dev "$name" >/dev/null 2>&1; then
+			if iface_netifd_up "$name"; then
 				link_up=1
 				break
 			fi
@@ -96,7 +103,7 @@ apply_routes() {
 		done
 
 		if [ "$link_up" -ne 1 ]; then
-			logger -p daemon.warn -t vpn-sticky "iface $name not available after $VS_APPLY_RETRIES retries, skipping routes/rule"
+			logger -p daemon.warn -t vpn-sticky "iface $name not up after $VS_APPLY_RETRIES retries, skipping routes/rule"
 			continue
 		fi
 
@@ -181,14 +188,17 @@ add_iface_trigger() {
 	[ -n "$name" ] || return 0
 
 	vlog "registering netifd trigger for iface $name"
-	procd_add_interface_trigger "interface.*" "$name" /etc/init.d/vpn-sticky reload
+	# netifd emits interface.update on bring-up and interface.down on teardown.
+	# Only react to bring-up, otherwise an ifdown reloads while the device is
+	# being removed.
+	procd_add_interface_trigger "interface.update" "$name" /etc/init.d/vpn-sticky reload
 }
 
 service_triggers() {
 	config_get_bool VS_DEBUG daemon debug 0
 	vlog "registering triggers"
 	procd_add_reload_trigger "vpn-sticky"
-	procd_add_interface_trigger "interface.*" "lan" /etc/init.d/vpn-sticky reload
+	procd_add_interface_trigger "interface.update" "lan" /etc/init.d/vpn-sticky reload
 
 	[ -f "$CONFIG_FILE" ] || return 0
 	config_load vpn-sticky || return 0
