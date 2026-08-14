@@ -7,6 +7,8 @@
 
 const socket = config.socket || "/run/bird/bird.ctl";
 
+let g_router_id = "";
+
 const GENERIC_PROTOS = ["BGP", "OSPF", "Kernel", "Static", "Direct", "Babel", "RPKI"];
 
 function is_generic(proto) {
@@ -274,6 +276,36 @@ function emit_ospf(p) {
 		gauge(prefix + "_neighbor_count", "Number of neighbors in the area")(lbl, areas[a].neighbors);
 		gauge(prefix + "_neighbor_adjacent_count", "Number of adjacent neighbors in the area")(lbl, areas[a].adjacent);
 	}
+
+let ilines = bird_query("show ospf interface " + p.name);
+	if (ilines) {
+		let ifa = null;
+
+		for (let i = 0; i < length(ilines); i++) {
+			let l = replace(ilines[i], /^[ \t]+/, "");
+			let m;
+
+			if ((m = match(l, /^Interface[ \t]+(\S+)/))) {
+				ifa = m[1];
+			} else if (ifa && (m = match(l, /^Cost:[ \t]+(\d+)/))) {
+				gauge(prefix + "_interface_cost", "OSPF interface cost (metric)")({ name: p.name, interface: ifa }, +m[1]);
+			}
+		}
+	}
+
+	let nlines = bird_query("show ospf neighbors " + p.name);
+	if (nlines) {
+		for (let i = 0; i < length(nlines); i++) {
+			let l = replace(nlines[i], /^[ \t]+/, "");
+			let m = match(l, /^(\S+)[ \t]+(\d+)[ \t]+(\S+)\/(\S+)[ \t]+(\S+)[ \t]+(\S+)[ \t]+(\S+)$/);
+			if (!m)
+				continue;
+
+			gauge(prefix + "_neighbor_up", "OSPF neighbor adjacency is Full (1) or not (0)")({
+				name: p.name, interface: m[6], neighbor_rid: m[1], router_ip: m[7], local_rid: g_router_id,
+			}, m[3] == "Full" ? 1 : 0);
+		}
+	}
 }
 
 const bfdRe = /^(\S+)[ \t]+(\S+)[ \t]+(Up|Down|Init)[ \t]+(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[0-9.]*|\S+)[ \t]+([0-9.]+)[ \t]+([0-9.]+)$/;
@@ -331,6 +363,28 @@ gauge("bird_socket_query_success", "Result of querying bird socket: 0 = failed, 
 
 const protos = parse_protocols(lines);
 
+const status_lines = bird_query("show status");
+if (status_lines) {
+	let s = parse_status(status_lines);
+
+	if (s.router_id != null)
+		g_router_id = s.router_id;
+
+	gauge("bird_daemon_up", "Whether the BIRD daemon is up (1) or down (0)")(null, 1);
+	gauge("bird_daemon_info", "Static information about BIRD")({
+		router_id: s.router_id,
+		version: s.version,
+	}, 1);
+	if (s.last_reboot != null)
+		gauge("bird_last_reboot_timestamp_seconds", "Timestamp of the last BIRD reboot")(null, s.last_reboot);
+	if (s.last_reconfig != null)
+		gauge("bird_last_reconfig_timestamp_seconds", "Timestamp of the last BIRD reconfiguration")(null, s.last_reconfig);
+	if (s.server_time != null)
+		gauge("bird_server_time_timestamp_seconds", "Server time reported by BIRD")(null, s.server_time);
+} else {
+	gauge("bird_daemon_up", "Whether the BIRD daemon is up (1) or down (0)")(null, 0);
+}
+
 for (let i = 0; i < length(protos); i++) {
 	let p = protos[i];
 
@@ -346,23 +400,4 @@ for (let i = 0; i < length(protos); i++) {
 
 	if (p.proto == "OSPF")
 		emit_ospf(p);
-}
-
-const status_lines = bird_query("show status");
-if (status_lines) {
-	let s = parse_status(status_lines);
-
-	gauge("bird_daemon_up", "Whether the BIRD daemon is up (1) or down (0)")(null, 1);
-	gauge("bird_daemon_info", "Static information about BIRD")({
-		router_id: s.router_id,
-		version: s.version,
-	}, 1);
-	if (s.last_reboot != null)
-		gauge("bird_last_reboot_timestamp_seconds", "Timestamp of the last BIRD reboot")(null, s.last_reboot);
-	if (s.last_reconfig != null)
-		gauge("bird_last_reconfig_timestamp_seconds", "Timestamp of the last BIRD reconfiguration")(null, s.last_reconfig);
-	if (s.server_time != null)
-		gauge("bird_server_time_timestamp_seconds", "Server time reported by BIRD")(null, s.server_time);
-} else {
-	gauge("bird_daemon_up", "Whether the BIRD daemon is up (1) or down (0)")(null, 0);
 }

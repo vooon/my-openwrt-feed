@@ -72,6 +72,29 @@ const BFD_TXT =
 " 10.0.0.2    eth0        Up          2024-01-15 10:30:05  1000.000  3000.000\n" +
 " 10.0.0.3    eth1        Down        00:01:02  1000.000  3000.000\n";
 
+const OSPF_IFACE_TXT =
+"ospf1:\n" +
+"Interface eth0 (192.0.2.1/24)\n" +
+"\tType: Bcast\n" +
+"\tArea: 0.0.0.0 (0)\n" +
+"\tState: DR\n" +
+"\tPriority: 1\n" +
+"\tCost: 10\n" +
+"\tECMP weight: 1\n" +
+"Interface eth1 (198.51.100.1/24)\n" +
+"\tType: Bcast\n" +
+"\tArea: 0.0.0.0 (0)\n" +
+"\tState: Backup\n" +
+"\tPriority: 1\n" +
+"\tCost: 100\n";
+
+const OSPF_NEIGH_TXT =
+"ospf1:\n" +
+"Router ID     Pri  State       DTime   Interface   Router IP\n" +
+"10.0.0.2      1    Full/DR     39      eth0        192.0.2.2\n" +
+"10.0.0.3      1    2-Way/Other 27      eth1        198.51.100.2\n" +
+"10.0.0.4      1    Init/PtP    20      eth0        192.0.2.3\n";
+
 const config = { socket: "/run/bird/bird.ctl" };
 
 const ubus = {
@@ -83,6 +106,10 @@ const ubus = {
 			return { code: 0, stdout: STATUS_TXT };
 		case "show ospf ospf1":
 			return { code: 0, stdout: OSPF_TXT };
+		case "show ospf interface ospf1":
+			return { code: 0, stdout: OSPF_IFACE_TXT };
+		case "show ospf neighbors ospf1":
+			return { code: 0, stdout: OSPF_NEIGH_TXT };
 		case "show bfd sessions bfd1":
 			return { code: 0, stdout: BFD_TXT };
 		}
@@ -189,6 +216,12 @@ check("bird_ospf_running", { name: "ospf1" }, 1);
 check("bird_ospf_interface_count", { name: "ospf1", area: "0" }, 2);
 check("bird_ospf_neighbor_count", { name: "ospf1", area: "0" }, 3);
 check("bird_ospf_neighbor_adjacent_count", { name: "ospf1", area: "1" }, 1);
+check("bird_ospf_interface_cost", { name: "ospf1", interface: "eth0" }, 10);
+check("bird_ospf_interface_cost", { name: "ospf1", interface: "eth1" }, 100);
+check("bird_ospf_neighbor_up", { name: "ospf1", interface: "eth0", neighbor_rid: "10.0.0.2" }, 1);
+check("bird_ospf_neighbor_up", { name: "ospf1", interface: "eth1", neighbor_rid: "10.0.0.3" }, 0);
+check("bird_ospf_neighbor_up", { name: "ospf1", interface: "eth0", neighbor_rid: "10.0.0.4" }, 0);
+checkLabels("bird_ospf_neighbor_up", { name: "ospf1", interface: "eth0", neighbor_rid: "10.0.0.2" }, { router_ip: "192.0.2.2", local_rid: "10.0.0.1" });
 
 // BFD
 check("bird_bfd_session_up", { name: "bfd1", ip: "10.0.0.2", interface: "eth0" }, 1);
