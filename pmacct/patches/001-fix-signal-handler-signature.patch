@@ -1,0 +1,29 @@
+Fix ignore_falling_child() signature to match what signal(2) expects.
+
+Modern glibc declares the signal handler argument as __sighandler_t
+(void (*)(int)).  The old-style empty parameter list made the type
+void (*)(), which modern GCC rejects under -Werror
+(-Werror=incompatible-pointer-types).
+
+--- a/src/pmacct.h	2024-08-01 22:44:28.000000000 +0200
++++ b/src/pmacct.h	2026-08-14 20:00:09.147214163 +0200
+@@ -370,7 +370,7 @@
+ /* prototypes */
+ void startup_handle_falling_child();
+ void handle_falling_child();
+-void ignore_falling_child();
++void ignore_falling_child(int);
+ void PM_sigint_handler(int);
+ void PM_sigalrm_noop_handler(int);
+ void reload(int);
+--- a/src/signals.c	2024-08-01 22:44:28.000000000 +0200
++++ b/src/signals.c	2026-08-14 20:00:09.703227178 +0200
+@@ -100,7 +100,7 @@
+   }
+ }
+ 
+-void ignore_falling_child()
++void ignore_falling_child(int signum)
+ {
+   pid_t cpid;
+   int status;

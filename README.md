@@ -29,6 +29,7 @@ Package Highlights
 - Mail and notifications: `mox`, `gotify`, `gotify2telegram`,
   `gotify-alertmanager-plugin`
 - Routing and overlays: `frr`, `gobgp`, `nebula`, `nylon`, `pathosd`, `vpn-sticky`
+- Traffic monitoring: `pmacct` (sFlow / NetFlow v9 / IPFIX flow exporter)
 - DNS automation: `ddns-dhcp-sync`, `zoneomatic`
 - Monitoring: `prometheus-node-exporter-ucode`, `frr-exporter`,
   `smokeping-prober`, `squid-exporter`, `unbound-exporter`, `rpcd-mod-bird`,
