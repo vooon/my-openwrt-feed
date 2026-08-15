@@ -21,7 +21,7 @@ pmacct_iface() {
 
 	[ -n "$ifname" ] || return 0
 
-	[ -n "$ifindex" ] || ifindex="$n"
+	[ -n "$ifindex" ] || ifindex="$((n + 1))"
 
 	line="ifindex=$ifindex"
 	line="$line${TAB}ifname=$ifname"
@@ -56,7 +56,7 @@ start_service() {
 	config_get_bool enabled service enabled 0
 	[ "$enabled" -ne 0 ] || return
 
-	config_get protocol        service protocol  sflow
+	config_get protocol        service protocol  ipfix
 	config_get collector       service collector ""
 	config_get sampling        service sampling_rate 0
 	config_get snaplen         service snaplen 686
