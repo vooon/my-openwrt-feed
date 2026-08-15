@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netobserv-ebpf-agent
 PKG_VERSION:=1.12.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/netobserv/netobserv-ebpf-agent.git
@@ -26,7 +26,7 @@ define Package/netobserv-ebpf-agent
   CATEGORY:=Network
   TITLE:=NetObserv eBPF flow exporter (IPFIX)
   URL:=https://github.com/netobserv/netobserv-ebpf-agent
-  DEPENDS:=$(GO_ARCH_DEPENDS)
+  DEPENDS:=$(GO_ARCH_DEPENDS) @KERNEL_DEBUG_INFO @KERNEL_DEBUG_INFO_BTF
 endef
 
 define Package/netobserv-ebpf-agent/description
