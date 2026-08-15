@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pmacct
 PKG_VERSION:=1.7.9
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/pmacct/pmacct/tar.gz/refs/tags/v$(PKG_VERSION)?
@@ -49,7 +49,7 @@ define Package/pmacct
   CATEGORY:=Network
   TITLE:=pmacct traffic accounting and sFlow/IPFIX export daemon
   URL:=https://github.com/pmacct/pmacct
-  DEPENDS:=+libpcap
+  DEPENDS:=+libpcap +libstdcpp
 endef
 
 define Package/pmacct/description
