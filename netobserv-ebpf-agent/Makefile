@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netobserv-ebpf-agent
 PKG_VERSION:=1.12.0
-PKG_RELEASE:=4
+PKG_RELEASE:=5
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/netobserv/netobserv-ebpf-agent.git
@@ -26,18 +26,7 @@ define Package/netobserv-ebpf-agent
   CATEGORY:=Network
   TITLE:=NetObserv eBPF flow exporter (IPFIX)
   URL:=https://github.com/netobserv/netobserv-ebpf-agent
-  DEPENDS:=$(GO_ARCH_DEPENDS)
-endef
-
-# Force the target kernel options this BPF agent requires (not merely gate
-# package selection): full (non-reduced) debug info with BTF, plus eBPF events.
-# Core eBPF (BPF, BPF_SYSCALL, BPF_JIT) is already enabled by OpenWrt kernel
-# defaults; TC ingress/egress hooks for attachment must be set in the target
-# kernel config (NET_CLS_ACT, NET_ACT_BPF, NET_CLS_BPF, NET_SCH_INGRESS).
-define Package/netobserv-ebpf-agent/config
-	select KERNEL_DEBUG_INFO
-	select KERNEL_DEBUG_INFO_BTF
-	select KERNEL_BPF_EVENTS
+  DEPENDS:=$(GO_ARCH_DEPENDS) +@KERNEL_DEBUG_INFO +@KERNEL_DEBUG_INFO_BTF +@KERNEL_BPF_EVENTS
 endef
 
 define Package/netobserv-ebpf-agent/description
