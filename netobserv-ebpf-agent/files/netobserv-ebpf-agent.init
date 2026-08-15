@@ -6,6 +6,11 @@ USE_PROCD=1
 PROG=/usr/bin/netobserv-ebpf-agent
 CONF=netobserv-ebpf-agent
 
+iface_append() {
+	[ -n "$interfaces" ] && interfaces="$interfaces,"
+	interfaces="$interfaces$1"
+}
+
 start_service() {
 	local enabled export target_host target_port interfaces
 	local exclude direction active_timeout log_level
@@ -17,11 +22,13 @@ start_service() {
 	config_get export        service export ipfix+udp
 	config_get target_host   service target_host 127.0.0.1
 	config_get target_port   service target_port 4739
-	config_get interfaces    service interfaces ""
 	config_get exclude       service exclude_interfaces lo
 	config_get direction     service direction both
 	config_get active_timeout service cache_active_timeout 5s
 	config_get log_level     service log_level info
+
+	interfaces=""
+	config_list_foreach service interfaces iface_append
 
 	procd_open_instance
 	procd_set_param command "$PROG"
