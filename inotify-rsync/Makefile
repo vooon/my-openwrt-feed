@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=inotify-rsync
 PKG_VERSION:=0.4.0
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_LICENSE:=ASL-2.0
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
@@ -25,6 +25,9 @@ endef
 
 define Package/inotify-rsync/conffiles
 /etc/config/inotify-rsync
+endef
+
+define Build/Compile
 endef
 
 define Package/inotify-rsync/install
