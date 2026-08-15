@@ -1,23 +1,43 @@
-Fix ignore_falling_child() signature to match what signal(2) expects.
-
-Modern glibc declares the signal handler argument as __sighandler_t
-(void (*)(int)).  The old-style empty parameter list made the type
-void (*)(), which modern GCC rejects under -Werror
-(-Werror=incompatible-pointer-types).
+Fix the old-style signal handler signatures to match what sigaction(2)/signal(2)
+expect. Modern glibc declares __sighandler_t as void (*)(int); the empty
+parameter lists produced void (*)(), rejected by modern GCC under
+-Werror (-Werror=incompatible-pointer-types).
 
 --- a/src/pmacct.h	2024-08-01 22:44:28.000000000 +0200
-+++ b/src/pmacct.h	2026-08-14 20:00:09.147214163 +0200
-@@ -370,7 +370,7 @@
++++ b/src/pmacct.h	2026-08-15 11:01:18.841428414 +0200
+@@ -368,9 +368,9 @@
+ #include "util.h"
+ 
  /* prototypes */
- void startup_handle_falling_child();
- void handle_falling_child();
+-void startup_handle_falling_child();
+-void handle_falling_child();
 -void ignore_falling_child();
++void startup_handle_falling_child(int);
++void handle_falling_child(int);
 +void ignore_falling_child(int);
  void PM_sigint_handler(int);
  void PM_sigalrm_noop_handler(int);
  void reload(int);
 --- a/src/signals.c	2024-08-01 22:44:28.000000000 +0200
-+++ b/src/signals.c	2026-08-14 20:00:09.703227178 +0200
++++ b/src/signals.c	2026-08-15 11:01:36.012840127 +0200
+@@ -29,7 +29,7 @@
+ extern struct plugins_list_entry *plugin_list;
+ 
+ /* functions */
+-void startup_handle_falling_child()
++void startup_handle_falling_child(int signum)
+ {
+   int i, j;
+ 
+@@ -42,7 +42,7 @@
+   }
+ }
+ 
+-void handle_falling_child()
++void handle_falling_child(int signum)
+ {
+   struct plugins_list_entry *list = NULL;
+   int j, ret;
 @@ -100,7 +100,7 @@
    }
  }
