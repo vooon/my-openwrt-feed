@@ -50,7 +50,7 @@ write_listen_config() {
 
 start_service() {
 	local enabled protocol collector sampling agent_ip agent_subid
-	local snaplen promisc debug logfile nfprobe_version
+	local snaplen promisc debug logfile nfprobe_version aggregate
 
 	config_load "$CONF"
 	config_get_bool enabled service enabled 0
@@ -66,6 +66,7 @@ start_service() {
 	config_get_bool promisc    service promisc 0
 	config_get_bool debug      service debug 0
 	config_get logfile         service logfile ""
+	config_get aggregate       service aggregate ""
 
 	mkdir -p "$CONF_DIR"
 	: > "$CONF_FILE"
@@ -77,6 +78,7 @@ start_service() {
 	echo "snaplen: $snaplen" >> "$CONF_FILE"
 	[ "$promisc" -gt 0 ] && echo "promisc: true" >> "$CONF_FILE"
 	[ "$sampling" -gt 0 ] && echo "sampling_rate: $sampling" >> "$CONF_FILE"
+	[ -n "$aggregate" ] && echo "aggregate: $aggregate" >> "$CONF_FILE"
 
 	case "$protocol" in
 		sflow)
