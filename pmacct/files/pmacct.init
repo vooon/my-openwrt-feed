@@ -21,7 +21,13 @@ pmacct_iface() {
 
 	[ -n "$ifname" ] || return 0
 
-	[ -n "$ifindex" ] || ifindex="$((n + 1))"
+	# Default to the kernel/SNMP ifIndex so the exported NetFlow/IPFIX ifindex
+	# matches what Akvorado resolves via SNMP (which was the real mismatch causing
+	# "input and output interfaces missing"). Sequential 1..N does not match.
+	if [ -z "$ifindex" ] && [ -f "/sys/class/net/$ifname/ifindex" ]; then
+		ifindex="$(cat "/sys/class/net/$ifname/ifindex")"
+	fi
+	[ -n "$ifindex" ] || return 0
 
 	line="ifindex=$ifindex"
 	line="$line${TAB}ifname=$ifname"
@@ -90,6 +96,7 @@ start_service() {
 		netflow|ipfix)
 			echo "plugins: nfprobe" >> "$CONF_FILE"
 			[ -n "$nfprobe_version" ] && echo "nfprobe_version: $nfprobe_version" >> "$CONF_FILE"
+			[ -n "$agent_ip" ] && echo "nfprobe_source_ip: $agent_ip" >> "$CONF_FILE"
 			[ -n "$collector" ] && echo "nfprobe_receiver: $collector" >> "$CONF_FILE"
 			;;
 		*)
