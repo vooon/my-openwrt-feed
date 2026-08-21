@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rpcd-mod-bird
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_LICENSE:=LGPL-2.1+
 

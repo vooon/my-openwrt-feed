@@ -25,7 +25,7 @@
 
 'use strict';
 
-import { AF_UNIX, SOCK_STREAM, create as socket_create } from 'socket';
+import { AF_UNIX, SOCK_STREAM, create } from 'socket';
 
 const DEFAULT_SOCKET = '/run/bird.ctl';
 
@@ -57,8 +57,10 @@ function replyComplete(data) {
  * status line.  Returns an array of cleaned lines. */
 function cleanReply(data) {
 	let res = [];
+	let lines = split(data, '\n');
 
-	for (let line of split(data, '\n')) {
+	for (let li = 0; li < length(lines); li++) {
+		let line = lines[li];
 		if (!line.length)
 			continue;
 
@@ -86,43 +88,44 @@ function cleanReply(data) {
 
 /* Connect, send @command, return cleaned reply lines (or null on error). */
 function birdRaw(socket, command) {
-	let sock;
+	let sock = null;
 
 	try {
-		sock = socket_create(AF_UNIX, SOCK_STREAM, 0);
-	} catch (e) {
-		return null;
-	}
-
-	try {
+		sock = create(AF_UNIX, SOCK_STREAM, 0);
 		sock.connect({ path: socket });
 
 		/* discard the banner BIRD sends on connect */
-		for (;;) {
+		let data = '';
+		for (let i = 0; i < 8; i++) {
 			let chunk = sock.recv(4096);
-			if (chunk == null || !length(chunk))
-				throw 1;
+			if (chunk == null || !length(chunk)) {
+				sock.close();
+				return null;
+			}
+			data += chunk;
 			if (index(chunk, '\n') >= 0)
 				break;
 		}
 
 		sock.send(command + '\n');
 
-		let data = '';
-		for (;;) {
+		let reply = '';
+		for (let i = 0; i < 256; i++) {
 			let chunk = sock.recv(4096);
 			if (chunk == null || !length(chunk))
 				break;
-			data += chunk;
-			if (replyComplete(data))
+			reply += chunk;
+			if (replyComplete(reply))
 				break;
 		}
 
 		sock.close();
-		return cleanReply(data);
+		return cleanReply(reply);
 	}
 	catch (e) {
-		try { sock.close(); } catch (_) {}
+		if (sock) {
+			try { sock.close(); } catch (_) {}
+		}
 		return null;
 	}
 }
