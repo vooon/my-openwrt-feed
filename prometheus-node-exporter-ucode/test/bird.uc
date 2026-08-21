@@ -1,118 +1,72 @@
 // Self-contained regression test for the BIRD collector.
 //
-// Mocks the "bird" ubus object and the gauge/counter metric helpers, loads
-// files/extra/bird.uc and asserts that the emitted metric set matches the
-// expected bird_exporter schema.  Run via test.sh.
+// Mocks the "bird" ubus object (returning the structured snapshot that the
+// rpcd ucode module produces for `bird status`), loads files/extra/bird.uc
+// and asserts that the emitted metric set matches the expected
+// bird_exporter schema.  Run via test.sh.
+//
+// The fixtures below mirror the ones the old inline parser consumed, but as
+// the structured JSON emitted by /usr/share/rpcd/ucode/bird.uc, using the
+// canonical BIRD 3.x 7-field route-change layout (route change stats carry
+// RX limit / limit columns; see nest/proto.c channel_show_stats).
 
-const PROTO_TXT =
-"Name       Proto       Table         State      Since         Info\n" +
-"device1    Device      ---           up         00:00:04\n" +
-"direct1    Direct      ---           up         2024-01-15 10:30:05\n" +
-"  Channel ipv4:\n" +
-"    State:          up\n" +
-"    Table:          master4\n" +
-"    Preference:     120\n" +
-"    Input filter:   ACCEPT\n" +
-"    Output filter:  ACCEPT\n" +
-"    Routes:         3 imported, 1 filtered, 3 exported, 2 preferred\n" +
-"    Route change stats:     received   rejected   filtered    ignored   accepted\n" +
-"      Import updates:             10          2          1          0          7\n" +
-"      Import withdraws:           20          0        ---          1          19\n" +
-"      Export updates:            30          0          0        ---          30\n" +
-"      Export withdraws:          40        ---        ---        ---          40\n" +
-"kernel1    Kernel      master4       up         2024-01-15 10:30:05\n" +
-"  Channel ipv4:\n" +
-"    State:          up\n" +
-"    Input filter:   ACCEPT\n" +
-"    Output filter:  ACCEPT\n" +
-"    Routes:         5 imported, 5 exported, 5 preferred\n" +
-"static1    Static      master4       up         00:07:12\n" +
-"  Channel ipv4:\n" +
-"    Routes:         2 imported, 2 exported, 1 preferred\n" +
-"bgp1       BGP         master4       up         2024-01-15 10:30:05\n" +
-"  Description:    peer AS 64512\n" +
-"  BGP state:      Established\n" +
-"  Neighbor address: 10.0.0.1\n" +
-"  Channel ipv4:\n" +
-"    State:          up\n" +
-"    Input filter:   bgp-in\n" +
-"    Output filter:  bgp-out\n" +
-"    Routes:         100 imported, 0 filtered, 100 exported, 100 preferred\n" +
-"  Channel ipv6:\n" +
-"    State:          up\n" +
-"    Input filter:   bgp-in\n" +
-"    Output filter:  bgp-out\n" +
-"    Routes:         50 imported, 0 filtered, 50 exported, 50 preferred\n" +
-"ospf1      OSPF        master4       up         2024-01-15 10:30:05 Running\n" +
-"  Channel ipv4:\n" +
-"    Routes:         8 imported, 8 exported, 8 preferred\n" +
-"bfd1       BFD         ---           up         2024-01-15 10:30:05\n" +
-"0000 OK\n";
+const status = {
+	status: {
+		version: "3.0.0",
+		router_id: "10.0.0.1",
+		hostname: "router1",
+		server_time: 1705311005,
+		last_reboot: 1705311005,
+		last_reconfig: 1705311005,
+		up: 1,
+	},
+	protocols: [
+		{ name: "device1", proto: "Device", ip_version: "", up: 1, state: null, uptime: 4, imported: 0, exported: 0, filtered: 0, preferred: 0, import_filter: "", export_filter: "", v3: false, changes: {} },
+		{ name: "direct1", proto: "Direct", ip_version: "4", up: 1, state: null, uptime: 12345, imported: 3, exported: 3, filtered: 1, preferred: 2, import_filter: "ACCEPT", export_filter: "ACCEPT", v3: false,
+			changes: {
+				import_updates:   { received: 10, rejected: 2,  filtered: 1, ignored: 0, accepted: 7,  rx_limit: 0, limit: 0 },
+				import_withdraws: { received: 20, rejected: 0,  filtered: 0, ignored: 1, accepted: 19, rx_limit: 0, limit: 0 },
+				export_updates:   { received: 30, rejected: 0,  filtered: 0, ignored: 0, accepted: 30, rx_limit: 0, limit: 0 },
+				export_withdraws: { received: 40, rejected: 0,  filtered: 0, ignored: 0, accepted: 40, rx_limit: 0, limit: 0 },
+			} },
+		{ name: "kernel1", proto: "Kernel", ip_version: "4", up: 1, state: null, uptime: 12345, imported: 5, exported: 5, filtered: 0, preferred: 5, import_filter: "", export_filter: "", v3: false, changes: {} },
+		{ name: "static1", proto: "Static", ip_version: "4", up: 1, state: null, uptime: 432, imported: 2, exported: 2, filtered: 0, preferred: 1, import_filter: "", export_filter: "", v3: false, changes: {} },
+		{ name: "bgp1", proto: "BGP", ip_version: "4", up: 1, state: "Established", uptime: 12345, imported: 100, exported: 100, filtered: 0, preferred: 100, import_filter: "bgp-in", export_filter: "bgp-out", neighbor: "10.0.0.1", neighbor_as: 64512, local_as: 65000, v3: false, changes: {} },
+		{ name: "bgp1", proto: "BGP", ip_version: "6", up: 1, state: "Established", uptime: 12345, imported: 50, exported: 50, filtered: 0, preferred: 50, import_filter: "bgp-in", export_filter: "bgp-out", v3: false, changes: {} },
+		{ name: "ospf1", proto: "OSPF", ip_version: "4", up: 1, state: "Running", uptime: 12345, imported: 8, exported: 8, filtered: 0, preferred: 8, import_filter: "", export_filter: "", v3: false, changes: {} },
+		{ name: "bfd1", proto: "BFD", ip_version: "", up: 1, state: null, uptime: 12345, imported: 0, exported: 0, filtered: 0, preferred: 0, import_filter: "", export_filter: "", v3: false, changes: {} },
+	],
+	ospf: [
+		{ protocol: "ospf1", ip_version: "4", running: 1,
+			areas: [
+				{ name: "0", interfaces: 2, neighbors: 3, adjacent: 2 },
+				{ name: "1", interfaces: 1, neighbors: 1, adjacent: 1 },
+			],
+			interfaces: [
+				{ interface: "eth0", cost: 10 },
+				{ interface: "eth1", cost: 100 },
+			],
+			neighbors: [
+				{ rid: "10.0.0.2", priority: 1, state: "Full", position: "DR", interface: "eth0", ip: "192.0.2.2" },
+				{ rid: "10.0.0.3", priority: 1, state: "2-Way", position: "Other", interface: "eth1", ip: "198.51.100.2" },
+				{ rid: "10.0.0.4", priority: 1, state: "Init", position: "PtP", interface: "eth0", ip: "192.0.2.3" },
+			] },
+	],
+	bgp: [],
+	bfd: [
+		{ protocol: "bfd1", sessions: [
+			{ ip: "10.0.0.2", interface: "eth0", up: 1, uptime: 12345, interval: 1000, timeout: 3000 },
+			{ ip: "10.0.0.3", interface: "eth1", up: 0, uptime: 62, interval: 1000, timeout: 3000 },
+		] },
+	],
+};
 
-const STATUS_TXT =
-"BIRD 3.0.0\n" +
-"Router ID is 10.0.0.1\n" +
-"Hostname is router1\n" +
-"Current server time is 2024-01-15 10:30:05\n" +
-"Last reboot on 2024-01-15 10:30:05\n" +
-"Last reconfiguration on 2024-01-15 10:30:05\n" +
-"Daemon is up and running\n";
-
-const OSPF_TXT =
-"Area: 0.0.0.0 (0) Backbone\n" +
-"    Number of interfaces:     2\n" +
-"    Number of neighbors:      3\n" +
-"    Number of adjacent neighbors:  2\n" +
-"Area: 0.0.0.1 (1) Area1\n" +
-"    Number of interfaces:     1\n" +
-"    Number of neighbors:      1\n" +
-"    Number of adjacent neighbors:  1\n";
-
-const BFD_TXT =
-" 10.0.0.2    eth0        Up          2024-01-15 10:30:05  1000.000  3000.000\n" +
-" 10.0.0.3    eth1        Down        00:01:02  1000.000  3000.000\n";
-
-const OSPF_IFACE_TXT =
-"ospf1:\n" +
-"Interface eth0 (192.0.2.1/24)\n" +
-"\tType: Bcast\n" +
-"\tArea: 0.0.0.0 (0)\n" +
-"\tState: DR\n" +
-"\tPriority: 1\n" +
-"\tCost: 10\n" +
-"\tECMP weight: 1\n" +
-"Interface eth1 (198.51.100.1/24)\n" +
-"\tType: Bcast\n" +
-"\tArea: 0.0.0.0 (0)\n" +
-"\tState: Backup\n" +
-"\tPriority: 1\n" +
-"\tCost: 100\n";
-
-const OSPF_NEIGH_TXT =
-"ospf1:\n" +
-"Router ID     Pri  State       DTime   Interface   Router IP\n" +
-"10.0.0.2      1    Full/DR     39      eth0        192.0.2.2\n" +
-"10.0.0.3      1    2-Way/Other 27      eth1        198.51.100.2\n" +
-"10.0.0.4      1    Init/PtP    20      eth0        192.0.2.3\n";
-
-const config = { socket: "/run/bird/bird.ctl" };
+const config = { socket: "/run/bird.ctl" };
 
 const ubus = {
 	call: function(obj, method, args) {
-		switch (args.command) {
-		case "show protocols all":
-			return { code: 0, stdout: PROTO_TXT };
-		case "show status":
-			return { code: 0, stdout: STATUS_TXT };
-		case "show ospf ospf1":
-			return { code: 0, stdout: OSPF_TXT };
-		case "show ospf interface ospf1":
-			return { code: 0, stdout: OSPF_IFACE_TXT };
-		case "show ospf neighbors ospf1":
-			return { code: 0, stdout: OSPF_NEIGH_TXT };
-		case "show bfd sessions bfd1":
-			return { code: 0, stdout: BFD_TXT };
-		}
+		if (obj == "bird" && method == "status")
+			return status;
 		return null;
 	}
 };

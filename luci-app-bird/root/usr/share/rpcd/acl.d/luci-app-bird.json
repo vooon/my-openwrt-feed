@@ -1,0 +1,13 @@
+{
+	"luci-app-bird": {
+		"description": "Grant access to the read-only BIRD status overview",
+		"read": {
+			"ubus": {
+				"bird": [
+					"status"
+				]
+			}
+		},
+		"write": {}
+	}
+}

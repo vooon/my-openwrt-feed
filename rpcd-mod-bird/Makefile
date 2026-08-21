@@ -1,32 +1,38 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rpcd-mod-bird
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_LICENSE:=LGPL-2.1+
-PKG_BUILD_FLAGS:=gc-sections
+
+PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)
 
 include $(INCLUDE_DIR)/package.mk
-include $(INCLUDE_DIR)/cmake.mk
 
 define Package/rpcd-mod-bird
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=BIRD control socket rpcd module
-  DEPENDS:=+rpcd
+  DEPENDS:=+rpcd-mod-ucode +ucode-mod-socket
   MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 endef
 
 define Package/rpcd-mod-bird/description
-  Exposes the BIRD routing daemon control socket via ubus so that
-  sandboxed processes (e.g. the prometheus-node-exporter-ucode jail)
-  can query it without direct socket access.
+  Exposes the BIRD routing daemon control socket via ubus as a ucode rpcd
+  plugin.  Provides:
+
+    bird query   - raw command passthrough returning { code, stdout }
+    bird status  - read-only structured snapshot of daemon/protocols,
+                   OSPF/BGP/BFD state
+
+  The parser uses ucode match() (the same POSIX engine as
+  prometheus-node-exporter-ucode's bird.uc) to avoid musl/glibc regex
+  differences.
 endef
 
 define Package/rpcd-mod-bird/install
-	$(INSTALL_DIR) $(1)/usr/lib/rpcd
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/lib/rpcd/bird.so \
-		$(1)/usr/lib/rpcd/
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
+	$(INSTALL_DATA) ./src/bird.uc $(1)/usr/share/rpcd/ucode/bird.uc
 endef
 
 define Package/rpcd-mod-bird/postinst
