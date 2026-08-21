@@ -35,7 +35,8 @@ define Package/luci-app-bird/description
 endef
 
 define Package/luci-app-bird/install
-	$(CP) ./htdocs/* $(1)/www/
+	$(INSTALL_DIR) $(1)/www
+	$(CP) ./htdocs/luci-static $(1)/www/
 	$(INSTALL_DIR) $(1)/usr/share/luci/menu.d
 	$(INSTALL_DATA) ./root/usr/share/luci/menu.d/luci-app-bird.json $(1)/usr/share/luci/menu.d/
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
