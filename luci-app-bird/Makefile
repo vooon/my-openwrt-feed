@@ -7,9 +7,17 @@ PKG_LICENSE:=LGPL-2.1+
 
 PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)
 
-Build/Compile =
-
 include $(INCLUDE_DIR)/package.mk
+
+# data-only package: nothing to prepare/configure/compile
+define Build/Prepare
+endef
+
+define Build/Configure
+endef
+
+define Build/Compile
+endef
 
 define Package/luci-app-bird
   SECTION:=luci
