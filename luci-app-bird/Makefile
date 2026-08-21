@@ -7,6 +7,8 @@ PKG_LICENSE:=LGPL-2.1+
 
 PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)
 
+Build/Compile =
+
 include $(INCLUDE_DIR)/package.mk
 
 define Package/luci-app-bird
