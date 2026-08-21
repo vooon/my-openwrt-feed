@@ -35,8 +35,7 @@ Package Highlights
 - Monitoring: `prometheus-node-exporter-ucode`, `frr-exporter`,
   `smokeping-prober`, `squid-exporter`, `unbound-exporter`, `rpcd-mod-bird`
   (read-only ubus access to the BIRD control socket, incl. structured
-  `bird status`), `luci-app-bird` (OSPF/BGP overview page),
-  `rpcd-mod-bmx7`
+  `bird status`), `luci-app-bird` (OSPF/BGP overview page)
 - Backup and virtualization: `proxmox-backup`, `pbs-helper`,
   `qemu-instance-init`, `rsync-sysupgrade`
 - File synchronization: `inotify-rsync`
