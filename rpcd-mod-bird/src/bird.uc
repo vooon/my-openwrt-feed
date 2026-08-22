@@ -230,6 +230,7 @@ const bgpReasonRe = /^BGP state:[ \t]+(\S+)/;
 const bgpNeighborRe = /^Neighbor address:[ \t]+(\S+)/;
 const bgpAsRe = /^Neighbor AS:[ \t]+(\d+)/;
 const bgpLocalAsRe = /^Local AS:[ \t]+(\d+)/;
+const bgpIdRe = /^Neighbor ID:[ \t]+(\S+)/;
 
 function parseProtocols(lines) {
 	let res = [];
@@ -322,6 +323,8 @@ function parseProtocols(lines) {
 				cur.neighbor_as = +m[1];
 			else if ((m = match(l, bgpLocalAsRe)))
 				cur.local_as = +m[1];
+			else if ((m = match(l, bgpIdRe)))
+				cur.neighbor_id = m[1];
 		}
 	}
 
@@ -533,6 +536,7 @@ const methods = {
 						neighbor: p.neighbor || null,
 						neighbor_as: p.neighbor_as || null,
 						local_as: p.local_as || null,
+						neighbor_id: p.neighbor_id || null,
 						imported: p.imported,
 						exported: p.exported,
 						filtered: p.filtered,

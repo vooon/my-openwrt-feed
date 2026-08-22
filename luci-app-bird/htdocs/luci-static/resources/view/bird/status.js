@@ -152,19 +152,24 @@ function buildTopologyGraph(data) {
 	var localId = data.status.router_id || 'local';
 	var local = node(localId, data.status.router_id || _('local'), 'local', data.status.up);
 
+	/* OSPF neighbors - key on the remote router-id */
 	for (var i = 0; i < (data.ospf || []).length; i++) {
 		var o = data.ospf[i];
 		var t = node(localId, '', 'local', data.status.up);
 		for (var j = 0; j < (o.neighbors || []).length; j++) {
 			var n = o.neighbors[j];
-			var tgt = node('ospf/' + n.rid, n.rid, 'ospf', (n.state == 'Full'));
+			if (!n.rid)
+				continue;
+			var tgt = node('peer/' + n.rid, n.rid, 'peer', (n.state == 'Full'));
 			links.push({ source: t, target: tgt, label: o.protocol });
 		}
 	}
 
+	/* BGP peers - key on the remote router-id (matches the OSPF neighbor) */
 	for (var k = 0; k < (data.bgp || []).length; k++) {
 		var b = data.bgp[k];
-		var tgt = node('bgp/' + b.name, b.neighbor || b.name, 'bgp', (b.up == 1));
+		var key = (b.neighbor_id && 'peer/' + b.neighbor_id) || ('peer/bgp-' + b.name);
+		var tgt = node(key, b.neighbor || b.name, 'peer', (b.up == 1));
 		links.push({ source: local, target: tgt, label: 'BGP' });
 	}
 
@@ -238,8 +243,7 @@ function renderTopology(data) {
 
 	var typeColors = {
 		'local': '#16a085',
-		'ospf': '#2980b9',
-		'bgp': '#8e44ad'
+		'peer': '#2980b9'
 	};
 
 	var g = buildTopologyGraph(data);
@@ -272,11 +276,11 @@ function renderTopology(data) {
 	box.innerHTML = svg;
 
 	var legend = E('div', { 'style': 'margin-top:1em;color:#666;font-size:12px' }, [
-		E('span', { 'style': 'color:' + typeColors.local }, [ _('local') ]),
+		E('span', { 'style': 'color:' + typeColors.local }, [ _('this router') ]),
 		' · ',
-		E('span', { 'style': 'color:' + typeColors.ospf }, [ _('OSPF') ]),
+		E('span', { 'style': 'color:' + typeColors.peer }, [ _('peer') ]),
 		' · ',
-		E('span', { 'style': 'color:' + typeColors.bgp }, [ _('BGP') ])
+		E('em', [ _('merged by router-id') ])
 	]);
 
 	return [
