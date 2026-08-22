@@ -26,9 +26,13 @@
 'use strict';
 
 import { connect, error as serr } from 'socket';
-import { syslog } from 'log';
+import { syslog, openlog } from 'log';
 
 const DEFAULT_SOCKET = '/run/bird.ctl';
+
+/* tag our messages with rpcd.bird; rpcd's own logs keep the "rpcd" process
+ * tag from procd, so this only affects syslog() calls made by this plugin */
+try { openlog('rpcd.bird', 0, 'daemon'); } catch (_) {};
 
 function birdLog(sev, msg) {
 	try { syslog(sev, msg); } catch (_) {}
@@ -96,7 +100,12 @@ function birdRaw(socket, command) {
 	let sock = null;
 
 	try {
-		sock = connect({ path: socket });
+		sock = connect(socket);
+
+		if (sock == null) {
+			birdLog('err', `bird: connect failed cmd='${command}' socket='${socket}': ${serr()}`);
+			return null;
+		}
 
 		/* discard the banner BIRD sends on connect */
 		let data = '';
