@@ -485,7 +485,7 @@ const methods = {
 			if (protoLines == null)
 				return { status: null };
 
-			let out = { status: {}, protocols: [], ospf: [], bgp: [], bfd: [] };
+			let out = { status: {}, protocols: [], ospf: [], bgp: [], bfd: [], as_paths: [] };
 
 			let statusLines = birdRaw(socket, 'show status');
 			if (statusLines != null)
@@ -543,6 +543,27 @@ const methods = {
 						preferred: p.preferred,
 						uptime: p.uptime,
 					});
+				}
+			}
+
+			/* AS-path graph: derive transit structure from BGP routes */
+			let routeLines = birdRaw(socket, 'show route all');
+			if (routeLines != null) {
+				for (let ri = 0; ri < length(routeLines); ri++) {
+					let l = replace(routeLines[ri], /^[ \t]+/, '');
+					let m = match(l, /^bgp_path:[ \t]+(.+)$/);
+
+					if (m) {
+						let asn = [];
+						let toks = split(trim(m[1]), ' ');
+
+						for (let ti = 0; ti < length(toks); ti++)
+							if (length(toks[ti]))
+								push(asn, +toks[ti]);
+
+						if (length(asn))
+							push(out.as_paths, asn);
+					}
 				}
 			}
 

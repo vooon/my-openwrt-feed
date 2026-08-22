@@ -142,42 +142,56 @@ function topologySeed() {
 	};
 }
 
-function buildTopologyGraph(data) {
+/* AS-level graph built from each route's BGP AS_PATH: nodes are ASNs, edges
+ * connect consecutive hops of each path and this router's AS to its direct
+ * peers.  Reveals the transit structure instead of a flat peer star. */
+function buildAsGraph(data) {
 	var nodes = [];
 	var links = [];
 	var index = {};
+	var seen = {};
 
-	function node(id, label, type, up) {
+	function node(id, label, type) {
 		if (!(id in index)) {
-			var n = { id: id, label: label, type: type, up: up, x: 0, y: 0, vx: 0, vy: 0 };
+			var n = { id: id, label: label, type: type, up: 1, x: 0, y: 0, vx: 0, vy: 0 };
 			index[id] = n;
 			nodes.push(n);
 		}
 		return index[id];
 	}
 
-	var localId = data.status.router_id || 'local';
-	var local = node(localId, data.status.router_id || _('local'), 'local', data.status.up);
-
-	/* OSPF neighbors - key on the remote router-id */
-	for (var i = 0; i < (data.ospf || []).length; i++) {
-		var o = data.ospf[i];
-		var t = node(localId, '', 'local', data.status.up);
-		for (var j = 0; j < (o.neighbors || []).length; j++) {
-			var n = o.neighbors[j];
-			if (!n.rid)
-				continue;
-			var tgt = node('peer/' + n.rid, n.rid, 'peer', (n.state == 'Full'));
-			links.push({ source: t, target: tgt, label: o.protocol });
-		}
+	function edge(a, b) {
+		var k = a.id + '|' + b.id;
+		if (seen[k])
+			return;
+		seen[k] = 1;
+		links.push({ source: a, target: b });
 	}
 
-	/* BGP peers - key on the remote router-id (matches the OSPF neighbor) */
-	for (var k = 0; k < (data.bgp || []).length; k++) {
-		var b = data.bgp[k];
-		var key = (b.neighbor_id && 'peer/' + b.neighbor_id) || ('peer/bgp-' + b.name);
-		var tgt = node(key, b.neighbor || b.name, 'peer', (b.up == 1));
-		links.push({ source: local, target: tgt, label: 'BGP' });
+	var localAs = null;
+	for (var i = 0; i < (data.bgp || []).length; i++)
+		if (data.bgp[i].local_as != null) {
+			localAs = data.bgp[i].local_as;
+			break;
+		}
+
+	var local = node('local', localAs != null ? ('AS' + localAs) : _('local'), 'local');
+
+	var paths = data.as_paths || [];
+	for (var p = 0; p < paths.length; p++) {
+		var arr = paths[p];
+		var prev = null;
+
+		for (var k = 0; k < arr.length; k++) {
+			var n = node('as/' + arr[k], 'AS' + arr[k], 'as');
+			if (prev != null)
+				edge(prev, n);
+			prev = n;
+		}
+
+		/* the last ASN in a path is our direct eBGP peer */
+		if (arr.length)
+			edge(local, node('as/' + arr[arr.length - 1], 'AS' + arr[arr.length - 1], 'as'));
 	}
 
 	return { nodes: nodes, links: links };
@@ -250,10 +264,10 @@ function renderTopology(data) {
 
 	var typeColors = {
 		'local': '#16a085',
-		'peer': '#2980b9'
+		'as': '#8e44ad'
 	};
 
-	var g = buildTopologyGraph(data);
+	var g = buildAsGraph(data);
 	if (g.nodes.length < 2)
 		return [];
 
@@ -283,11 +297,11 @@ function renderTopology(data) {
 	box.innerHTML = svg;
 
 	var legend = E('div', { 'style': 'margin-top:1em;color:#666;font-size:12px' }, [
-		E('span', { 'style': 'color:' + typeColors.local }, [ _('this router') ]),
+		E('span', { 'style': 'color:' + typeColors.local }, [ _('this AS') ]),
 		' · ',
-		E('span', { 'style': 'color:' + typeColors.peer }, [ _('peer') ]),
+		E('span', { 'style': 'color:' + typeColors.as }, [ _('AS') ]),
 		' · ',
-		E('em', [ _('merged by router-id') ])
+		E('em', [ _('edges from BGP AS paths') ])
 	]);
 
 	return [
