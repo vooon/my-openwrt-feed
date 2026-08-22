@@ -133,39 +133,56 @@ function renderBgp(bgp) {
 	return res;
 }
 
-/* Dependency-free SVG force-directed topology (OSPF neighbors + BGP peers) */
-function topologySeed() {
-	var s = 20260821;
-	return function() {
-		s = (s * 9301 + 49297) % 233280;
-		return s / 233280;
+
+/* dynamic AS-path topology rendered with vis-network */
+
+var topoScriptLoaded = false;
+var topoScriptLoading = false;
+var topoBoxEl = null;
+var topoNet = null;
+
+function loadTopoScript(cb) {
+	if (topoScriptLoaded) {
+		if (cb) cb(true);
+		return;
+	}
+	if (topoScriptLoading)
+		return;
+	topoScriptLoading = true;
+
+	var s = document.createElement('script');
+	s.async = true;
+	s.src = L.resource('bird/vis-network.min.js');
+	s.onload = function() {
+		topoScriptLoaded = true;
+		topoScriptLoading = false;
+		if (cb) cb(true);
 	};
+	s.onerror = function() {
+		topoScriptLoading = false;
+		if (cb) cb(false);
+	};
+	document.head.appendChild(s);
 }
 
-/* AS-level graph built from each route's BGP AS_PATH: nodes are ASNs, edges
- * connect consecutive hops of each path and this router's AS to its direct
- * peers.  Reveals the transit structure instead of a flat peer star. */
+/* Build vis node/edge arrays from BGP AS paths.  Nodes are ASNs; an edge links
+ * consecutive hops of every path plus this router's AS to its eBGP peers. */
 function buildAsGraph(data) {
 	var nodes = [];
-	var links = [];
-	var index = {};
+	var edges = [];
 	var seen = {};
 
-	function node(id, label, type) {
-		if (!(id in index)) {
-			var n = { id: id, label: label, type: type, up: 1, x: 0, y: 0, vx: 0, vy: 0 };
-			index[id] = n;
-			nodes.push(n);
-		}
-		return index[id];
+	function node(id, label, group) {
+		nodes.push({ id: id, label: label, group: group });
+		return id;
 	}
 
 	function edge(a, b) {
-		var k = a.id + '|' + b.id;
+		var k = a < b ? (a + '|' + b) : (b + '|' + a);
 		if (seen[k])
 			return;
 		seen[k] = 1;
-		links.push({ source: a, target: b });
+		edges.push({ from: a, to: b, length: 140 });
 	}
 
 	var localAs = null;
@@ -174,8 +191,8 @@ function buildAsGraph(data) {
 			localAs = data.bgp[i].local_as;
 			break;
 		}
-
-	var local = node('local', localAs != null ? ('AS' + localAs) : _('local'), 'local');
+	var localId = 'as' + localAs;
+	node(localId, localAs != null ? ('AS' + localAs) : _('us'), 'local');
 
 	var paths = data.as_paths || [];
 	for (var p = 0; p < paths.length; p++) {
@@ -183,132 +200,82 @@ function buildAsGraph(data) {
 		var prev = null;
 
 		for (var k = 0; k < arr.length; k++) {
-			var n = node('as/' + arr[k], 'AS' + arr[k], 'as');
+			var id = 'as' + arr[k];
+			node(id, 'AS' + arr[k], 'peer');
 			if (prev != null)
-				edge(prev, n);
-			prev = n;
+				edge(prev, id);
+			prev = id;
 		}
 
-		/* the last ASN in a path is our direct eBGP peer */
 		if (arr.length)
-			edge(local, node('as/' + arr[arr.length - 1], 'AS' + arr[arr.length - 1], 'as'));
+			edge(localId, 'as' + arr[arr.length - 1]);
 	}
 
-	return { nodes: nodes, links: links };
+	return { nodes: nodes, edges: edges };
 }
 
-function layoutTopology(g, W, H) {
-	var rand = topologySeed();
-	var n = g.nodes.length;
-
-	for (var i = 0; i < n; i++) {
-		g.nodes[i].x = W / 2 + (rand() - 0.5) * W * 0.8;
-		g.nodes[i].y = H / 2 + (rand() - 0.5) * H * 0.8;
-		g.nodes[i].vx = 0;
-		g.nodes[i].vy = 0;
-	}
-
-	var k = Math.sqrt((W * H) / Math.max(n, 1)) * 0.9;
-	var ITER = 200;
-
-	for (var it = 0; it < ITER; it++) {
-		/* repulsion */
-		for (var a = 0; a < n; a++) {
-			for (var b = a + 1; b < n; b++) {
-				var A = g.nodes[a], B = g.nodes[b];
-				var dx = A.x - B.x, dy = A.y - B.y;
-				var d = Math.sqrt(dx * dx + dy * dy) || 0.1;
-				var f = (k * k) / (d * d) * 0.5;
-				var fx = dx / d * f, fy = dy / d * f;
-				A.vx += fx; A.vy += fy;
-				B.vx -= fx; B.vy -= fy;
-			}
-		}
-
-		/* links pull to target distance */
-		for (var li = 0; li < g.links.length; li++) {
-			var l = g.links[li];
-			var S = l.source, T = l.target;
-			var dx = T.x - S.x, dy = T.y - S.y;
-			var d = Math.sqrt(dx * dx + dy * dy) || 0.1;
-			var f = (d - k) / d * 0.35;
-			var fx = dx * f, fy = dy * f;
-			S.x += fx; S.y += fy;
-			T.x -= fx; T.y -= fy;
-		}
-
-		/* center gravity + integrate */
-		for (var c = 0; c < n; c++) {
-			var N = g.nodes[c];
-			N.vx += (W / 2 - N.x) * 0.02;
-			N.vy += (H / 2 - N.y) * 0.02;
-			N.x += N.vx;
-			N.y += N.vy;
-			N.vx *= 0.8;
-			N.vy *= 0.8;
-		}
-	}
-
-	return g;
-}
-
-function svgEsc(s) {
-	return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
-		return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-	});
-}
+var topoOptions = {
+	nodes: {
+		shape: 'dot',
+		font: { size: 14 },
+		borderWidth: 2
+	},
+	groups: {
+		local: { color: { background: '#16a085', border: '#12876e' }, size: 20, font: { size: 16, color: '#12876e' } },
+		peer: { color: { background: '#8e44ad', border: '#7d3c9e' }, size: 14 }
+	},
+	edges: {
+		color: '#b8c0c8',
+		selectionWidth: 2
+	},
+	physics: {
+		barnesHut: {
+			gravitationalConstant: -3200,
+			centralGravity: 0.25,
+			springLength: 130,
+			springConstant: 0.05
+		},
+		enabled: true,
+		stabilization: { iterations: 200 }
+	},
+	interaction: { hover: true, dragNodes: true }
+};
 
 function renderTopology(data) {
-	if (!data.status || data.status.up == null)
-		return [];
+	if (!topoBoxEl)
+		topoBoxEl = E('div', { 'style': 'height:520px;border:1px solid #ddd;border-radius:4px' });
 
-	var typeColors = {
-		'local': '#16a085',
-		'as': '#8e44ad'
-	};
+	if (!topoScriptLoaded) {
+		loadTopoScript();
+		return E([], [
+			E('h3', [ _('Topology') ]),
+			E('p', { 'class': 'center', 'style': 'margin-top:5em' }, [ E('em', [ _('Loading topology…') ]) ])
+		]);
+	}
+
+	if (typeof vis === 'undefined' || !data.status || data.status.up == null) {
+		return E([], [ E('h3', [ _('Topology') ]) ]);
+	}
 
 	var g = buildAsGraph(data);
 	if (g.nodes.length < 2)
-		return [];
+		return E([], [ E('h3', [ _('Topology') ]) ]);
 
-	g = layoutTopology(g, 720, 480);
+	var dataSet = {
+		nodes: new vis.DataSet(g.nodes),
+		edges: new vis.DataSet(g.edges)
+	};
 
-	var svg = '<svg viewBox="-60 -60 840 600" width="100%" style="min-height:480px">';
-
-	for (var l = 0; l < g.links.length; l++) {
-		var L0 = g.links[l];
-		svg += '<line x1="' + L0.source.x + '" y1="' + L0.source.y + '" x2="' + L0.target.x + '" y2="' + L0.target.y +
-			'" stroke="#c0c0c0" stroke-width="1"/>';
+	if (!topoNet) {
+		topoNet = new vis.Network(topoBoxEl, dataSet, topoOptions);
+	} else {
+		topoNet.setData(dataSet);
 	}
 
-	for (var i = 0; i < g.nodes.length; i++) {
-		var N = g.nodes[i];
-		var fill = N.up ? typeColors[N.type] : '#95a5a6';
-		var r = (N.type == 'local' ? 9 : 6);
-		svg += '<circle cx="' + N.x + '" cy="' + N.y + '" r="' + r +
-			'" fill="' + fill + '" stroke="#ffffff" stroke-width="1.5"/>';
-		svg += '<text x="' + N.x + '" y="' + (N.y + 16) + '" text-anchor="middle" ' +
-			'font-size="' + (N.type == 'local' ? 12 : 10) + '">' + svgEsc(N.label || N.id) + '</text>';
-	}
-
-	svg += '</svg>';
-
-	var box = E('div', { 'style': 'overflow:auto' });
-	box.innerHTML = svg;
-
-	var legend = E('div', { 'style': 'margin-top:1em;color:#666;font-size:12px' }, [
-		E('span', { 'style': 'color:' + typeColors.local }, [ _('this AS') ]),
-		' · ',
-		E('span', { 'style': 'color:' + typeColors.as }, [ _('AS') ]),
-		' · ',
-		E('em', [ _('edges from BGP AS paths') ])
-	]);
-
-	return [
+	return E([], [
 		E('h3', [ _('Topology') ]),
-		box,
-		legend
-	];
+		topoBoxEl
+	]);
 }
 
 function renderBfd(bfd) {
