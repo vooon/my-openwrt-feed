@@ -109,7 +109,7 @@ function birdRaw(socket, command) {
 		sock = connect({ family: AF_UNIX, path: socket });
 
 		if (sock == null) {
-			birdLog('err', `bird: connect failed cmd='${command}' socket='${socket}': ${serr()}`);
+			birdLog('err', `connect failed cmd='${command}' socket='${socket}': ${serr()}`);
 			return null;
 		}
 
@@ -118,7 +118,7 @@ function birdRaw(socket, command) {
 		for (let i = 0; i < 8; i++) {
 			let chunk = sock.recv(4096);
 			if (chunk == null || !length(chunk)) {
-				birdLog('err', `bird: banner/read failed cmd='${command}' socket='${socket}': ${serr()}`);
+				birdLog('err', `banner/read failed cmd='${command}' socket='${socket}': ${serr()}`);
 				sock.close();
 				return null;
 			}
@@ -143,7 +143,7 @@ function birdRaw(socket, command) {
 		return cleanReply(reply);
 	}
 	catch (e) {
-		birdLog('err', `bird: query failed cmd='${command}' socket='${socket}': ${e} (${serr()})`);
+		birdLog('err', `query failed cmd='${command}' socket='${socket}': ${e} (${serr()})`);
 		if (sock) {
 			try { sock.close(); } catch (_) {}
 		}
