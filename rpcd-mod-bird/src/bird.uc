@@ -25,7 +25,7 @@
 
 'use strict';
 
-import { connect, error as serr } from 'socket';
+import { AF_UNIX, connect, error as serr } from 'socket';
 import { syslog, openlog } from 'log';
 
 const DEFAULT_SOCKET = '/run/bird.ctl';
@@ -100,7 +100,7 @@ function birdRaw(socket, command) {
 	let sock = null;
 
 	try {
-		sock = connect(socket);
+		sock = connect({ family: AF_UNIX, path: socket });
 
 		if (sock == null) {
 			birdLog('err', `bird: connect failed cmd='${command}' socket='${socket}': ${serr()}`);
