@@ -3,7 +3,6 @@
 'require rpc';
 'require poll';
 'require dom';
-'require ui';
 
 var callGetBirdStatus = rpc.declare({
 	object: 'bird',
@@ -39,7 +38,15 @@ function renderDaemonHeader(s) {
 	if (s.up != null)
 		items.push([ _('State'), stateBadge(s.up, null) ]);
 
-	res.push(ui.itemlist(E([]), items));
+	var t = new L.ui.Table(
+		[ _('Property'), _('Value') ],
+		{ id: 'bird-daemon' },
+		E('em', [ _('No data') ])
+	);
+
+	t.update(items);
+
+	res.push(t.render());
 
 	return res;
 }
