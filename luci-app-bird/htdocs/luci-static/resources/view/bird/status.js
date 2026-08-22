@@ -241,41 +241,51 @@ var topoOptions = {
 	interaction: { hover: true, dragNodes: true }
 };
 
+/* Returned before the element is attached to the DOM; real init happens in
+ * updateTopo() afterwards (vis.Network needs the container in the document). */
 function renderTopology(data) {
 	if (!topoBoxEl)
 		topoBoxEl = E('div', { 'style': 'height:520px;border:1px solid #ddd;border-radius:4px' });
-
-	if (!topoScriptLoaded) {
-		loadTopoScript();
-		return E([], [
-			E('h3', [ _('Topology') ]),
-			E('p', { 'class': 'center', 'style': 'margin-top:5em' }, [ E('em', [ _('Loading topology…') ]) ])
-		]);
-	}
-
-	if (typeof vis === 'undefined' || !data.status || data.status.up == null) {
-		return E([], [ E('h3', [ _('Topology') ]) ]);
-	}
-
-	var g = buildAsGraph(data);
-	if (g.nodes.length < 2)
-		return E([], [ E('h3', [ _('Topology') ]) ]);
-
-	var dataSet = {
-		nodes: new vis.DataSet(g.nodes),
-		edges: new vis.DataSet(g.edges)
-	};
-
-	if (!topoNet) {
-		topoNet = new vis.Network(topoBoxEl, dataSet, topoOptions);
-	} else {
-		topoNet.setData(dataSet);
-	}
 
 	return E([], [
 		E('h3', [ _('Topology') ]),
 		topoBoxEl
 	]);
+}
+
+function updateTopo(data) {
+	try {
+		if (!topoScriptLoaded) {
+			loadTopoScript();
+			topoBoxEl.innerHTML = '<p class="center" style="margin-top:6em"><em>' +
+				_('Loading topology…') + '</em></p>';
+			return;
+		}
+
+		if (typeof vis === 'undefined' || !data.status || data.status.up == null) {
+			topoBoxEl.innerHTML = '';
+			return;
+		}
+
+		var g = buildAsGraph(data);
+		if (g.nodes.length < 2) {
+			topoBoxEl.innerHTML = '';
+			return;
+		}
+
+		var dataSet = {
+			nodes: new vis.DataSet(g.nodes),
+			edges: new vis.DataSet(g.edges)
+		};
+
+		if (!topoNet) {
+			topoNet = new vis.Network(topoBoxEl, dataSet, topoOptions);
+		} else {
+			topoNet.setData(dataSet);
+		}
+	} catch (e) {
+		topoBoxEl.innerHTML = '<p class="center"><em>' + _('Topology error: %h').format(e.message || e) + '</em></p>';
+	}
 }
 
 function renderBfd(bfd) {
@@ -340,6 +350,8 @@ return view.extend({
 					document.querySelector('#view'),
 					this.renderStatus(data)
 				);
+
+				updateTopo(data);
 			}, this));
 		}, this), 5);
 
