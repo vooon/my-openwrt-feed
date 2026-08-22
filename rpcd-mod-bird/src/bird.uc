@@ -40,11 +40,10 @@ function birdLog(sev, msg) {
 
 //// Raw BIRD socket client (port of the former C bird_socket_query) ////
 
-/* ucode strings are not indexable with [] - grab a single character via
- * substr() instead */
-function ch(s, i) {
-	return substr(s, i, 1);
-}
+/* a terminating status line (0000-0999, 8000-8999 or 9000-9999) */
+const statusLineRe = /^[089][0-9]{3}( |$)/;
+/* per-line reply code prefix, "<4 digits>-" or "<4 digits> " */
+const codePrefixRe = /^[0-9]{4}( |-)/;
 
 /* A BIRD reply is terminated by a line starting with a return code
  * (0000-0999, 8000-8999 or 9000-9999).  Returns 1 once such a line is the
@@ -60,12 +59,7 @@ function replyComplete(data) {
 	let start = (prev < 0) ? 0 : prev + 1;
 	let line = substr(data, start, nl - start);
 
-	return length(line) >= 4 &&
-	       (ch(line, 0) == '0' || ch(line, 0) == '8' || ch(line, 0) == '9') &&
-	       ch(line, 1) >= '0' && ch(line, 1) <= '9' &&
-	       ch(line, 2) >= '0' && ch(line, 2) <= '9' &&
-	       ch(line, 3) >= '0' && ch(line, 3) <= '9' &&
-	       (length(line) == 4 || ch(line, 4) == ' ');
+	return match(line, statusLineRe) != null;
 }
 
 /* Strip the per-line "<4 digit code><sep>" prefix and drop the trailing
@@ -79,20 +73,12 @@ function cleanReply(data) {
 		if (!length(line))
 			continue;
 
-		/* trailing status line starts with a code followed by a space/end */
-		if (length(line) >= 4 && (ch(line, 0) == '0' || ch(line, 0) == '8' || ch(line, 0) == '9') &&
-		    ch(line, 1) >= '0' && ch(line, 1) <= '9' &&
-		    ch(line, 2) >= '0' && ch(line, 2) <= '9' &&
-		    ch(line, 3) >= '0' && ch(line, 3) <= '9' &&
-		    (length(line) == 4 || ch(line, 4) == ' '))
+		/* trailing status line ends the reply */
+		if (match(line, statusLineRe))
 			break;
 
-		/* strip "<code>-" or "<code> " prefix */
-		if (length(line) >= 5 && ch(line, 0) >= '0' && ch(line, 0) <= '9' &&
-		    ch(line, 1) >= '0' && ch(line, 1) <= '9' &&
-		    ch(line, 2) >= '0' && ch(line, 2) <= '9' &&
-		    ch(line, 3) >= '0' && ch(line, 3) <= '9' &&
-		    (ch(line, 4) == '-' || ch(line, 4) == ' '))
+		/* strip "<4 digit code>-" or "<4 digit code> " prefix */
+		if (match(line, codePrefixRe))
 			line = substr(line, 5);
 
 		push(res, line);
