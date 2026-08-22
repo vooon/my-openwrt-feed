@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rpcd-mod-bird
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 
 PKG_LICENSE:=LGPL-2.1+
 
@@ -23,7 +23,7 @@ define Package/rpcd-mod-bird
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=BIRD control socket rpcd module
-  DEPENDS:=+rpcd-mod-ucode +ucode-mod-socket
+  DEPENDS:=+rpcd-mod-ucode +ucode-mod-socket +ucode-mod-log
   MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 endef
 

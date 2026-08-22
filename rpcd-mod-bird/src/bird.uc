@@ -25,9 +25,14 @@
 
 'use strict';
 
-import { AF_UNIX, SOCK_STREAM, create } from 'socket';
+import { connect, error as serr } from 'socket';
+import { syslog } from 'log';
 
 const DEFAULT_SOCKET = '/run/bird.ctl';
+
+function birdLog(sev, msg) {
+	try { syslog(sev, msg); } catch (_) {}
+}
 
 //// Raw BIRD socket client (port of the former C bird_socket_query) ////
 
@@ -50,7 +55,7 @@ function replyComplete(data) {
 	       line[1] >= '0' && line[1] <= '9' &&
 	       line[2] >= '0' && line[2] <= '9' &&
 	       line[3] >= '0' && line[3] <= '9' &&
-	       line[4] == ' ';
+	       (line.length == 4 || line[4] == ' ');
 }
 
 /* Strip the per-line "<4 digit code><sep>" prefix and drop the trailing
@@ -64,12 +69,12 @@ function cleanReply(data) {
 		if (!line.length)
 			continue;
 
-		/* trailing status line starts with a code followed by a space */
-		if (line.length >= 5 && (line[0] == '0' || line[0] == '8' || line[0] == '9') &&
+		/* trailing status line starts with a code followed by a space/end */
+		if (line.length >= 4 && (line[0] == '0' || line[0] == '8' || line[0] == '9') &&
 		    line[1] >= '0' && line[1] <= '9' &&
 		    line[2] >= '0' && line[2] <= '9' &&
 		    line[3] >= '0' && line[3] <= '9' &&
-		    line[4] == ' ')
+		    (line.length == 4 || line[4] == ' '))
 			break;
 
 		/* strip "<code>-" or "<code> " prefix */
@@ -91,14 +96,14 @@ function birdRaw(socket, command) {
 	let sock = null;
 
 	try {
-		sock = create(AF_UNIX, SOCK_STREAM, 0);
-		sock.connect({ path: socket });
+		sock = connect({ path: socket });
 
 		/* discard the banner BIRD sends on connect */
 		let data = '';
 		for (let i = 0; i < 8; i++) {
 			let chunk = sock.recv(4096);
 			if (chunk == null || !length(chunk)) {
+				birdLog('err', `bird: banner/read failed cmd='${command}' socket='${socket}': ${serr()}`);
 				sock.close();
 				return null;
 			}
@@ -123,6 +128,7 @@ function birdRaw(socket, command) {
 		return cleanReply(reply);
 	}
 	catch (e) {
+		birdLog('err', `bird: query failed cmd='${command}' socket='${socket}': ${e} (${serr()})`);
 		if (sock) {
 			try { sock.close(); } catch (_) {}
 		}
