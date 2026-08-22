@@ -171,13 +171,19 @@ function buildAsGraph(data) {
 	var nodes = [];
 	var edges = [];
 	var seen = {};
+	var byId = {};
 
 	function node(id, label, group) {
-		nodes.push({ id: id, label: label, group: group });
+		if (!(id in byId)) {
+			byId[id] = nodes.length;
+			nodes.push({ id: id, label: label, group: group });
+		}
 		return id;
 	}
 
 	function edge(a, b) {
+		if (a == b)
+			return;
 		var k = a < b ? (a + '|' + b) : (b + '|' + a);
 		if (seen[k])
 			return;
@@ -207,8 +213,9 @@ function buildAsGraph(data) {
 			prev = id;
 		}
 
+		/* BIRD prefixes the AS_PATH with our direct eBGP peer (first element) */
 		if (arr.length)
-			edge(localId, 'as' + arr[arr.length - 1]);
+			edge(localId, 'as' + arr[0]);
 	}
 
 	return { nodes: nodes, edges: edges };
