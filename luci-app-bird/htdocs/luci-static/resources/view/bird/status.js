@@ -103,7 +103,7 @@ function renderBgp(bgp) {
 	var res = [ E('h3', [ _('BGP') ]) ];
 
 	var t = new L.ui.Table(
-		[ _('Peer'), _('Peers AS'), _('Local AS'), _('IP'), _('State'), _('Imported'), _('Exported') ],
+		[ _('Peer'), _('Neighbor'), _('Peer AS'), _('Local AS'), _('IP'), _('State'), _('Imported'), _('Exported') ],
 		{ id: 'bird-bgp' },
 		E('em', [ _('No BGP sessions') ])
 	);
