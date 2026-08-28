@@ -5,13 +5,14 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=nebula
 PKG_VERSION:=1.11.1
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 # tracking master for goroutine/memory leak fix (213dd46)
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/slackhq/nebula.git
-PKG_MIRROR_HASH:=9cf1c03050d031f54dacb63a3dfd10bbba01041ca49429f780b0736f7c2353e5
-PKG_SOURCE_VERSION:=v${PKG_VERSION}
+PKG_MIRROR_HASH:=skip
+# PKG_SOURCE_VERSION:=v${PKG_VERSION}
+PKG_SOURCE_VERSION:=ec3304e3a95e0105f142d7a1ce06f36231bb5cf3
 
 PKG_MAINTAINER:=Yuxi Yang <i@bgme.me>
 PKG_LICENSE:=MIT
