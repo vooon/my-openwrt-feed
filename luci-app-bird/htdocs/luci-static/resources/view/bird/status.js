@@ -172,7 +172,7 @@ function createOspfSection(proto) {
 	);
 
 	var interfaces = new L.ui.Table(
-		[ _('Interface'), _('Type'), _('Cost'), null ],
+		[ _('Interface'), _('Type'), _('Cost'), '' ],
 		{ id: 'bird-ospf-interfaces-' + proto },
 		E('em', [ _('No interfaces') ])
 	);
@@ -452,11 +452,6 @@ return view.extend({
 	render() {
 		var page = E([], [
 			E('h2', [ _('BIRD Status') ]),
-			E('button', {
-				'type': 'button',
-				'class': 'btn cbi-button cbi-button-action',
-				'click': function() { refresh(); }
-			}, [ _('Refresh') ]),
 			E('p', { 'class': 'center', 'style': 'margin-top:5em', 'id': 'bird-daemon-box' }, [
 				E('em', [ _('Loading data…') ])
 			]),
