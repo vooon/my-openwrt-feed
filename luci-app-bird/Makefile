@@ -2,23 +2,14 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-bird
 PKG_VERSION:=0.6.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_LICENSE:=LGPL-2.1+
+PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
 PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)
 
 include $(INCLUDE_DIR)/package.mk
-
-# data-only package: nothing to prepare/configure/compile
-define Build/Prepare
-endef
-
-define Build/Configure
-endef
-
-define Build/Compile
-endef
 
 define Package/luci-app-bird
   SECTION:=luci
@@ -26,13 +17,15 @@ define Package/luci-app-bird
   SUBMENU:=3. Applications
   TITLE:=BIRD status overview
   DEPENDS:=+luci-base +rpcd-mod-bird
-  MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
+  ARCH:=all
 endef
 
 define Package/luci-app-bird/description
-  Read-only LuCI overview of the BIRD routing daemon state (OSPF and BGP),
-  similar to the WireGuard status page.  Backed by the read-only
-  "bird status" rpcd method (query only "show" commands).
+  LuCI overview of the BIRD routing daemon state (OSPF and BGP),
+  similar to the WireGuard status page.
+endef
+
+define Build/Compile
 endef
 
 define Package/luci-app-bird/install
