@@ -1,5 +1,6 @@
 'use strict';
 'require view';
+'require ui';
 'require rpc';
 'require poll';
 'require dom';
@@ -7,6 +8,12 @@
 var callGetBirdStatus = rpc.declare({
 	object: 'bird',
 	method: 'status'
+});
+
+var callSetOspfCost = rpc.declare({
+	object: 'bird',
+	method: 'set_ospf_cost',
+	params: [ 'interface', 'cost' ]
 });
 
 function stateBadge(up, state) {
@@ -17,16 +24,60 @@ function stateBadge(up, state) {
 	return E('span', { 'class': 'cbi-status-down' }, [ _('Down') ]);
 }
 
-function renderDaemonHeader(s) {
-	var res = [ E('h2', [ _('BIRD Status') ]) ];
+/* Persistent table instances - created once, refreshed in place with
+ * table.update() so a poll tick never rebuilds the whole page. */
+var daemonTbl = null;
+var bgpTbl = null;
+var bfdTbl = null;
+var ospfSections = {};
 
-	if (!s || s.up == null) {
-		res.push(E('p', { 'class': 'center', 'style': 'margin-top:5em' }, [
-			E('em', [ _('Unable to reach the BIRD daemon.') ])
-		]));
-		return res;
-	}
+/* Apply a new OSPF cost for an interface and re-read the status snapshot. */
+function applyCost(iface, cost) {
+	return callSetOspfCost(iface, cost).then(function(res) {
+		if (!res || res.code !== 0)
+			ui.addNotification(null,
+				E('p', _('Failed to set OSPF cost on %h: %s').format(
+					(iface.interface || iface), (res && res.stdout) || _('unknown error'))),
+				'error');
 
+		return refresh();
+	}).catch(function(e) {
+		ui.addNotification(null,
+			E('p', _('Failed to set OSPF cost on %h: %s').format(
+				(iface.interface || iface), e && e.message || _('RPC error'))),
+			'error');
+	});
+}
+
+/* `-` / `+` buttons for a single OSPF interface cost. */
+function costButtons(iface) {
+	if (!iface || !iface.interface)
+		return '';
+
+	var disabled = (iface.cost == null) ? 'disabled' : null;
+
+	return E('span', {}, [
+		E('button', {
+			'type': 'button',
+			'class': 'btn cbi-button cbi-button-negative',
+			'disabled': disabled,
+			'click': function() {
+				return applyCost(iface.interface, Math.max(1, (iface.cost || 0) - 1));
+			}
+		}, '-'),
+		' ',
+		E('button', {
+			'type': 'button',
+			'class': 'btn cbi-button cbi-button-positive',
+			'disabled': disabled,
+			'click': function() {
+				return applyCost(iface.interface, Math.min(65535, (iface.cost || 0) + 1));
+			}
+		}, '+')
+	]);
+}
+
+function updateDaemon(s) {
 	var items = [];
 
 	if (s.version)
@@ -38,46 +89,114 @@ function renderDaemonHeader(s) {
 	if (s.up != null)
 		items.push([ _('State'), stateBadge(s.up, null) ]);
 
-	var t = new L.ui.Table(
-		[ _('Property'), _('Value') ],
-		{ id: 'bird-daemon' },
-		E('em', [ _('No data') ])
-	);
+	if (!daemonTbl) {
+		daemonTbl = new L.ui.Table(
+			[ _('Property'), _('Value') ],
+			{ id: 'bird-daemon' },
+			E('em', [ _('No data') ])
+		);
 
-	t.update(items);
+		dom.content(document.getElementById('bird-daemon-box'), daemonTbl.render());
+	}
 
-	res.push(t.render());
-
-	return res;
+	daemonTbl.update(items);
 }
 
-function renderOspf(o) {
-	var res = [
-		E('h3', [ _('OSPF "%h"', 'OSPF protocol heading').format(o.protocol) ])
-	];
+function updateBgp(bgp) {
+	var rows = [];
 
-	/* areas */
-	var t = new L.ui.Table(
+	for (var i = 0; i < bgp.length; i++) {
+		var b = bgp[i];
+
+		rows.push([
+			b.name || '-',
+			b.neighbor || (b.state ? b.state : '-'),
+			b.neighbor_as != null ? b.neighbor_as : '-',
+			b.local_as != null ? b.local_as : '-',
+			b.ip_version == '6' ? 'IPv6' : 'IPv4',
+			stateBadge(b.up, b.state),
+			[ +b.imported, +b.imported ],
+			[ +b.exported, +b.exported ]
+		]);
+	}
+
+	if (!bgpTbl) {
+		bgpTbl = new L.ui.Table(
+			[ _('Peer'), _('Neighbor'), _('Peer AS'), _('Local AS'), _('IP'), _('State'), _('Imported'), _('Exported') ],
+			{ id: 'bird-bgp' },
+			E('em', [ _('No BGP sessions') ])
+		);
+
+		dom.content(document.getElementById('bird-bgp-box'), bgpTbl.render());
+	}
+
+	bgpTbl.update(rows);
+}
+
+function updateOspf(ospf) {
+	var seen = {};
+
+	for (var i = 0; i < ospf.length; i++)
+		seen[ospf[i].protocol] = 1;
+
+	/* drop sections whose protocol disappeared */
+	for (var proto in ospfSections) {
+		if (!(proto in seen)) {
+			ospfSections[proto].el.remove();
+			delete ospfSections[proto];
+		}
+	}
+
+	for (var j = 0; j < ospf.length; j++) {
+		var o = ospf[j];
+		var sec = ospfSections[o.protocol];
+
+		if (!sec)
+			sec = ospfSections[o.protocol] = createOspfSection(o.protocol);
+
+		updateOspfSection(sec, o);
+	}
+}
+
+function createOspfSection(proto) {
+	var areas = new L.ui.Table(
 		[ _('Area'), _('Interfaces'), _('Neighbors'), _('Adjacent') ],
-		{ id: 'bird-ospf-areas-' + o.protocol },
+		{ id: 'bird-ospf-areas-' + proto },
 		E('em', [ _('No areas') ])
 	);
 
-	t.update((o.areas || []).map(function(a) {
-		return [ a.name || '-', [ +a.interfaces, +a.interfaces ], [ +a.neighbors, +a.neighbors ], [ +a.adjacent, +a.adjacent ] ];
-	}));
-
-	res.push(t.render());
-
-	/* neighbors */
-	var t2 = new L.ui.Table(
+	var neighbors = new L.ui.Table(
 		[ _('Router ID'), _('State'), _('Interface'), _('Neighbor IP') ],
-		{ id: 'bird-ospf-neighbors-' + o.protocol },
+		{ id: 'bird-ospf-neighbors-' + proto },
 		E('em', [ _('No neighbors') ])
 	);
 
-	t2.update((o.neighbors || []).map(function(n) {
+	var interfaces = new L.ui.Table(
+		[ _('Interface'), _('Type'), _('Cost'), null ],
+		{ id: 'bird-ospf-interfaces-' + proto },
+		E('em', [ _('No interfaces') ])
+	);
+
+	var el = E('div', {}, [
+		E('h3', [ _('OSPF "%h"', 'OSPF protocol heading').format(proto) ]),
+		areas.render(),
+		neighbors.render(),
+		interfaces.render()
+	]);
+
+	document.getElementById('bird-ospf-box').appendChild(el);
+
+	return { el: el, areas: areas, neighbors: neighbors, interfaces: interfaces };
+}
+
+function updateOspfSection(sec, o) {
+	sec.areas.update((o.areas || []).map(function(a) {
+		return [ a.name || '-', [ +a.interfaces, +a.interfaces ], [ +a.neighbors, +a.neighbors ], [ +a.adjacent, +a.adjacent ] ];
+	}));
+
+	sec.neighbors.update((o.neighbors || []).map(function(n) {
 		var full = (n.state == 'Full');
+
 		return [
 			n.rid || '-',
 			E('span', { 'class': full ? 'cbi-status-ok' : 'cbi-status-failed' }, [
@@ -88,49 +207,79 @@ function renderOspf(o) {
 		];
 	}));
 
-	res.push(t2.render());
-
-	/* interfaces */
-	var t3 = new L.ui.Table(
-		[ _('Interface'), _('Cost') ],
-		{ id: 'bird-ospf-interfaces-' + o.protocol },
-		E('em', [ _('No interfaces') ])
-	);
-
-	t3.update((o.interfaces || []).map(function(i) {
-		return [ i.interface || '-', [ +i.cost, +i.cost ] ];
-	}));
-
-	res.push(t3.render());
-
-	return res;
-}
-
-function renderBgp(bgp) {
-	var res = [ E('h3', [ _('BGP') ]) ];
-
-	var t = new L.ui.Table(
-		[ _('Peer'), _('Neighbor'), _('Peer AS'), _('Local AS'), _('IP'), _('State'), _('Imported'), _('Exported') ],
-		{ id: 'bird-bgp' },
-		E('em', [ _('No BGP sessions') ])
-	);
-
-	t.update((bgp || []).map(function(b) {
+	sec.interfaces.update((o.interfaces || []).map(function(i) {
 		return [
-			b.name || '-',
-			b.neighbor || (b.state ? b.state : '-'),
-			b.neighbor_as != null ? b.neighbor_as : '-',
-			b.local_as != null ? b.local_as : '-',
-			b.ip_version == '6' ? 'IPv6' : 'IPv4',
-			stateBadge(b.up, b.state),
-			[ +b.imported, +b.imported ],
-			[ +b.exported, +b.exported ]
+			i.interface || '-',
+			E('code', [ i.type || '-' ]),
+			[ +i.cost, +i.cost ],
+			costButtons(i)
 		];
 	}));
+}
 
-	res.push(t.render());
+function updateBfd(bfd) {
+	var rows = [];
 
-	return res;
+	for (var i = 0; i < (bfd || []).length; i++) {
+		var b = bfd[i];
+
+		for (var j = 0; j < (b.sessions || []).length; j++) {
+			var s = b.sessions[j];
+
+			rows.push([
+				b.protocol,
+				s.ip,
+				s.interface,
+				stateBadge(s.up, null),
+				s.interval != null ? s.interval : '-',
+				s.timeout != null ? s.timeout : '-'
+			]);
+		}
+	}
+
+	if (!bfdTbl) {
+		bfdTbl = new L.ui.Table(
+			[ _('Protocol'), _('Peer'), _('Interface'), _('State'), _('Interval'), _('Timeout') ],
+			{ id: 'bird-bfd' },
+			E('em', [ _('No BFD sessions') ])
+		);
+
+		dom.content(document.getElementById('bird-bfd-box'), bfdTbl.render());
+	}
+
+	bfdTbl.update(rows);
+}
+
+function renderUnreachable() {
+	dom.content(document.getElementById('bird-daemon-box'),
+		E('p', { 'class': 'center', 'style': 'margin-top:5em' }, [
+			E('em', [ _('Unable to reach the BIRD daemon.') ])
+		]));
+
+	dom.content(document.getElementById('bird-bgp-box'), []);
+	dom.content(document.getElementById('bird-ospf-box'), []);
+	dom.content(document.getElementById('bird-bfd-box'), []);
+
+	if (topoBoxEl)
+		topoBoxEl.innerHTML = '';
+
+	daemonTbl = bgpTbl = bfdTbl = null;
+	ospfSections = {};
+}
+
+function refresh() {
+	return callGetBirdStatus().then(function(data) {
+		if (!data || !data.status || data.status.up == null) {
+			renderUnreachable();
+			return;
+		}
+
+		updateDaemon(data.status);
+		updateBgp(data.bgp || []);
+		updateOspf(data.ospf || []);
+		updateBfd(data.bfd || []);
+		updateTopo(data);
+	});
 }
 
 
@@ -250,7 +399,7 @@ var topoOptions = {
 
 /* Returned before the element is attached to the DOM; real init happens in
  * updateTopo() afterwards (vis.Network needs the container in the document). */
-function renderTopology(data) {
+function renderTopology() {
 	if (!topoBoxEl)
 		topoBoxEl = E('div', { 'style': 'height:520px;border:1px solid #ddd;border-radius:4px' });
 
@@ -295,79 +444,33 @@ function updateTopo(data) {
 	}
 }
 
-function renderBfd(bfd) {
-	var res = [ E('h3', [ _('BFD') ]) ];
-
-	var t = new L.ui.Table(
-		[ _('Protocol'), _('Peer'), _('Interface'), _('State'), _('Interval'), _('Timeout') ],
-		{ id: 'bird-bfd' },
-		E('em', [ _('No BFD sessions') ])
-	);
-
-	var rows = [];
-	for (var i = 0; i < (bfd || []).length; i++) {
-		var b = bfd[i];
-		for (var j = 0; j < (b.sessions || []).length; j++) {
-			var s = b.sessions[j];
-			rows.push([
-				b.protocol,
-				s.ip,
-				s.interface,
-				stateBadge(s.up, null),
-				s.interval != null ? s.interval : '-',
-				s.timeout != null ? s.timeout : '-'
-			]);
-		}
-	}
-
-	t.update(rows);
-
-	res.push(t.render());
-
-	return res;
-}
-
 return view.extend({
 	load() {
 		return Promise.all([]);
 	},
 
-	renderStatus(data) {
-		var res = renderDaemonHeader(data.status);
-
-		if (!data.status || data.status.up == null)
-			return E([], res);
-
-		res = res.concat(renderBgp(data.bgp || []));
-
-		for (var i = 0; i < (data.ospf || []).length; i++)
-			res = res.concat(renderOspf(data.ospf[i]));
-
-		res = res.concat(renderBfd(data.bfd || []));
-
-		res = res.concat(renderTopology(data));
-
-		return E([], res);
-	},
-
 	render() {
-		poll.add(L.bind(function () {
-			return callGetBirdStatus().then(L.bind(function(data) {
-				dom.content(
-					document.querySelector('#view'),
-					this.renderStatus(data)
-				);
-
-				updateTopo(data);
-			}, this));
-		}, this), 5);
-
-		return E([], [
+		var page = E([], [
 			E('h2', [ _('BIRD Status') ]),
-			E('p', { 'class': 'center', 'style': 'margin-top:5em' }, [
+			E('button', {
+				'type': 'button',
+				'class': 'btn cbi-button cbi-button-action',
+				'click': function() { refresh(); }
+			}, [ _('Refresh') ]),
+			E('p', { 'class': 'center', 'style': 'margin-top:5em', 'id': 'bird-daemon-box' }, [
 				E('em', [ _('Loading data…') ])
-			])
+			]),
+			E('div', { 'id': 'bird-bgp-box' }),
+			E('div', { 'id': 'bird-ospf-box' }),
+			E('div', { 'id': 'bird-bfd-box' }),
+			renderTopology()
 		]);
+
+		poll.add(function() { refresh(); }, 5);
+
+		refresh();
+
+		return page;
 	},
 
 	handleReset: null,

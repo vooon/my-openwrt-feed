@@ -1,0 +1,18 @@
+# BIRD configuration file (test fixture: OSPFv2)
+# Sanitized doc-range addresses / generic names.
+
+router id 192.0.2.1;
+
+protocol ospf site {
+	ipv4 {
+		import all;
+		export all;
+	};
+	area 0 {
+		interface "eth0" {
+			cost 10;
+			type broadcast;
+			hello 10;
+		};
+	};
+}

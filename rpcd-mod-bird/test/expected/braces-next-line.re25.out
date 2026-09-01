@@ -1,0 +1,17 @@
+# BIRD configuration file (test fixture: opening brace on its own line)
+# Sanitized doc-range addresses / generic names.
+
+protocol ospf v3 mesh_v3 {
+	area 0 {
+		interface "awg1"
+		{
+			cost 25;
+			type ptp;
+			hello 2;
+		};
+		interface "awg0"
+		{
+			type ptp;
+		};
+	};
+}

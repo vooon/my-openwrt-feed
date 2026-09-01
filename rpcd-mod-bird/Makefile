@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rpcd-mod-bird
-PKG_VERSION:=0.3.0
+PKG_VERSION:=0.4.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=LGPL-2.1+
@@ -24,7 +24,7 @@ define Package/rpcd-mod-bird
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=BIRD control socket rpcd module
-  DEPENDS:=+rpcd-mod-ucode +ucode-mod-socket +ucode-mod-log
+  DEPENDS:=+rpcd-mod-ucode +ucode-mod-socket +ucode-mod-log +ucode-mod-fs
   MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 endef
 
@@ -44,6 +44,7 @@ endef
 define Package/rpcd-mod-bird/install
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
 	$(INSTALL_DATA) ./src/bird.uc $(1)/usr/share/rpcd/ucode/bird.uc
+	$(INSTALL_DATA) ./src/birdconfig.uc $(1)/usr/share/rpcd/ucode/birdconfig.uc
 endef
 
 define Package/rpcd-mod-bird/postinst

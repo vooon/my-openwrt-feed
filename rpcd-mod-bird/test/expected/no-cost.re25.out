@@ -1,0 +1,38 @@
+# BIRD configuration file (test fixture: no cost settings)
+# Sanitized doc-range addresses / generic names.
+
+router id 192.0.2.1;
+hostname "test-node";
+
+protocol device {
+}
+
+protocol kernel {
+	ipv6 {
+		export none;
+		import all;
+	};
+}
+
+protocol ospf v3 mesh_v3 {
+	ipv6 {
+		import all;
+		export none;
+	};
+	area 0 {
+		interface "awg0" {
+			type ptp;
+			hello 2;
+			dead count 4;
+		};
+		interface "awg1" {
+			cost 25;
+			type ptp;
+			hello 2;
+			dead count 4;
+		};
+		interface "dummy0" {
+			stub;
+		};
+	};
+}

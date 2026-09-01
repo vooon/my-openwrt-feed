@@ -1,5 +1,4 @@
 #!/usr/bin/env ucode
-
 // SPDX-License-Identifier: LGPL-2.1+
 /*
  * rpcd-mod-bird - expose the BIRD control socket via ubus
@@ -7,9 +6,12 @@
  * ucode rpcd plugin replacing the former C plugin.  Registers a single
  * "bird" ubus object:
  *
- *   bird query   - raw "show"/command passthrough, returns { code, stdout }
- *   bird status  - read-only structured snapshot, returns a JSON object
- *                  describing the daemon, protocols, OSPF/BGP/BFD state
+ *   bird query         - raw "show"/command passthrough, returns { code, stdout }
+ *   bird status        - read-only structured snapshot, returns a JSON object
+ *                        describing the daemon, protocols, OSPF/BGP/BFD state
+ *   bird set_ospf_cost - change the OSPF cost of an interface by deriving a
+ *                        runtime config from the pristine /etc/bird.conf and
+ *                        reconfiguring BIRD (see below)
  *
  * The BIRD CLI is a line based protocol over a unix socket: on connect BIRD
  * sends a banner, the client sends a command followed by a newline and reads
@@ -18,7 +20,21 @@
  *
  * The parser regexes intentionally mirror prometheus-node-exporter-ucode's
  * bird.uc (same ucode match()/POSIX engine) and are annotated with links to
- * the BIRD sources that generate the output they parse.
+ * the BIRD sources that generate the output they parse.  Shared parsers and
+ * the BIRD config editor live in birdconfig.uc (pure, unit-tested).
+ *
+ * set_ospf_cost notes (OpenWrt-specific; see test/ for the contract):
+ *   - /etc/bird.conf is the pristine default and is NEVER written; instead a
+ *     runtime config /tmp/etc/bird.conf is derived from it (seeding from the
+ *     default when absent) so costs applied to other links are carried over.
+ *   - The derived config is validated with `configure check` before it is
+ *     applied with `configure "/tmp/etc/bird.conf"`.
+ *   - Reconfigurations are serialized with flock on /run/bird.reconfigure.lock
+ *     (BIRD keeps a single configuration and one undo level).
+ *   - BIRD 3.x does not remember the last `configure` filename: a bare
+ *     `birdc configure` (or SIGHUP) always re-reads the startup config
+ *     (/etc/bird.conf).  To forget previously applied costs the operator
+ *     deletes /tmp/etc/bird.conf; the next call re-seeds from the default.
  *
  * Copyright (C) 2026 Vladimir Ermakov <vooon341@gmail.com>
  */
@@ -27,8 +43,17 @@
 
 import { AF_UNIX, connect, error as serr } from 'socket';
 import { syslog, openlog } from 'log';
+import * as fs from 'fs';
+
+import { parseOspfInterfaces, editOspfCost } from './birdconfig.uc';
 
 const DEFAULT_SOCKET = '/run/bird.ctl';
+
+/* runtime OSPF cost override state (OpenWrt paths) */
+const DEFAULT_CONFIG_FILE = '/etc/bird.conf';
+const RUNTIME_CONFIG_FILE = '/tmp/etc/bird.conf';
+const NEXT_CONFIG_FILE = '/tmp/etc/.bird.next.conf';
+const LOCK_FILE = '/run/bird.reconfigure.lock';
 
 /* tag our messages with rpcd.bird; rpcd's own logs keep the "rpcd" process
  * tag from procd, so this only affects syslog() calls made by this plugin */
@@ -44,6 +69,10 @@ function birdLog(sev, msg) {
 const statusLineRe = /^[089][0-9]{3}( |$)/;
 /* per-line reply code prefix, "<4 digits>-" or "<4 digits> " */
 const codePrefixRe = /^[0-9]{4}( |-)/;
+
+/* last terminating reply code of the most recent birdRaw() exchange; used by
+ * set_ospf_cost to map BIRD's verdict to the ubus `code` result */
+let birdLastCode = 0;
 
 /* A BIRD reply is terminated by a line starting with a return code
  * (0000-0999, 8000-8999 or 9000-9999).  Returns 1 once such a line is the
@@ -87,7 +116,15 @@ function cleanReply(data) {
 	return res;
 }
 
-/* Connect, send @command, return cleaned reply lines (or null on error). */
+/* Extract the 4-digit code of the reply's terminating status line. */
+function replyCode(data) {
+	let m = match(replace(data, /\n+$/, ''), /(^|\n)([0-9]{4})([ \t][^\n]*)?$/);
+
+	return m ? +m[2] : 0;
+}
+
+/* Connect, send @command, return cleaned reply lines (or null on error).
+ * Also records the terminating reply code into birdLastCode. */
 function birdRaw(socket, command) {
 	let sock = null;
 
@@ -126,6 +163,7 @@ function birdRaw(socket, command) {
 		}
 
 		sock.close();
+		birdLastCode = replyCode(reply);
 		return cleanReply(reply);
 	}
 	catch (e) {
@@ -386,27 +424,6 @@ function parseOspfAreas(lines) {
 	return areas;
 }
 
-// "show ospf interface <name>":
-//   Interface %I/%d, Cost: %u (proto/ospf/ospf.c ospf_sh_iface)
-function parseOspfInterfaces(lines) {
-	let res = [];
-	let ifa = null;
-
-	for (let i = 0; i < length(lines); i++) {
-		let l = replace(lines[i], /^[ \t]+/, '');
-		let m;
-
-		if ((m = match(l, /^Interface[ \t]+(\S+)/))) {
-			ifa = { interface: m[1] };
-			push(res, ifa);
-		} else if (ifa && (m = match(l, /^Cost:[ \t]+(\d+)/))) {
-			ifa.cost = +m[1];
-		}
-	}
-
-	return res;
-}
-
 // "show ospf neighbors <name>":
 //   header  <rid> <pri> <state>/<pos> <dtime> <iface> <ip>
 //           https://github.com/CZ-NIC/bird/blob/master/proto/ospf/ospf.c#L782
@@ -453,6 +470,26 @@ function parseBfdSessions(lines) {
 	}
 
 	return res;
+}
+
+//// set_ospf_cost helpers ////
+
+/* flock-serialize BIRD reconfigurations (one undo level, global state).
+ * Returns the open lock handle or null when busy / unavailable.  The handle
+ * must be closed (releasing flock) when the reconfiguration is done. */
+function acquireReconfigLock() {
+	try {
+		let lock = fs.open(LOCK_FILE, 'a+e');
+		if (lock == null)
+			return null;
+		if (lock.lock('xn'))
+			return lock;
+		lock.close();
+		return null;
+	}
+	catch (e) {
+		return null;
+	}
 }
 
 //// ubus methods ////
@@ -568,6 +605,89 @@ const methods = {
 			}
 
 			return out;
+		}
+	},
+
+	set_ospf_cost: {
+		args: {
+			interface: '',
+			cost: 0,
+			socket: '',
+		},
+		call: function(request) {
+			let args = request.args;
+			let socket = args.socket || DEFAULT_SOCKET;
+
+			/* bad args (cost is a non-negative integer in BIRD's 1..65535 range) */
+			if (args.interface == null || !length(args.interface) ||
+			    args.cost == null ||
+			    !match(trim(args.cost + ''), /^[0-9]+$/))
+				return { code: 2 };
+
+			let cost = +args.cost;
+
+			if (cost < 1 || cost > 65535)
+				return { code: 2, stdout: 'cost must be in range 1-65535' };
+
+			/* serialize reconfigurations: BIRD keeps a single configuration
+			 * and exactly one undo level, so only one change may run at a
+			 * time */
+			let lock = acquireReconfigLock();
+			if (lock == null)
+				return { code: 5, stdout: 'another BIRD reconfiguration in progress' };
+
+			/* source: runtime override config if present (carries costs applied
+			 * to other links), else seed from the pristine default */
+			let src = fs.readfile(RUNTIME_CONFIG_FILE);
+			if (src == null)
+				src = fs.readfile(DEFAULT_CONFIG_FILE);
+
+			if (src == null) {
+				lock.close();
+				return { code: 4, stdout: `cannot read ${DEFAULT_CONFIG_FILE} or ${RUNTIME_CONFIG_FILE}` };
+			}
+
+			let r = editOspfCost(src, args.interface, cost);
+			if (!r.ok) {
+				lock.close();
+				return { code: 3, stdout: r.error };
+			}
+
+			/* materialize the derived config and validate it with BIRD's own
+			 * parser before touching the running configuration */
+			try { fs.mkdir('/tmp/etc', 0o755); } catch (_) {}
+
+			if (fs.writefile(NEXT_CONFIG_FILE, r.text) == null) {
+				lock.close();
+				return { code: 4, stdout: `cannot write ${NEXT_CONFIG_FILE}` };
+			}
+
+			let check = birdRaw(socket, `configure check "${NEXT_CONFIG_FILE}"`);
+			if (check == null) {
+				lock.close();
+				return { code: 1 };
+			}
+
+			if (birdLastCode >= 1000) {
+				let msg = join('\n', check);
+				lock.close();
+				return { code: 1, stdout: msg };
+			}
+
+			/* promote and apply */
+			if (fs.rename(NEXT_CONFIG_FILE, RUNTIME_CONFIG_FILE) == null) {
+				lock.close();
+				return { code: 4, stdout: `cannot promote ${RUNTIME_CONFIG_FILE}` };
+			}
+
+			let lines = birdRaw(socket, `configure "${RUNTIME_CONFIG_FILE}"`);
+			if (lines == null) {
+				lock.close();
+				return { code: 1 };
+			}
+
+			lock.close();
+			return { code: (birdLastCode < 1000) ? 0 : 1, stdout: join('\n', lines) };
 		}
 	},
 };

@@ -1,0 +1,4 @@
+Interface eth0 (IID 0)
+	Area: 0.0.0.0 (0)
+	State: Waiting (stub)
+	Cost: 10

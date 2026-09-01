@@ -1,6 +1,6 @@
 {
 	"luci-app-bird": {
-		"description": "Grant access to the read-only BIRD status overview",
+		"description": "Grant access to the BIRD status overview and OSPF interface cost control",
 		"read": {
 			"ubus": {
 				"bird": [
@@ -8,6 +8,12 @@
 				]
 			}
 		},
-		"write": {}
+		"write": {
+			"ubus": {
+				"bird": [
+					"set_ospf_cost"
+				]
+			}
+		}
 	}
 }

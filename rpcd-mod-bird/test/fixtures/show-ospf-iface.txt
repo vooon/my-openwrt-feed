@@ -1,0 +1,15 @@
+mesh_v3:
+Interface dummy0 (IID 0)
+	Type: broadcast
+	Area: 0.0.0.0 (0)
+	State: Waiting (stub)
+	Priority: 1
+	Cost: 10
+	ECMP weight: 1
+Interface awg1 (IID 0)
+	Type: ptp
+	Area: 0.0.0.0 (0)
+	State: PtP
+	Priority: 1
+	Cost: 10
+	ECMP weight: 1
