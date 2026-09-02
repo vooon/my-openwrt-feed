@@ -28,7 +28,7 @@ Package Highlights
 - Web and identity: `angie`, `lldap`, `authelia`
 - Mail and notifications: `mox`, `gotify`, `gotify2telegram`,
   `gotify-alertmanager-plugin`
-- Routing and overlays: `frr`, `gobgp`, `nebula`, `nylon`, `pathosd`, `vpn-sticky`
+- Routing and overlays: `gobgp`, `nebula`, `nylon`, `pathosd`, `vpn-sticky`
 - Traffic monitoring: `pmacct` (sFlow / NetFlow v9 / IPFIX flow exporter),
   `netobserv-ebpf-agent` (eBPF TC-hook flow exporter, IPFIX over UDP/TCP)
 - DNS automation: `ddns-dhcp-sync`, `zoneomatic`
