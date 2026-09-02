@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ucode-tests:
+    name: ucode lint, syntax + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install toolchain
+        # ucode itself needs only json-c to build the upstream modules; the
+        # collectors/tests mock ubus/uci/etc. so no OpenWrt dev libs are needed.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc make cmake git pkg-config libjson-c-dev
+
+      - name: Lint ucode sources (node ESM parse + ucode rules)
+        # ucode is ECMAScript-based; node's parser catches syntax (after
+        # normalizing ucode's script-mode `for (k, v in obj)` and top-level
+        # `return`), plus ucode-specific checks (trailing ';' on export
+        # function, global push()/map(), non-[]-indexable strings).
+        run: |
+          set -euo pipefail
+          node scripts/uc-lint.mjs
+
+      - uses: ./.github/actions/build-ucode
+        id: ucode
+
+      - name: Syntax-check every .uc file (ucode -c)
+        # Compile each module to bytecode without executing it. ucode resolves
+        # imports at compile time, but the OpenWrt modules (uci/ubus/... ) are
+        # not in the upstream tree, so strip the import lines, turn `export
+        # function` back into a plain function (script-mode `-c`) and compile.
+        # Template files (metrics.uc, *.nft.uc, i.e. starting with `{%`) are
+        # compiled with `-T`.
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          for f in $(git ls-files '*.uc'); do
+            name="$(basename "$f")"
+            sed -e '/^[ \t]*import /d' -e 's/^[ \t]*export[ \t]*//' "$f" > "$work/$name"
+            if head -n1 "$f" | grep -q '^{%'; then
+              "${{ steps.ucode.outputs.bin }}" -L "${{ steps.ucode.outputs.mods }}" -T -c -o "$work/$name.out" "$work/$name"
+            else
+              "${{ steps.ucode.outputs.bin }}" -L "${{ steps.ucode.outputs.mods }}" -c -o "$work/$name.out" "$work/$name"
+            fi
+          done
+
+      - name: Run prometheus-node-exporter-ucode collector tests
+        if: ${{ hashFiles('prometheus-node-exporter-ucode/test.sh') != '' }}
+        run: |
+          set -euo pipefail
+          UCODE="${{ steps.ucode.outputs.bin }}" \
+          UCODE_MODULES="${{ steps.ucode.outputs.mods }}" \
+            prometheus-node-exporter-ucode/test.sh
+
+      - name: Run rpcd-mod-bird unit tests
+        if: ${{ hashFiles('rpcd-mod-bird/test/run_tests.sh') != '' }}
+        run: |
+          set -euo pipefail
+          UCODE="${{ steps.ucode.outputs.bin }}" \
+          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
+            rpcd-mod-bird/test/run_tests.sh
+
+      - name: Build + smoke-test ucode-mod-inotify
+        # Compile the C plugin against the pinned ucode headers and run a real
+        # kernel inotify round-trip through the built interpreter (upstream
+        # modules + inotify.so on the module path).
+        if: ${{ hashFiles('ucode-mod-inotify/src/CMakeLists.txt') != '' }}
+        run: |
+          set -euo pipefail
+          build="${{ runner.temp }}/inotify-build"
+          cmake -S ucode-mod-inotify/src -B "$build" \
+            -Ducode_include_dir="${{ steps.ucode.outputs.inc }}"
+          cmake --build "$build"
+          mods="${{ runner.temp }}/inotify-mods"
+          mkdir -p "$mods"
+          cp "${{ steps.ucode.outputs.mods }}"/*.so "$mods"/
+          cp "$build"/inotify.so "$mods"/
+          "${{ steps.ucode.outputs.bin }}" -L "$mods" ucode-mod-inotify/test/inotify.uc
+
+  feed-health:
+    name: Feed registration check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate feed layout
+        run: |
+          set -euo pipefail
+          # Every immediate subdirectory that looks like an OpenWrt package must
+          # contain a Makefile, otherwise `scripts/feeds update`/`install` skips
+          # it silently. `.github`, `scripts` and other non-package dirs are exempt.
+          for dir in */; do
+            dir="${dir%/}"
+            case "$dir" in
+              .github|scripts) continue ;;
+            esac
+            if [ -d "$dir" ] && [ ! -f "$dir/Makefile" ]; then
+              echo "::error::$dir/ exists but has no Makefile"
+              exit 1
+            fi
+          done
+          echo "feed layout OK"
