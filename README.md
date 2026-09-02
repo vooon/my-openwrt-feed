@@ -29,8 +29,8 @@ Package Highlights
 - Mail and notifications: `mox`, `gotify`, `gotify2telegram`,
   `gotify-alertmanager-plugin`
 - Routing and overlays: `gobgp`, `nebula`, `nylon`, `pathosd`, `vpn-sticky`
-- Traffic monitoring: `pmacct` (sFlow / NetFlow v9 / IPFIX flow exporter),
-  `netobserv-ebpf-agent` (eBPF TC-hook flow exporter, IPFIX over UDP/TCP)
+- Traffic monitoring (eBPF/IPFIX observability) moved to the separate
+  [`obserwrt`](https://github.com/vooon/obserwrt) feed
 - DNS automation: `ddns-dhcp-sync`, `zoneomatic`
 - Monitoring: `prometheus-node-exporter-ucode`, `frr-exporter`,
   `smokeping-prober`, `squid-exporter`, `unbound-exporter`, `rpcd-mod-bird`
