@@ -20,7 +20,7 @@ list_append_zone() {
 start_service() {
 	procd_open_instance
 
-	local _htpasswd _listen _accept_proxy _proxy_header_timeout _debug
+	local _htpasswd _listen _accept_proxy _proxy_header_timeout _acme_ttl _ddns_manage_ptr _debug
 	local _otel_endpoint _otel_enable_traces _otel_traces_endpoint
 	local _otel_enable_metrics _otel_metrics_endpoint
 	local _otel_enable_logs _otel_logs_endpoint _otel_service_name
@@ -29,6 +29,8 @@ start_service() {
 	config_get _listen daemon listen "localhost:9999"
 	config_get_bool _accept_proxy daemon accept_proxy 0
 	config_get _proxy_header_timeout daemon proxy_header_timeout
+	config_get _acme_ttl daemon acme_ttl
+	config_get_bool _ddns_manage_ptr daemon ddns_manage_ptr 0
 	config_get_bool _debug daemon debug 0
 	config_get _otel_endpoint daemon otel_endpoint
 	config_get_bool _otel_enable_traces daemon otel_enable_traces 0
@@ -51,6 +53,8 @@ start_service() {
 	procd_set_param command /usr/bin/zoneomatic --listen "$_listen" -p "$_htpasswd"
 	[ "$_accept_proxy" -ne 0 ] && procd_append_param command --accept-proxy
 	[ -n "$_proxy_header_timeout" ] && procd_append_param command --proxy-header-timeout "$_proxy_header_timeout"
+	[ -n "$_acme_ttl" ] && procd_append_param command --acme-ttl "$_acme_ttl"
+	[ "$_ddns_manage_ptr" -ne 0 ] && procd_append_param command --ddns-manage-ptr
 	[ "$_debug" -ne 0 ] && procd_append_param command --debug
 	[ -n "$_otel_endpoint" ] && procd_append_param command --otel-endpoint "$_otel_endpoint"
 	[ "$_otel_enable_traces" -ne 0 ] && procd_append_param command --otel-enable-traces
