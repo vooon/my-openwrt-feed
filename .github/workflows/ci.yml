@@ -85,6 +85,16 @@ jobs:
           set -euo pipefail
           netifd-proto-dummy/test/run_tests.sh
 
+      - name: Run netifd-proto-fou tests
+        # Shell unit tests for the fou-ip6gre / fou-ip6tnl proto plugins:
+        # mocked netifd proto-shell helpers + a fake `ip` asserting the exact
+        # `ip fou add` / `ip link add ... encap fou ...` sequences per mode,
+        # hub listen mode, failure paths and teardown, plus `sh -n`.
+        if: ${{ hashFiles('netifd-proto-fou/test/run_tests.sh') != '' }}
+        run: |
+          set -euo pipefail
+          netifd-proto-fou/test/run_tests.sh
+
       - name: Build + smoke-test ucode-mod-inotify
         # Compile the C plugin against the pinned ucode headers and run a real
         # kernel inotify round-trip through the built interpreter (upstream
