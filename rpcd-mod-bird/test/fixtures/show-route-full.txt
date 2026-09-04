@@ -1,0 +1,12 @@
+Table master4:
+0.0.0.0/0           unicast [static1 10:00:00.000] * (200)
+	via 192.0.2.1 on awg_hub_a
+192.0.2.0/24        unicast [mesh_v3 10:00:00.000] * I (150/10)
+	via 192.0.2.2 on awg_hub_a weight 1
+	via 192.0.2.3 on awg_hub_b weight 1
+203.0.114.7/32      unicast [direct1 10:00:00.000] * (200)
+	dev lo
+
+Table master6:
+2001:db8::/48       unicast [mesh_v3 10:00:00.000] * I (150/10)
+	via fe80::aaaa on awg_hub_a

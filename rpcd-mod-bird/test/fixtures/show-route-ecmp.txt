@@ -1,0 +1,6 @@
+Table master6:
+2001:db8:10::1/128  unicast [mesh_v3 10:00:00.000] * I (150/20) [192.0.2.10]
+	via fe80::aaaa on awg_hub_a weight 1
+	via fe80::bbbb on awg_hub_b weight 1
+	via fe80::cccc on awg_hub_c weight 1
+	via fe80::dddd on awg_hub_d weight 1

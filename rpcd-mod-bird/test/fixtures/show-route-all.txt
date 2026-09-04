@@ -1,0 +1,33 @@
+Table master4:
+192.0.2.0/24        unicast [peer_a 10:00:00.000 from 2001:db8:a::1] * (100/30) [AS64512i]
+	via fe80::aaaa on awg_hub_a
+	hostentry: via 2001:db8:10::1 table master6
+	preference: 100
+	local_metric: 30
+	from: 2001:db8:a::1
+	source: BGP
+	bgp_origin: IGP
+	bgp_path: 64512 64500
+	bgp_next_hop: 2001:db8:10::1
+	bgp_local_pref: 100
+	Internal route handling values: 0L 6G 0S id 61
+                     unicast [peer_b 10:00:00.000 from 2001:db8:b::1] (100/30) [AS64512i]
+	via fe80::aaaa on awg_hub_a
+	preference: 100
+	local_metric: 30
+	from: 2001:db8:b::1
+	source: BGP
+	bgp_origin: IGP
+	bgp_path: 64512 64500 64501
+	bgp_next_hop: 2001:db8:10::1
+	bgp_local_pref: 90
+	Internal route handling values: 0L 8G 0S id 2
+
+Table master6:
+2001:db8:10::1/128  unicast [mesh_v3 10:00:00.000] * I (150/20) [192.0.2.10]
+	via fe80::aaaa on awg_hub_a
+	preference: 150
+	source: OSPF
+	ospf_metric1: 20
+	ospf_router_id: 192.0.2.10
+	Internal route handling values: 0L 5G 0S id 56

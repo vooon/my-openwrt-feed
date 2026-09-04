@@ -9,6 +9,10 @@
  *   bird query         - raw "show"/command passthrough, returns { code, stdout }
  *   bird status        - read-only structured snapshot, returns a JSON object
  *                        describing the daemon, protocols, OSPF/BGP/BFD state
+ *   bird route         - structured route lookup for a single IP or
+ *                        prefix/length, returns { code, routes } where each
+ *                        entry describes one table route and every preferred
+ *                        (ECMP) next hop; see birdconfig.uc parseRoute()
  *   bird set_ospf_cost - change the OSPF cost of an interface by deriving a
  *                        runtime config from the pristine /etc/bird.conf and
  *                        reconfiguring BIRD (see below)
@@ -45,7 +49,7 @@ import { AF_UNIX, connect, error as serr } from 'socket';
 import { syslog, openlog } from 'log';
 import * as fs from 'fs';
 
-import { parseOspfInterfaces, editOspfCost } from './birdconfig.uc';
+import { parseOspfInterfaces, editOspfCost, parsePrefix, parseRoute, exactRoute, bestCoveringRoute } from './birdconfig.uc';
 
 const DEFAULT_SOCKET = '/run/bird.ctl';
 
@@ -605,6 +609,63 @@ const methods = {
 			}
 
 			return out;
+		}
+	},
+
+	route: {
+		args: {
+			prefix: '',
+			socket: '',
+		},
+		call: function(request) {
+			let args = request.args;
+			let socket = args.socket || DEFAULT_SOCKET;
+
+			/* bad args: an empty or non-IPv4/non-IPv6 prefix */
+			let prefix = (args.prefix == null) ? '' : trim(args.prefix + '');
+			if (!length(prefix) || parsePrefix(prefix) == null)
+				return { code: 2 };
+
+			/* `show route for <prefix> all` resolves the covering route and
+			 * carries the extended attributes (AS path, OSPF cost / BGP local
+			 * preference) in the same reply; when the queried prefix is
+			 * exactly present its label round-trips and we are done (all
+			 * ECMP / dev next hops are in the one entry) */
+			let lines = birdRaw(socket, 'show route for ' + prefix + ' all');
+			if (lines == null)
+				return { code: 1 };
+
+			let matched = exactRoute(parseRoute(lines), prefix);
+
+			if (matched == null) {
+				/* the exact prefix is not in any table - fall back to a full
+				 * scan and return the longest-prefix (best-match) entry */
+				let all = birdRaw(socket, 'show route');
+				if (all == null)
+					return { code: 1 };
+
+				matched = bestCoveringRoute(parseRoute(all), prefix);
+
+				/* enrich the best-match entry with the same attribute
+				 * information (it was missing from the plain scan) */
+				if (matched != null) {
+					let verbose = birdRaw(socket, 'show route for ' + prefix + ' all');
+					if (verbose != null) {
+						let attrs = parseRoute(verbose);
+						for (let i = 0; i < length(attrs); i++) {
+							if (attrs[i].prefix == matched.prefix &&
+							    attrs[i].proto == matched.proto) {
+								matched.preference = attrs[i].preference;
+								matched.cost = attrs[i].cost;
+								matched.local_pref = attrs[i].local_pref;
+								matched.as_path = attrs[i].as_path;
+							}
+						}
+					}
+				}
+			}
+
+			return { code: 0, routes: (matched != null) ? [ matched ] : [] };
 		}
 	},
 

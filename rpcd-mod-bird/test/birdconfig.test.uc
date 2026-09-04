@@ -15,7 +15,7 @@
 
 import * as fs from 'fs';
 
-import { parseOspfInterfaces, editOspfCost } from '../src/birdconfig.uc';
+import { parseOspfInterfaces, editOspfCost, parsePrefix, parseRoute, routeAsPath, exactRoute, bestCoveringRoute } from '../src/birdconfig.uc';
 
 let failures = 0;
 let count = 0;
@@ -133,6 +133,195 @@ report('parser missing Type yields null',
        gotNoType[0].interface == 'eth0' && gotNoType[0].type == null &&
 	       gotNoType[0].cost == 10,
        sprintf('%J', gotNoType));
+
+//// prefix validation ////
+
+function pf(name, p, want)
+{
+	let got = parsePrefix(p);
+	let ok = false;
+
+	if (got != null)
+		ok = got.fam == want.fam && got.len == want.len &&
+		     sprintf('%J', got.addr) == sprintf('%J', want.addr);
+
+	report(name, ok, sprintf('%J', got));
+}
+
+pf('prefix v4 /24', '203.0.113.0/24', { fam: 4, len: 24, addr: [203, 0, 113, 0] });
+pf('prefix v4 host', '203.0.113.7', { fam: 4, len: 32, addr: [203, 0, 113, 7] });
+pf('prefix v6 /128', '2001:db8:10::1/128', { fam: 6, len: 128, addr: [0x20, 0x01, 0x0d, 0xb8, 0x00, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] });
+pf('prefix v6 host', '2001:db8::1', { fam: 6, len: 128, addr: [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] });
+pf('prefix v6 ::', '::', { fam: 6, len: 128, addr: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
+pf('prefix v4 upper-range octet', '192.0.2.1/24', { fam: 4, len: 24, addr: [192, 0, 2, 1] });
+
+report('prefix empty rejected', parsePrefix('') == null, 'accepted');
+report('prefix garbage rejected', parsePrefix('not-an-ip') == null, 'accepted');
+report('prefix v4 octet>255 rejected', parsePrefix('300.0.113.1') == null, 'accepted');
+report('prefix v4 len>32 rejected', parsePrefix('203.0.113.1/33') == null, 'accepted');
+report('prefix v6 len>128 rejected', parsePrefix('2001:db8::1/129') == null, 'accepted');
+report('prefix bad len rejected', parsePrefix('203.0.113.1/host') == null, 'accepted');
+report('prefix extra slash rejected', parsePrefix('203.0.113.1/24/25') == null, 'accepted');
+report('prefix null rejected', parsePrefix(null) == null, 'accepted');
+
+//// route parsing ////
+
+function routeOf(lines)
+{
+	return parseRoute(split(read('fixtures/' + lines), '\n'));
+}
+
+function verbLines()
+{
+	return split(read('fixtures/show-route-all.txt'), '\n');
+}
+
+/* single BGP next hop, with a "from <peer>" source address and AS path */
+let rVia = routeOf('show-route-via.txt');
+let expVia = [
+	{
+		prefix: '198.51.100.0/24', primary: 'via', proto: 'peer_a',
+		preference: 100, cost: 10, local_pref: null, as_path: null,
+		next_hops: [
+			{ kind: 'via', addr: 'fe80::aaaa', iface: 'awg_hub_a', cost: 10, proto: 'peer_a' },
+		],
+	},
+];
+
+report('route single via',
+       sprintf('%J', rVia) == sprintf('%J', expVia),
+       sprintf('%J', rVia));
+report('route exact (host in /24)',
+       exactRoute(rVia, '198.51.100.9') == null &&
+	       exactRoute(rVia, '198.51.100.0/24') != null &&
+	       exactRoute(rVia, '198.51.100.0/24').prefix == '198.51.100.0/24',
+       sprintf('%J', exactRoute(rVia, '198.51.100.0/24')));
+
+/* ECMP: one route, one "via" line per preferred next hop */
+let rEcmp = routeOf('show-route-ecmp.txt');
+let expEcmp = [
+	{
+		prefix: '2001:db8:10::1/128', primary: 'via', proto: 'mesh_v3',
+		preference: 150, cost: 20, local_pref: null, as_path: null,
+		next_hops: [
+			{ kind: 'via', addr: 'fe80::aaaa', iface: 'awg_hub_a', cost: 20, proto: 'mesh_v3' },
+			{ kind: 'via', addr: 'fe80::bbbb', iface: 'awg_hub_b', cost: 20, proto: 'mesh_v3' },
+			{ kind: 'via', addr: 'fe80::cccc', iface: 'awg_hub_c', cost: 20, proto: 'mesh_v3' },
+			{ kind: 'via', addr: 'fe80::dddd', iface: 'awg_hub_d', cost: 20, proto: 'mesh_v3' },
+		],
+	},
+];
+
+report('route ECMP all via hops',
+       sprintf('%J', rEcmp) == sprintf('%J', expEcmp),
+       sprintf('%J', rEcmp));
+report('route ECMP count', length(rEcmp[0].next_hops) == 4,
+       sprintf('%J', rEcmp[0].next_hops));
+/* host query matches the /128; case is normalized during comparison */
+report('route exact host v6',
+       exactRoute(rEcmp, '2001:DB8:10::1') != null &&
+	       exactRoute(rEcmp, '2001:DB8:10::1').prefix == '2001:db8:10::1/128',
+       sprintf('%J', exactRoute(rEcmp, '2001:DB8:10::1')));
+
+/* device route (local/connected loopback) */
+let rDev = routeOf('show-route-dev.txt');
+let expDev = [
+	{
+		prefix: '203.0.114.7/32', primary: 'dev', proto: 'direct1',
+		preference: 200, cost: 200, local_pref: null, as_path: null,
+		next_hops: [
+			{ kind: 'dev', addr: null, iface: 'lo', cost: 200, proto: 'direct1' },
+		],
+	},
+];
+
+report('route dev (local/connected)',
+       sprintf('%J', rDev) == sprintf('%J', expDev),
+       sprintf('%J', rDev));
+report('route dev primary', rDev[0].primary == 'dev',
+       rDev[0].primary);
+
+/* destination routes with no next hop (unreachable/blackhole) */
+let rUnreach = routeOf('show-route-unreachable.txt');
+report('route unreachable parsed',
+       length(rUnreach) == 1 && rUnreach[0].prefix == '203.0.113.77/32' &&
+	       rUnreach[0].proto == 'static1' && rUnreach[0].cost == 10 &&
+	       length(rUnreach[0].next_hops) == 0,
+       sprintf('%J', rUnreach));
+
+/* several routes for the same network: only the primary carries the prefix
+ * label, the others print an empty one */
+let rMulti = routeOf('show-route-multipeer.txt');
+report('route multipeer count', length(rMulti) == 3, sprintf('%J', rMulti));
+report('route multipeer empty labels',
+       length(rMulti[0].prefix) > 0 && length(rMulti[1].prefix) == 0 &&
+	       length(rMulti[2].prefix) == 0 && rMulti[0].proto == 'peer_a' &&
+	       rMulti[1].proto == 'peer_b',
+       sprintf('prefixes %J', [rMulti[0].prefix, rMulti[1].prefix, rMulti[2].prefix]));
+
+/* full-table scan: table headers and blank lines are ignored */
+let rFull = routeOf('show-route-full.txt');
+report('route full scan count', length(rFull) == 4, sprintf('%J', rFull));
+
+/* best-match (longest covering prefix) selection used by the fallback */
+report('route best-match /24', bestCoveringRoute(rFull, '192.0.2.55') != null &&
+       bestCoveringRoute(rFull, '192.0.2.55').prefix == '192.0.2.0/24',
+       sprintf('%J', bestCoveringRoute(rFull, '192.0.2.55')));
+report('route best-match /32 dev', bestCoveringRoute(rFull, '203.0.114.7') != null &&
+       bestCoveringRoute(rFull, '203.0.114.7').prefix == '203.0.114.7/32' &&
+       bestCoveringRoute(rFull, '203.0.114.7').primary == 'dev',
+       sprintf('%J', bestCoveringRoute(rFull, '203.0.114.7')));
+report('route best-match default', bestCoveringRoute(rFull, '198.51.100.9') != null &&
+       bestCoveringRoute(rFull, '198.51.100.9').prefix == '0.0.0.0/0',
+       sprintf('%J', bestCoveringRoute(rFull, '198.51.100.9')));
+report('route best-match v6', bestCoveringRoute(rFull, '2001:db8::1') != null &&
+       bestCoveringRoute(rFull, '2001:db8::1').prefix == '2001:db8::/48',
+       sprintf('%J', bestCoveringRoute(rFull, '2001:db8::1')));
+report('route best-match none', bestCoveringRoute(rFull, '2001:db9::1') == null,
+       sprintf('%J', bestCoveringRoute(rFull, '2001:db9::1')));
+report('route exact on full scan', exactRoute(rFull, '203.0.114.7') != null,
+       sprintf('%J', exactRoute(rFull, '203.0.114.7')));
+
+/* verbose "show route ... all" attributes: AS path, OSPF cost / BGP local
+ * preference are attached to the route that owns them */
+let rVerb = routeOf('show-route-all.txt');
+let expVerb = [
+	{
+		prefix: '192.0.2.0/24', primary: 'via', proto: 'peer_a',
+		preference: 100, cost: 30, local_pref: 100, as_path: [64512, 64500],
+		next_hops: [
+			{ kind: 'via', addr: 'fe80::aaaa', iface: 'awg_hub_a', cost: 30, proto: 'peer_a' },
+		],
+	},
+	{
+		prefix: '', primary: 'via', proto: 'peer_b',
+		preference: 100, cost: 30, local_pref: 90, as_path: [64512, 64500, 64501],
+		next_hops: [
+			{ kind: 'via', addr: 'fe80::aaaa', iface: 'awg_hub_a', cost: 30, proto: 'peer_b' },
+		],
+	},
+	{
+		prefix: '2001:db8:10::1/128', primary: 'via', proto: 'mesh_v3',
+		preference: 150, cost: 20, local_pref: null, as_path: null,
+		next_hops: [
+			{ kind: 'via', addr: 'fe80::aaaa', iface: 'awg_hub_a', cost: 20, proto: 'mesh_v3' },
+		],
+	},
+];
+
+report('route verbose attrs',
+       sprintf('%J', rVerb) == sprintf('%J', expVerb),
+       sprintf('%J', rVerb));
+report('route verbose cost from explicit metric',
+       rVerb[0].cost == 30 && rVerb[2].cost == 20,
+       sprintf('%J', rVerb));
+report('route as_path association',
+       routeAsPath(verbLines(), '192.0.2.0/24', 'peer_a') != null &&
+	       sprintf('%J', routeAsPath(verbLines(), '192.0.2.0/24', 'peer_a')) ==
+		       sprintf('%J', [64512, 64500]),
+       sprintf('%J', routeAsPath(verbLines(), '192.0.2.0/24', 'peer_a')));
+report('route as_path non-BGP', routeAsPath(verbLines(), '2001:db8:10::1/128', 'mesh_v3') == null,
+       sprintf('%J', routeAsPath(verbLines(), '2001:db8:10::1/128', 'mesh_v3')));
 
 //// summary ////
 
