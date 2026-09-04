@@ -76,6 +76,15 @@ jobs:
           UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
             rpcd-mod-bird/test/run_tests.sh
 
+      - name: Run netifd-proto-dummy tests
+        # Shell unit tests: mocked netifd proto-shell helpers + a fake `ip`
+        # asserting the exact commands the dummy.proto plugin issues, plus a
+        # `sh -n` syntax check. No OpenWrt toolchain needed.
+        if: ${{ hashFiles('netifd-proto-dummy/test/run_tests.sh') != '' }}
+        run: |
+          set -euo pipefail
+          netifd-proto-dummy/test/run_tests.sh
+
       - name: Build + smoke-test ucode-mod-inotify
         # Compile the C plugin against the pinned ucode headers and run a real
         # kernel inotify round-trip through the built interpreter (upstream
