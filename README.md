@@ -39,7 +39,8 @@ Package Highlights
   `smokeping-prober`, `squid-exporter`, `unbound-exporter`, `rpcd-mod-bird`
   (ubus access to the BIRD control socket, incl. structured `bird status`
   and `bird set_ospf_cost` for runtime OSPF cost changes), `luci-app-bird`
-  (OSPF/BGP overview page with OSPF cost control)
+  (OSPF/BGP overview page with OSPF cost control), `bpftop` (real-time view
+  of running eBPF programs)
 - Backup and virtualization: `proxmox-backup`, `pbs-helper`,
   `qemu-instance-init`, `rsync-sysupgrade`
 - File synchronization: `inotify-rsync`
