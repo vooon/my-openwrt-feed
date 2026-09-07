@@ -74,15 +74,31 @@ config interface 'v4towardshub'
 
 ## Lifecycle
 
-- **ifup**: `ip fou add port … ipproto … [local …]` (best-effort, both ends)
+- **ifup**: `ip fou add port … ipproto … -6 [local …]` (best-effort, both ends;
+  retried a few times to ride out boot-time address assignment)
   → `ip link add <iface> type ip6gre|ip6tnl [mode …] local … [remote …] [ttl/tos] encap fou encap-sport [auto] encap-dport … [encap-csum]`
   → optional `ip link set mtu` → handed to netifd (`proto_init_update`); overlay
   IPs/routes come from the interface config.
-- **ifdown**: `ip link del <iface>` + `ip fou del port …`.
+- **ifdown**: `ip link del <iface>` + `ip fou del port …` (the del is best-effort;
+  some iproute2 builds reject `ip fou del … -6` with EINVAL — a leaked listener is
+  harmless and re-add is idempotent).
 - **Failure**: if the device cannot be created and is not already present,
   the proto reports `DEVICE_CREATE_FAIL` and `proto_block_restart` so the
   interface is retried; it also errors on a missing `laddr` or, outside
   `listen` mode, a missing `peeraddr`.
+
+## Hub `listen` mode is one-way egress only
+
+A hub in `listen` mode (`option listen 1`, no `peeraddr`) can **decapsulate**
+from any number of spokes, but has **no `remote`**, so the kernel cannot
+**encapsulate replies** back to a specific spoke. It therefore serves a
+one-way egress design: spokes push traffic into the tunnel, the hub forwards
+it out (e.g. with `zone fou` + `masq`, as in this feed's firewalling), and
+**return traffic rides the mesh** (OSPF/BGP/ECMP), not the tunnel.
+
+For true bidirectional inner traffic (hub pushing flows *into* a spoke tunnel),
+configure a point-to-point spoke-style tunnel on the hub with `peeraddr` set to
+that spoke's underlay — one per spoke.
 
 ## Requirements
 
