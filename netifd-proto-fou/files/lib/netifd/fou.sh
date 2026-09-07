@@ -33,6 +33,7 @@ fou_common_setup() {
 	local dflt_ipproto="$4"
 	local laddr peeraddr port sport ipproto csum mtu ttl tos listen
 	local ipaddr ip6addr netmask broadcast ptpaddr gateway ip6gw addr mask
+	local fou_af=""
 
 	json_get_vars laddr peeraddr port sport ipproto csum mtu ttl tos listen \
 		netmask broadcast ptpaddr gateway ip6gw
@@ -55,10 +56,17 @@ fou_common_setup() {
 	sport=${sport:-auto}
 	[ -n "$ipproto" ] || ipproto="$dflt_ipproto"
 
+	# This proto is an IPv6-underlay tunnel; iproute2's `ip fou` needs an
+	# explicit -6, otherwise the local address is parsed as IPv4.
+	local fou_af=""
+	case "$laddr" in
+		*:*) fou_af="-6" ;;
+	esac
+
 	# Register the FOU listener. Best effort: it may already be present on
 	# this side or be owned by another tunnel; both ends register so return
 	# traffic can be decapsulated too.
-	ip fou add port "$port" ipproto "$ipproto" ${laddr:+local "$laddr"} 2>/dev/null
+	ip fou add port "$port" ipproto "$ipproto" $fou_af ${laddr:+local "$laddr"} 2>/dev/null
 
 	# Create the tunnel. If it already exists (e.g. leftover from a crashed
 	# teardown or created elsewhere), keep it instead of failing the ifup.
@@ -102,11 +110,16 @@ fou_common_setup() {
 fou_common_teardown() {
 	local cfg="$1"
 	local ifname="${2:-$1}"
-	local port
+	local port laddr fou_af=""
 
-	json_get_vars port
+	json_get_vars port laddr
 	port=${port:-5555}
 
 	ip link del "$ifname" 2>/dev/null
-	ip fou del port "$port" 2>/dev/null
+
+	# Match the family used in fou_common_setup.
+	case "$laddr" in
+		*:*) fou_af="-6" ;;
+	esac
+	ip fou del port "$port" $fou_af 2>/dev/null
 }

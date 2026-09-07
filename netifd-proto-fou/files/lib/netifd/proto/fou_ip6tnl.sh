@@ -39,5 +39,5 @@ proto_fou_ip6tnl_init_config() {
 }
 
 [ -n "$INCLUDE_ONLY" ] || {
-	add_protocol fou-ip6tnl
+	add_protocol fou_ip6tnl
 }

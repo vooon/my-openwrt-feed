@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netifd-proto-fou
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 PKG_LICENSE:=GPL-2.0-only
@@ -38,7 +38,7 @@ define Package/netifd-proto-fou-ip6gre
 endef
 
 define Package/netifd-proto-fou-ip6gre/description
-  netifd protocol 'fou-ip6gre': Foo-over-UDP (FOU) encapsulated GRE tunnel
+  netifd protocol 'fou_ip6gre': Foo-over-UDP (FOU) encapsulated GRE tunnel
   over an IPv6 underlay, carrying both IPv4 and IPv6 payloads. Spokes tunnel
   to a hub (/128 tunnel endpoint) that the mesh routes with OSPF/BGP/ECMP;
   the hub uses 'option listen 1' to decapsulate from any spoke. The
@@ -47,7 +47,7 @@ endef
 
 define Package/netifd-proto-fou-ip6gre/install
 	$(INSTALL_DIR) $(1)/lib/netifd/proto
-	$(INSTALL_BIN) ./files/lib/netifd/proto/fou-ip6gre.sh $(1)/lib/netifd/proto/fou-ip6gre.sh
+	$(INSTALL_BIN) ./files/lib/netifd/proto/fou_ip6gre.sh $(1)/lib/netifd/proto/fou_ip6gre.sh
 endef
 
 define Package/netifd-proto-fou-ip6tnl
@@ -60,15 +60,15 @@ define Package/netifd-proto-fou-ip6tnl
 endef
 
 define Package/netifd-proto-fou-ip6tnl/description
-  netifd protocol 'fou-ip6tnl': FOU-encapsulated ip6tnl tunnel over IPv6.
+  netifd protocol 'fou_ip6tnl': FOU-encapsulated ip6tnl tunnel over IPv6.
   'option mode' selects ip4ip6 (IPv4-in-IPv6, default) or ip6ip6
-  (IPv6-in-IPv6). Leaner than fou-ip6gre (no GRE header) but each mode
+  (IPv6-in-IPv6). Leaner than fou_ip6gre (no GRE header) but each mode
   carries a single family.
 endef
 
 define Package/netifd-proto-fou-ip6tnl/install
 	$(INSTALL_DIR) $(1)/lib/netifd/proto
-	$(INSTALL_BIN) ./files/lib/netifd/proto/fou-ip6tnl.sh $(1)/lib/netifd/proto/fou-ip6tnl.sh
+	$(INSTALL_BIN) ./files/lib/netifd/proto/fou_ip6tnl.sh $(1)/lib/netifd/proto/fou_ip6tnl.sh
 endef
 
 define Build/Compile

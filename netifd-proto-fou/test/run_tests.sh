@@ -20,8 +20,8 @@ trap 'rm -rf "$sandbox"' EXIT
 mkdir -p "$sandbox/lib/netifd/proto" "$sandbox/bin"
 
 cp ../files/lib/netifd/fou.sh "$sandbox/lib/netifd/fou.sh"
-cp ../files/lib/netifd/proto/fou-ip6gre.sh "$sandbox/lib/netifd/proto/"
-cp ../files/lib/netifd/proto/fou-ip6tnl.sh "$sandbox/lib/netifd/proto/"
+cp ../files/lib/netifd/proto/fou_ip6gre.sh "$sandbox/lib/netifd/proto/"
+cp ../files/lib/netifd/proto/fou_ip6tnl.sh "$sandbox/lib/netifd/proto/"
 
 # --- fake `ip` ------------------------------------------------------------
 cat > "$sandbox/bin/ip" <<'EOF'
@@ -131,8 +131,8 @@ check() {
 
 # --- syntax checks (against the real files) --------------------------------
 for f in ../files/lib/netifd/fou.sh \
-         ../files/lib/netifd/proto/fou-ip6gre.sh \
-         ../files/lib/netifd/proto/fou-ip6tnl.sh; do
+         ../files/lib/netifd/proto/fou_ip6gre.sh \
+         ../files/lib/netifd/proto/fou_ip6tnl.sh; do
 	eval "sh -n \"$f\"" || { fail "sh -n $f"; continue; }
 	pass "sh -n $(basename "$f")"
 done
@@ -140,8 +140,8 @@ done
 # --- load the plugins in INCLUDE_ONLY mode (cwd mirrors runtime) -----------
 cd "$sandbox/lib/netifd/proto"
 INCLUDE_ONLY=1
-. ./fou-ip6gre.sh
-. ./fou-ip6tnl.sh
+. ./fou_ip6gre.sh
+. ./fou_ip6tnl.sh
 
 # --- tests -----------------------------------------------------------------
 
@@ -166,7 +166,7 @@ fake_laddr="2001:db8::2"
 fake_peeraddr="2001:db8::1"
 fake_port="5555"
 proto_fou_ip6gre_setup t6g ""
-expect_log "ip fou add port 5555 ipproto gre local 2001:db8::2
+expect_log "ip fou add port 5555 ipproto gre -6 local 2001:db8::2
 ip link add t6g type ip6gre local 2001:db8::2 remote 2001:db8::1 encap fou encap-sport auto encap-dport 5555" \
 	"ip6gre: creates FOU tunnel to the hub"
 check "ip6gre: claims device" \
@@ -185,7 +185,7 @@ fake_mtu="1400"
 fake_ttl="64"
 fake_tos="192"
 proto_fou_ip6gre_setup t6g ""
-expect_log "ip fou add port 7000 ipproto gre local 2001:db8::2
+expect_log "ip fou add port 7000 ipproto gre -6 local 2001:db8::2
 ip link add t6g type ip6gre local 2001:db8::2 remote 2001:db8::1 ttl 64 tos 192 encap fou encap-sport 20000 encap-dport 7000 encap-csum
 ip link set t6g mtu 1400" \
 	"ip6gre: honours csum/mtu/ttl/tos/port/sport"
@@ -197,7 +197,7 @@ reset_state
 fake_laddr="2001:db8::2"
 fake_peeraddr="2001:db8::1"
 proto_fou_ip6tnl_setup t6n ""
-expect_log "ip fou add port 5555 ipproto ipip local 2001:db8::2
+expect_log "ip fou add port 5555 ipproto ipip -6 local 2001:db8::2
 ip link add t6n type ip6tnl mode ip4ip6 local 2001:db8::2 remote 2001:db8::1 encap fou encap-sport auto encap-dport 5555" \
 	"ip6tnl: default mode ip4ip6 (ipproto ipip)"
 check "ip6tnl: claims device" \
@@ -225,7 +225,7 @@ fake_laddr="2001:db8::2"
 fake_peeraddr="2001:db8::1"
 fake_mode="ip6ip6"
 proto_fou_ip6tnl_setup t6n ""
-expect_log "ip fou add port 5555 ipproto ipv6 local 2001:db8::2
+expect_log "ip fou add port 5555 ipproto ipv6 -6 local 2001:db8::2
 ip link add t6n type ip6tnl mode ip6ip6 local 2001:db8::2 remote 2001:db8::1 encap fou encap-sport auto encap-dport 5555" \
 	"ip6tnl: mode ip6ip6 (ipproto ipv6)"
 
@@ -235,7 +235,7 @@ fake_laddr="2001:db8::2"
 fake_peeraddr="2001:db8::1"
 fake_ipproto="47"
 proto_fou_ip6gre_setup t6g ""
-expect_log "ip fou add port 5555 ipproto 47 local 2001:db8::2
+expect_log "ip fou add port 5555 ipproto 47 -6 local 2001:db8::2
 ip link add t6g type ip6gre local 2001:db8::2 remote 2001:db8::1 encap fou encap-sport auto encap-dport 5555" \
 	"ip6gre: ipproto override honoured"
 
@@ -244,7 +244,7 @@ reset_state
 fake_laddr="2001:db8::1"
 fake_listen="1"
 proto_fou_ip6gre_setup t6g ""
-expect_log "ip fou add port 5555 ipproto gre local 2001:db8::1
+expect_log "ip fou add port 5555 ipproto gre -6 local 2001:db8::1
 ip link add t6g type ip6gre local 2001:db8::1 encap fou encap-sport auto encap-dport 5555" \
 	"hub: listen mode omits remote"
 check "hub: claims device" \
@@ -279,7 +279,7 @@ check "create fail: DEVICE_CREATE_FAIL + block_restart" \
 	test "$proto_error" = "t6g DEVICE_CREATE_FAIL" -a "$proto_blocked" = t6g
 check "create fail: no update" \
 	test -z "$update_sent"
-expect_log "ip fou add port 5555 ipproto gre local 2001:db8::2
+expect_log "ip fou add port 5555 ipproto gre -6 local 2001:db8::2
 ip link add t6g type ip6gre local 2001:db8::2 remote 2001:db8::1 encap fou encap-sport auto encap-dport 5555
 ip link show t6g" \
 	"create fail: verifies via 'ip link show'"
@@ -293,7 +293,7 @@ ip_show_exit=0
 proto_fou_ip6gre_setup t6g ""
 check "pre-existing: no error, still claims" \
 	test "$update_sent" = t6g -a -z "$proto_error" -a -z "$proto_blocked"
-expect_log "ip fou add port 5555 ipproto gre local 2001:db8::2
+expect_log "ip fou add port 5555 ipproto gre -6 local 2001:db8::2
 ip link add t6g type ip6gre local 2001:db8::2 remote 2001:db8::1 encap fou encap-sport auto encap-dport 5555
 ip link show t6g" \
 	"pre-existing: keeps going"
@@ -311,6 +311,15 @@ proto_fou_ip6tnl_teardown t6n ""
 expect_log "ip link del t6n
 ip fou del port 5555" \
 	"teardown: falls back to interface name, default port"
+
+# 11b: teardown matches the -6 family of the IPv6 underlay
+reset_state
+fake_port="7000"
+fake_laddr="2001:db8::2"
+proto_fou_ip6gre_teardown t6g t6g
+expect_log "ip link del t6g
+ip fou del port 7000 -6" \
+	"teardown: ipv6 underlay uses 'ip fou del ... -6'"
 
 # --- summary --------------------------------------------------------------
 if [ "$failures" -eq 0 ]; then

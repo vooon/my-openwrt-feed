@@ -7,8 +7,8 @@ per-flow ECMP hashing (see "Why FOU" below).
 
 Packages:
 - `netifd-proto-fou-lib` — shared helpers (`/lib/netifd/fou.sh`) + docs
-- `netifd-proto-fou-ip6gre` — proto `fou-ip6gre` (GRE over IPv6, mixed IPv4+IPv6 payloads)
-- `netifd-proto-fou-ip6tnl` — proto `fou-ip6tnl` (`mode ip4ip6` IPv4-in-IPv6 or `ip6ip6` IPv6-in-IPv6)
+- `netifd-proto-fou-ip6gre` — proto `fou_ip6gre` (GRE over IPv6, mixed IPv4+IPv6 payloads)
+- `netifd-proto-fou-ip6tnl` — proto `fou_ip6tnl` (`mode ip4ip6` IPv4-in-IPv6 or `ip6ip6` IPv6-in-IPv6)
 
 Both proto packages depend on `netifd-proto-fou-lib`; installing both causes
 no file conflicts.
@@ -22,7 +22,7 @@ no file conflicts.
 | `listen`  | bool          | 0             | Hub mode: register the FOU listener + device without a `remote`, decapsulating from any spoke. One section serves any number of spokes. |
 | `port`    | int           | 5555          | FOU UDP port: `encap-dport` on the device and the `ip fou add` listener on this side. |
 | `sport`   | string/int    | `auto`        | `encap-sport`. `auto` = the kernel derives a per-flow UDP source port → per-flow ECMP hash. A fixed port pinning the outer 4-tuple is also possible. |
-| `ipproto` | int/name      | per mode      | FOU protocol. Defaults: `gre`/47, `ipip`/4, `ipv6`/41 for `fou-ip6gre`, `mode ip4ip6` and `mode ip6ip6` respectively. Override only if you know why. |
+| `ipproto` | int/name      | per mode      | FOU protocol. Defaults: `gre`/47, `ipip`/4, `ipv6`/41 for `fou_ip6gre`, `mode ip4ip6` and `mode ip6ip6` respectively. Override only if you know why. |
 | `csum`    | bool          | 0             | Add `encap-csum` (UDP checksum) to the outer header. |
 | `mtu`     | int           | kernel default| Device MTU (`ip link set`). For a 1500-byte link budget for the tunnel overhead (e.g. 1500 − (40 v6 + 8 UDP + GRE/…) ≈ 1400). |
 | `ttl`     | int           | —             | Outer hop-limit/TTL. |
@@ -34,7 +34,7 @@ no file conflicts.
 | `ptpaddr` | string        | —             | Point-to-point peer address for `ipaddr`. |
 | `gateway` | string        | —             | IPv4 gateway, installed as a default route on the overlay device. |
 | `ip6gw`   | string        | —             | IPv6 gateway, installed as a default route on the overlay device. |
-| `mode`    | string        | `ip4ip6`      | *`fou-ip6tnl` only*: `ip4ip6` (IPv4-in-IPv6) or `ip6ip6` (IPv6-in-IPv6). |
+| `mode`    | string        | `ip4ip6`      | *`fou_ip6tnl` only*: `ip4ip6` (IPv4-in-IPv6) or `ip6ip6` (IPv6-in-IPv6). |
 
 ## Examples
 
@@ -43,7 +43,7 @@ Spoke (mixed v4+v6 PBR egress device) and hub (one section, many spokes):
 ```
 # spoke
 config interface 'exit'
-    option proto    'fou-ip6gre'
+    option proto    'fou_ip6gre'
     option laddr    '2001:db8::2'
     option peeraddr '2001:db8::1'
     option port     '5555'
@@ -52,7 +52,7 @@ config interface 'exit'
 
 # hub
 config interface 'fou_in'
-    option proto   'fou-ip6gre'
+    option proto   'fou_ip6gre'
     option listen  '1'
     option laddr   '2001:db8::1'
     option port    '5555'
@@ -60,11 +60,11 @@ config interface 'fou_in'
     list   ip6addr 'fd00:0:0:1::1/64'
 ```
 
-`proto fou-ip6tnl` lookup:
+`proto fou_ip6tnl` lookup:
 
 ```
 config interface 'v4towardshub'
-    option proto   'fou-ip6tnl'
+    option proto   'fou_ip6tnl'
     option laddr   '2001:db8::2'
     option peeraddr '2001:db8::1'
     option port    '5555'
@@ -96,9 +96,9 @@ Plain GRE/IPIP over the mesh produce a constant outer `(spoke, hub)` pair, so
 an ECMP mesh hashes every inner flow to the same path. FOU wraps the tunnel in
 UDP and, with `encap-sport auto`, gives each flow its own outer source port —
 the mesh then hashes per-flow and can load-balance/switch across equal-cost
-paths. `fou-ip6gre` is the right choice when a single PBR device must carry
+paths. `fou_ip6gre` is the right choice when a single PBR device must carry
 both IPv4 and IPv6 payloads (GRE demuxes the two inside one port); the
-`fou-ip6tnl` modes are leaner single-family alternatives.
+`fou_ip6tnl` modes are leaner single-family alternatives.
 
 Tunnel endpoints must be the mesh-wide /128 addresses (routable via OSPF/BGP),
 *not* `fe80::` link-local — the FOU outer has to be forwarded hop-to-hop by
