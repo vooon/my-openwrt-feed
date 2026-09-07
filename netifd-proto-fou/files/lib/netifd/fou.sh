@@ -17,6 +17,13 @@ fou_common_init_config() {
 	proto_config_add_int "mtu"
 	proto_config_add_int "ttl"
 	proto_config_add_int "tos"
+	proto_config_add_array "ipaddr"
+	proto_config_add_array "ip6addr"
+	proto_config_add_string "netmask"
+	proto_config_add_string "broadcast"
+	proto_config_add_string "ptpaddr"
+	proto_config_add_string "gateway"
+	proto_config_add_string "ip6gw"
 }
 
 fou_common_setup() {
@@ -25,8 +32,12 @@ fou_common_setup() {
 	local muxmode="$3"
 	local dflt_ipproto="$4"
 	local laddr peeraddr port sport ipproto csum mtu ttl tos listen
+	local ipaddr ip6addr netmask broadcast ptpaddr gateway ip6gw addr mask
 
-	json_get_vars laddr peeraddr port sport ipproto csum mtu ttl tos listen
+	json_get_vars laddr peeraddr port sport ipproto csum mtu ttl tos listen \
+		netmask broadcast ptpaddr gateway ip6gw
+	json_get_values ipaddr ipaddr
+	json_get_values ip6addr ip6addr
 
 	[ -n "$laddr" ] || {
 		proto_notify_error "$cfg" "MISSING_LOCAL_ADDRESS"
@@ -69,6 +80,22 @@ fou_common_setup() {
 	[ -n "$mtu" ] && ip link set "$cfg" mtu "$mtu"
 
 	proto_init_update "$cfg" 1
+
+	for addr in $ipaddr; do
+		mask="${addr#*/}"
+		[ "$mask" != "$addr" ] && mask="$mask" || mask="${netmask:-255.255.255.0}"
+		proto_add_ipv4_address "${addr%%/*}" "$mask" "$broadcast" "$ptpaddr"
+	done
+
+	for addr in $ip6addr; do
+		mask="${addr#*/}"
+		[ "$mask" != "$addr" ] && mask="$mask" || mask="128"
+		proto_add_ipv6_address "${addr%%/*}" "$mask" "" "" "" ""
+	done
+
+	[ -n "$gateway" ] && proto_add_ipv4_route "0.0.0.0" "0" "$gateway" "" ""
+	[ -n "$ip6gw" ] && proto_add_ipv6_route "::" "0" "$ip6gw" "" "" "" ""
+
 	proto_send_update "$cfg"
 }
 

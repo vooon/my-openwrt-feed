@@ -60,22 +60,37 @@ json_get_vars() {
 		eval "$v=\"\${fake_$v:-}\""
 	done
 }
+
+# json_get_values: for the ipaddr/ip6addr arrays, fake_<name> holds the
+# space-separated list.
+json_get_values() {
+	local dest="$1"
+	eval "$dest=\"\${fake_$2:-}\""
+}
 proto_config_add_string()  { __cfg_opts="$__cfg_opts $1"; }
 proto_config_add_int()     { proto_config_add_string "$1"; }
 proto_config_add_boolean() { proto_config_add_string "$1"; }
+proto_config_add_array()   { proto_config_add_string "$1"; }
 proto_init_update() { update_ifname="$1"; update_up="$2"; update_external="${3:-}"; }
 proto_send_update() { update_sent="$1"; }
 proto_notify_error() { proto_error="$1${2:+ $2}"; }
 proto_block_restart() { proto_blocked="$1"; }
+proto_add_ipv4_address() { PROTO_IPADDR="${PROTO_IPADDR:+$PROTO_IPADDR }$1/$2/$3/$4"; }
+proto_add_ipv6_address() { PROTO_IP6ADDR="${PROTO_IP6ADDR:+$PROTO_IP6ADDR }$1/$2/$3/$4/$5/$6"; }
+proto_add_ipv4_route() { PROTO_ROUTE="${PROTO_ROUTE:+$PROTO_ROUTE }$1/$2/$3/$4///$5"; }
+proto_add_ipv6_route() { PROTO_ROUTE6="${PROTO_ROUTE6:+$PROTO_ROUTE6 }$1/$2/$3/$4/$5/$6/$7"; }
 
 reset_state() {
 	ip_add_exit=0; ip_show_exit=0; ip_fou_exit=0; ip_other_exit=0
 	fake_laddr=""; fake_peeraddr=""; fake_port=""; fake_sport=""
 	fake_csum=""; fake_mtu=""; fake_ttl=""; fake_tos=""; fake_ipproto=""
 	fake_listen=""; fake_mode=""
+	fake_ipaddr=""; fake_ip6addr=""; fake_netmask=""; fake_broadcast=""
+	fake_ptpaddr=""; fake_gateway=""; fake_ip6gw=""
 	__cfg_opts=""
 	update_ifname=""; update_up=""; update_sent=""
 	proto_error=""; proto_blocked=""
+	PROTO_IPADDR=""; PROTO_IP6ADDR=""; PROTO_ROUTE=""; PROTO_ROUTE6=""
 	: > "$FAKE_IP_LOG"
 }
 
@@ -136,14 +151,14 @@ proto_fou_ip6gre_init_config
 check "init_config: ip6gre no_device+available" \
 	test "$no_device" = 1 -a "$available" = 1
 check "init_config: ip6gre options" \
-	test "$__cfg_opts" = " laddr peeraddr listen port sport ipproto csum mtu ttl tos"
+	test "$__cfg_opts" = " laddr peeraddr listen port sport ipproto csum mtu ttl tos ipaddr ip6addr netmask broadcast ptpaddr gateway ip6gw"
 
 reset_state
 proto_fou_ip6tnl_init_config
 check "init_config: ip6tnl no_device+available" \
 	test "$no_device" = 1 -a "$available" = 1
 check "init_config: ip6tnl adds mode" \
-	test "$__cfg_opts" = " laddr peeraddr listen port sport ipproto csum mtu ttl tos mode"
+	test "$__cfg_opts" = " laddr peeraddr listen port sport ipproto csum mtu ttl tos ipaddr ip6addr netmask broadcast ptpaddr gateway ip6gw mode"
 
 # 1: ip6gre spoke
 reset_state
@@ -187,6 +202,22 @@ ip link add t6n type ip6tnl mode ip4ip6 local 2001:db8::2 remote 2001:db8::1 enc
 	"ip6tnl: default mode ip4ip6 (ipproto ipip)"
 check "ip6tnl: claims device" \
 	test "$update_sent" = t6n
+
+# 3b: overlay addresses are re-emitted into the netifd update
+reset_state
+fake_laddr="2001:db8::2"
+fake_peeraddr="2001:db8::1"
+fake_ipaddr="172.16.0.2/30"
+fake_ip6addr="fd00:0:0:1::2/64"
+fake_gateway="172.16.0.1"
+fake_ip6gw="fd00::1"
+proto_fou_ip6gre_setup t6g ""
+check "ip6gre: re-emits v4/v6 addresses" \
+	test "$PROTO_IPADDR" = "172.16.0.2/30//" -a "$PROTO_IP6ADDR" = "fd00:0:0:1::2/64////"
+check "ip6gre: re-emits default routes for gateway/ip6gw" \
+	test "$PROTO_ROUTE" = "0.0.0.0/0/172.16.0.1////" -a "$PROTO_ROUTE6" = "::/0/fd00::1////"
+check "ip6gre: still sends the update" \
+	test "$update_sent" = t6g
 
 # 4: ip6tnl mode ip6ip6
 reset_state

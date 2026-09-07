@@ -27,8 +27,13 @@ no file conflicts.
 | `mtu`     | int           | kernel default| Device MTU (`ip link set`). For a 1500-byte link budget for the tunnel overhead (e.g. 1500 − (40 v6 + 8 UDP + GRE/…) ≈ 1400). |
 | `ttl`     | int           | —             | Outer hop-limit/TTL. |
 | `tos`     | int           | —             | Outer TOS/traffic-class. |
-| `ipaddr`  | list          | —             | Overlay IPv4 address(es) netifd assigns to the tunnel device. |
-| `ip6addr` | list          | —             | Overlay IPv6 address(es). |
+| `ipaddr`  | list          | —             | Overlay IPv4 address(es) netifd assigns to the tunnel device. Each entry may be `addr/prefix`; bare addresses use `netmask`. |
+| `ip6addr` | list          | —             | Overlay IPv6 address(es). Each entry may be `addr/prefix`; bare addresses default to `/128`. |
+| `netmask` | string        | 255.255.255.0 | Prefix/mask used for a bare `ipaddr` entry without a `/prefix`. |
+| `broadcast`| string       | —             | Broadcast address for `ipaddr`. |
+| `ptpaddr` | string        | —             | Point-to-point peer address for `ipaddr`. |
+| `gateway` | string        | —             | IPv4 gateway, installed as a default route on the overlay device. |
+| `ip6gw`   | string        | —             | IPv6 gateway, installed as a default route on the overlay device. |
 | `mode`    | string        | `ip4ip6`      | *`fou-ip6tnl` only*: `ip4ip6` (IPv4-in-IPv6) or `ip6ip6` (IPv6-in-IPv6). |
 
 ## Examples
