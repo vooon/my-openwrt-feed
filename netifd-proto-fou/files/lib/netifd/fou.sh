@@ -65,8 +65,15 @@ fou_common_setup() {
 
 	# Register the FOU listener. Best effort: it may already be present on
 	# this side or be owned by another tunnel; both ends register so return
-	# traffic can be decapsulated too.
-	ip fou add port "$port" ipproto "$ipproto" $fou_af ${laddr:+local "$laddr"} 2>/dev/null
+	# traffic can be decapsulated too. Retry a few times to cover the case
+	# where the local /128 is assigned by another interface that netifd
+	# brings up after this one (binding a UDP6 socket to a not-yet-present
+	# address fails with EADDRNOTAVAIL).
+	local n
+	for n in 1 2 3 4 5; do
+		ip fou add port "$port" ipproto "$ipproto" $fou_af ${laddr:+local "$laddr"} 2>/dev/null && break
+		[ "$n" -lt 5 ] && sleep 0.3
+	done
 
 	# Create the tunnel. If it already exists (e.g. leftover from a crashed
 	# teardown or created elsewhere), keep it instead of failing the ifup.
