@@ -49,29 +49,107 @@ function applyCost(iface, cost) {
 	});
 }
 
-/* `-` / `+` buttons for a single OSPF interface cost. */
-function costButtons(iface) {
+/* Clamp an OSPF cost to the range accepted by BIRD (1..65535). */
+function clampCost(v) {
+	if (isNaN(v))
+		return null;
+	return Math.min(65535, Math.max(1, Math.round(v)));
+}
+
+/* Number of cost inputs currently being edited. While nonzero the 5s status
+ * poll is stopped so a refresh does not reset the value under the cursor. */
+var costEdits = 0;
+
+function pauseCostPoll() {
+	if (costEdits++ == 0)
+		poll.stop();
+}
+
+function resumeCostPoll() {
+	if (--costEdits == 0)
+		poll.start();
+}
+
+/* Inline editable OSPF interface cost: a numeric input between `-` and `+`
+ * stepper buttons. A value is applied on Enter/blur or on a button press;
+ * the steppers adjust by 1, clamped to 1..65535. */
+function costWidget(iface) {
 	if (!iface || !iface.interface)
 		return '';
 
 	var disabled = (iface.cost == null) ? 'disabled' : null;
+	var applied = false;
 
-	return E('span', {}, [
+	var input = E('input', {
+		'type': 'number',
+		'min': 1,
+		'max': 65535,
+		'step': 1,
+		'class': 'bird-cost-input',
+		'style': 'width:6em;text-align:center',
+		'value': (iface.cost != null) ? iface.cost : '',
+		'disabled': disabled
+	});
+
+	function current() {
+		return (parseInt(input.value, 10) || iface.cost || 0);
+	}
+
+	function apply(value) {
+		value = clampCost(value);
+		if (value == null)
+			return;
+		input.value = value;
+		applied = true;
+		if (value == iface.cost)
+			return;
+		return applyCost(iface.interface, value);
+	}
+
+	input.addEventListener('focus', function() {
+		applied = false;
+		pauseCostPoll();
+	});
+
+	input.addEventListener('blur', function() {
+		resumeCostPoll();
+		if (!applied)
+			apply(current());
+	});
+
+	input.addEventListener('keydown', function(ev) {
+		if (ev.key == 'Enter') {
+			ev.preventDefault();
+			apply(current());
+			input.blur();
+		}
+	});
+
+	/* Parking a blank input (e.g. via Delete) reverts to the current cost
+	 * when the field is blurred. */
+	input.addEventListener('input', function() {
+		if (input.value !== '' && clampCost(parseInt(input.value, 10)) == null)
+			input.value = (iface.cost != null) ? iface.cost : '';
+	});
+
+	return E('span', { 'class': 'bird-cost-widget' }, [
 		E('button', {
 			'type': 'button',
 			'class': 'btn cbi-button cbi-button-negative',
 			'disabled': disabled,
 			'click': function() {
-				return applyCost(iface.interface, Math.max(1, (iface.cost || 0) - 1));
+				return apply(current() - 1);
 			}
 		}, '-'),
+		' ',
+		input,
 		' ',
 		E('button', {
 			'type': 'button',
 			'class': 'btn cbi-button cbi-button-positive',
 			'disabled': disabled,
 			'click': function() {
-				return applyCost(iface.interface, Math.min(65535, (iface.cost || 0) + 1));
+				return apply(current() + 1);
 			}
 		}, '+')
 	]);
@@ -212,7 +290,7 @@ function updateOspfSection(sec, o) {
 			i.interface || '-',
 			E('code', [ i.type || '-' ]),
 			[ +i.cost, +i.cost ],
-			costButtons(i)
+			costWidget(i)
 		];
 	}));
 }
