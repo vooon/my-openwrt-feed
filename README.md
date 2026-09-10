@@ -30,8 +30,10 @@ Package Highlights
   `gotify-alertmanager-plugin`
 - Routing and overlays: `gobgp`, `nebula`, `nylon`, `pathosd`, `vpn-sticky`,
   `netifd-proto-dummy` (create dummy interfaces from `config interface …
-  proto dummy`), `netifd-proto-fou` (FOU-encapsulated tunnels over an IPv6
-  mesh via `fou-ip6gre` / `fou-ip6tnl` protos, with per-flow ECMP hashing)
+  proto dummy`) with its `luci-proto-dummy` UI, `netifd-proto-fou`
+  (FOU-encapsulated tunnels over an IPv6 mesh via `fou-ip6gre` /
+  `fou-ip6tnl` protos, with per-flow ECMP hashing) with the
+  `luci-proto-fou-ip6gre` / `luci-proto-fou-ip6tnl` UIs
 - Traffic monitoring (eBPF/IPFIX observability) moved to the separate
   [`obserwrt`](https://github.com/vooon/obserwrt) feed
 - DNS automation: `ddns-dhcp-sync`, `zoneomatic`
