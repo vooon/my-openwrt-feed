@@ -9,3 +9,5 @@ PKG_LICENSE:=GPL-2.0-only
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
 include $(TOPDIR)/feeds/luci/luci.mk
+
+# call BuildPackage - OpenWrt buildroot signature
