@@ -44,15 +44,15 @@ jobs:
         # imports at compile time, but the OpenWrt modules (uci/ubus/... ) are
         # not in the upstream tree, so strip the import lines, turn `export
         # function` back into a plain function (script-mode `-c`) and compile.
-        # Template files (metrics.uc, *.nft.uc, i.e. starting with `{%`) are
-        # compiled with `-T`.
+        # Template files (metrics.uc, *.nft.uc, *.ut, i.e. starting with `{%`
+        # or with a `.ut` extension) are compiled with `-T`.
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
-          for f in $(git ls-files '*.uc'); do
+          for f in $(git ls-files '*.uc' '*.ut'); do
             name="$(basename "$f")"
             sed -e '/^[ \t]*import /d' -e 's/^[ \t]*export[ \t]*//' "$f" > "$work/$name"
-            if head -n1 "$f" | grep -q '^{%'; then
+            if [ "${f##*.}" = "ut" ] || head -n1 "$f" | grep -q '^{%'; then
               "${{ steps.ucode.outputs.bin }}" -L "${{ steps.ucode.outputs.mods }}" -T -c -o "$work/$name.out" "$work/$name"
             else
               "${{ steps.ucode.outputs.bin }}" -L "${{ steps.ucode.outputs.mods }}" -c -o "$work/$name.out" "$work/$name"
@@ -74,6 +74,16 @@ jobs:
           UCODE="${{ steps.ucode.outputs.bin }}" \
           UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
             rpcd-mod-bird/test/run_tests.sh
+
+      - name: Run angie-mod-ucode template tests
+        # Exercises the example template (examples/profiles.ut) against mocked
+        # request/response/uhttpd globals; no angie build required.
+        if: ${{ hashFiles('angie/ucode-module/test/run_tests.sh') != '' }}
+        run: |
+          set -euo pipefail
+          UCODE="${{ steps.ucode.outputs.bin }}" \
+          UCODE_MODULES="${{ steps.ucode.outputs.mods }}" \
+            angie/ucode-module/test/run_tests.sh
 
       - name: Run netifd-proto-dummy tests
         # Shell unit tests: mocked netifd proto-shell helpers + a fake `ip`

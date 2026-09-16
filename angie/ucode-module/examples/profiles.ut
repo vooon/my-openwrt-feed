@@ -1,0 +1,73 @@
+{#
+# Example angie ucode template rendered by the angie-mod-ucode module.
+#
+#   location /profiles {
+#       ucode_content /www/vpn/profiles.ut;
+#   }
+#
+# Two globals are available:
+#   request  - request object:
+#              request.method, request.uri, request.query,
+#              request.script_name, request.remote_addr, request.protocol,
+#              request.headers.<Header-Name> (array of all values,
+#              e.g. request.headers["X-Username"][0])
+#   response - response object:
+#              response.status(code[, phrase])
+#              response.set_header(name, value)  (replace)
+#              response.add_header(name, value)  (append another value)
+#
+# Classic CGI variables are also available as top-level globals:
+# REQUEST_METHOD, REQUEST_URI, QUERY_STRING, SCRIPT_NAME, REMOTE_ADDR,
+# SERVER_PROTOCOL.
+#
+# As a fallback, CGI-style header lines ("Content-Type: ...", "Status: ...")
+# printed at the very start of the output are applied to the response too.
+#
+# uhttpd.urlencode()/uhttpd.urldecode() are also available.
+#
+# The template is recompiled on every request, so edits take effect
+# immediately (no angie reload required).
+#}
+
+{%
+function html_escape(s) {
+	let out = "";
+
+	for (let i = 0; i < length(s); i++) {
+		let c = substr(s, i, 1);
+
+		if (c == "&")      out += "&amp;";
+		else if (c == "<") out += "&lt;";
+		else if (c == ">") out += "&gt;";
+		else if (c == '"') out += "&quot;";
+		else               out += c;
+	}
+
+	return out;
+}
+
+let user = request.headers["X-Username"] ? request.headers["X-Username"][0] : null;
+
+if (!user || user == "guest") {
+	response.status(401, "Authentication required");
+	response.set_header("WWW-Authenticate", "Basic realm=\"vpn\"");
+	return;
+}
+
+let profiles = [
+	{ name: "home",   proto: "wireguard", endpoint: "vpn.home.example.com" },
+	{ name: "office", proto: "openvpn",   endpoint: "vpn.office.example.com" },
+	{ name: "road",   proto: "wireguard", endpoint: "road.example.com" },
+];
+
+let owned = filter(profiles, p => p.name == user || user == "admin");
+
+response.set_header("Content-Type", "text/html; charset=utf-8");
+%}
+<h1>VPN profiles for {{ html_escape(user) }}</h1>
+<ul>
+{% for (let p in owned) { %}
+	<li>{{ html_escape(p.name) }} ({{ html_escape(p.proto) }}) &rarr;
+	    <code>{{ html_escape(p.endpoint) }}</code></li>
+{% } %}
+</ul>

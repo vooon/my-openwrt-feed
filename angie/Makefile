@@ -72,7 +72,8 @@ PKG_CONFIG_DEPENDS := \
 	CONFIG_ANGIE_HTTP_SECURE_LINK \
 	CONFIG_ANGIE_HTTP_SUB \
 	CONFIG_ANGIE_STREAM_REAL_IP \
-	CONFIG_PACKAGE_angie-mod-stream
+	CONFIG_PACKAGE_angie-mod-stream \
+	CONFIG_PACKAGE_angie-mod-ucode
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/nls.mk
@@ -188,6 +189,15 @@ define BuildModule
   $$(eval $$(call BuildPackage,angie-mod-$(1)))
 endef
 
+# Vendored third-party modules that live in this package dir and are built
+# into angie via --add-dynamic-module.  They are copied into the build tree
+# during prepare so that angie's auto/module can compile them.
+define Build/Prepare
+	$(call Build/Prepare/Default)
+	mkdir -p $(PKG_BUILD_DIR)/ucode-module
+	$(CP) ./ucode-module/* $(PKG_BUILD_DIR)/ucode-module/
+endef
+
 CONFIGURE_VARS += CONFIG_BIG_ENDIAN=$(CONFIG_BIG_ENDIAN)
 
 CONFIGURE_ARGS += \
@@ -258,8 +268,10 @@ CONFIGURE_ARGS += \
 	$(if $(call IsEnabled,ANGIE_HTTP_SECURE_LINK),--with-http_secure_link_module) \
 	$(if $(call IsEnabled,ANGIE_HTTP_SUB),--with-http_sub_module) \
 	$(if $(CONFIG_PACKAGE_angie-mod-stream),--with-stream=dynamic --with-stream_ssl_module --with-stream_ssl_preread_module) \
-	$(if $(call IsEnabled,ANGIE_STREAM_REAL_IP),--with-stream_realip_module)
+	$(if $(call IsEnabled,ANGIE_STREAM_REAL_IP),--with-stream_realip_module) \
+	$(if $(CONFIG_PACKAGE_angie-mod-ucode),--add-dynamic-module=$(PKG_BUILD_DIR)/ucode-module)
 
 $(eval $(call BuildPackage,angie))
 $(eval $(call BuildPackage,angie-full))
 $(eval $(call BuildModule,stream,,ngx_stream,Add support for Angie request streaming.))
+$(eval $(call BuildModule,ucode,+libucode,ngx_http_ucode,Execute ucode templates as content handlers.))
