@@ -2,6 +2,13 @@
 
 Guidance for AI coding agents working in this repository.
 
+## Hard rules
+
+- **Never run `./scripts/feeds clean` or delete the `feeds/` directory.** It
+  wipes the feed clone including unpushed commits and uncommitted work. To
+  apply openwrt feed changes use `./scripts/feeds update <feed>` /
+  `./scripts/feeds install -a -p <feed>` instead.
+
 ## Project
 
 `vooon` — a personal OpenWrt package feed (`src-git vooon

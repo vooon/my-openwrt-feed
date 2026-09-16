@@ -9,7 +9,7 @@ PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/MetaCubeX/mihomo.git
 PKG_SOURCE_VERSION:=v1.19.31
-PKG_MIRROR_HASH:=
+PKG_MIRROR_HASH:=2337ee0dc8bbef9921e2ac73dfa7d7617f64b8f69a5d774ffc392c748ca85b00
 
 PKG_LICENSE:=GPL3.0+
 PKG_MAINTAINER:=Joseph Mory <morytyann@gmail.com>
@@ -28,7 +28,7 @@ GO_PKG_LDFLAGS_X:=$(GO_PKG)/constant.Version=$(PKG_BUILD_VERSION) $(GO_PKG)/cons
 GO_PKG_INSTALL_BIN_PATH:=/usr/bin
 
 include $(INCLUDE_DIR)/package.mk
-include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
+include ../../packages/lang/golang/golang-package.mk
 
 define Package/mihomo-meta
   SECTION:=net
