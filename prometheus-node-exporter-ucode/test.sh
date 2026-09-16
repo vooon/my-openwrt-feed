@@ -32,7 +32,7 @@ if [ -n "${UCODE_MODULES:-}" ]; then
 	MOD_ARGS="-L $UCODE_MODULES"
 fi
 
-TESTS="bird nat_traffic textfile"
+TESTS="bird mihomo nat_traffic textfile"
 
 failed=0
 

@@ -380,6 +380,39 @@ config collector 'singbox'
 | `singbox_perconn_upload_bytes_total` | gauge | `id`, `rule`, `host`, ... | Per-connection upload (opt-in) |
 | `singbox_perconn_download_bytes_total` | gauge | `id`, `rule`, `host`, ... | Per-connection download (opt-in) |
 
+### mihomo
+
+Package: `prometheus-node-exporter-ucode-mihomo`
+Dependencies: `ucode-mod-uclient`, `ucode-mod-uloop`
+Source: Mihomo external-controller API
+
+Configuration:
+```
+config collector 'mihomo'
+    option api_url 'http://127.0.0.1:9090'
+    option secret 'your-controller-secret'
+    option per_connection '0'
+```
+
+The collector reads `/version`, `/traffic`, `/memory`, `/connections`, and
+`/proxies`. Traffic and connection totals are exported directly, while active
+connections are aggregated by outbound node and destination. Per-connection
+metrics are opt-in because their labels can create many time series.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `mihomo_up` | gauge | `url` | API reachable (0/1) |
+| `mihomo_version_info` | gauge | `meta`, `version` | Mihomo version info |
+| `mihomo_traffic_*_bytes_per_second` | gauge | — | Current traffic rate |
+| `mihomo_traffic_*_bytes_total` | counter | — | Cumulative traffic |
+| `mihomo_memory_used_bytes` | gauge | — | Memory in use |
+| `mihomo_connections_active_total` | gauge | — | Active connection count |
+| `mihomo_connection_*_bytes_by_node` | gauge | `outbound_node` | Traffic by outbound node |
+| `mihomo_connection_*_bytes_by_destination` | gauge | `destination`, `outbound_node` | Traffic by destination and node |
+| `mihomo_proxy_available` | gauge | `name` | Proxy availability |
+| `mihomo_proxy_latency_ms` | gauge | `name` | Latest proxy health-check latency |
+| `mihomo_connection_*_bytes` | gauge | connection details | Per-connection traffic (opt-in) |
+
 ### snmp6
 
 Package: `prometheus-node-exporter-ucode-snmp6`

@@ -4,6 +4,7 @@
 import * as fs from "fs";
 import { connect } from "ubus";
 import { cursor } from "uci";
+import { fetch_json } from "./http_client.uc";
 
 function debug(...s) {
 	if (global.debug)
@@ -172,6 +173,7 @@ global.handle_request = function(env) {
 		let t1, t2;
 
 		scope["config"] = collectors[col].config;
+		scope["config"]["fetch_json"] = fetch_json;
 		t1 = clock(true);
 		try {
 			ok = call(collectors[col].func, null, scope) != false;
