@@ -32,11 +32,43 @@ function report(name, ok, msg)
 	}
 }
 
+/** Read a fixture file, returning an empty string when absent.
+ *
+ * @param {string} name - the fixture path
+ * @returns {string}
+ */
 function read(name)
 {
 	let s = fs.readfile(name);
+	if (s == null)
+		return '';
+	return s;
+}
 
-	return (s == null) ? '' : s;
+/** Return the @i-th element of an array, aborting when out of range.
+ *
+ * @param {object[]} arr - the array
+ * @param {integer} i - the index
+ * @returns {object}
+ */
+function at(arr, i)
+{
+	let e = arr[i];
+	if (e == null)
+		die(`index ${i} out of range`);
+	return e;
+}
+
+/** Assert non-null and return the value.
+ *
+ * @param {object|null} o - the value
+ * @returns {object}
+ */
+function need(o)
+{
+	if (o == null)
+		die('expected non-null value');
+	return o;
 }
 
 /* Edit @iface/@cost in a fixture and compare to a golden file. */
@@ -124,14 +156,11 @@ report('parser ptp/broadcast types',
        sprintf('%J', gotIface) == sprintf('%J', expIface),
        sprintf('%J', gotIface));
 
-let expNoType = [
-	{ interface: 'eth0', type: null, cost: 10 },
-];
 let gotNoType = parseOspfInterfaces(split(read('fixtures/show-ospf-iface-notype.txt'), '\n'));
 
 report('parser missing Type yields null',
-       gotNoType[0].interface == 'eth0' && gotNoType[0].type == null &&
-	       gotNoType[0].cost == 10,
+       at(gotNoType, 0).interface == 'eth0' && at(gotNoType, 0).type == null &&
+	       at(gotNoType, 0).cost == 10,
        sprintf('%J', gotNoType));
 
 //// prefix validation ////
@@ -194,7 +223,7 @@ report('route single via',
 report('route exact (host in /24)',
        exactRoute(rVia, '198.51.100.9') == null &&
 	       exactRoute(rVia, '198.51.100.0/24') != null &&
-	       exactRoute(rVia, '198.51.100.0/24').prefix == '198.51.100.0/24',
+	       need(exactRoute(rVia, '198.51.100.0/24')).prefix == '198.51.100.0/24',
        sprintf('%J', exactRoute(rVia, '198.51.100.0/24')));
 
 /* ECMP: one route, one "via" line per preferred next hop */
@@ -215,12 +244,14 @@ let expEcmp = [
 report('route ECMP all via hops',
        sprintf('%J', rEcmp) == sprintf('%J', expEcmp),
        sprintf('%J', rEcmp));
-report('route ECMP count', length(rEcmp[0].next_hops) == 4,
-       sprintf('%J', rEcmp[0].next_hops));
+report('route ECMP count',
+       // ucode-lsp disable-next-line incompatible-function-argument   # fixture guarantees non-null next_hops
+       length(at(rEcmp, 0).next_hops) == 4,
+       sprintf('%J', at(rEcmp, 0).next_hops));
 /* host query matches the /128; case is normalized during comparison */
 report('route exact host v6',
        exactRoute(rEcmp, '2001:DB8:10::1') != null &&
-	       exactRoute(rEcmp, '2001:DB8:10::1').prefix == '2001:db8:10::1/128',
+	       need(exactRoute(rEcmp, '2001:DB8:10::1')).prefix == '2001:db8:10::1/128',
        sprintf('%J', exactRoute(rEcmp, '2001:DB8:10::1')));
 
 /* device route (local/connected loopback) */
@@ -238,15 +269,16 @@ let expDev = [
 report('route dev (local/connected)',
        sprintf('%J', rDev) == sprintf('%J', expDev),
        sprintf('%J', rDev));
-report('route dev primary', rDev[0].primary == 'dev',
-       rDev[0].primary);
+report('route dev primary', at(rDev, 0).primary == 'dev',
+       at(rDev, 0).primary);
 
 /* destination routes with no next hop (unreachable/blackhole) */
 let rUnreach = routeOf('show-route-unreachable.txt');
 report('route unreachable parsed',
-       length(rUnreach) == 1 && rUnreach[0].prefix == '203.0.113.77/32' &&
-	       rUnreach[0].proto == 'static1' && rUnreach[0].cost == 10 &&
-	       length(rUnreach[0].next_hops) == 0,
+       length(rUnreach) == 1 && at(rUnreach, 0).prefix == '203.0.113.77/32' &&
+	       at(rUnreach, 0).proto == 'static1' && at(rUnreach, 0).cost == 10 &&
+	       // ucode-lsp disable-next-line incompatible-function-argument   # fixture has no next hops
+	       length(at(rUnreach, 0).next_hops) == 0,
        sprintf('%J', rUnreach));
 
 /* several routes for the same network: only the primary carries the prefix
@@ -254,10 +286,12 @@ report('route unreachable parsed',
 let rMulti = routeOf('show-route-multipeer.txt');
 report('route multipeer count', length(rMulti) == 3, sprintf('%J', rMulti));
 report('route multipeer empty labels',
-       length(rMulti[0].prefix) > 0 && length(rMulti[1].prefix) == 0 &&
-	       length(rMulti[2].prefix) == 0 && rMulti[0].proto == 'peer_a' &&
-	       rMulti[1].proto == 'peer_b',
-       sprintf('prefixes %J', [rMulti[0].prefix, rMulti[1].prefix, rMulti[2].prefix]));
+       // ucode-lsp disable-next-line incompatible-function-argument   # fixture guarantees non-null prefix/proto
+       length(at(rMulti, 0).prefix) > 0 && length(at(rMulti, 1).prefix) == 0 &&
+	       // ucode-lsp disable-next-line incompatible-function-argument   # fixture guarantees non-null prefix/proto
+	       length(at(rMulti, 2).prefix) == 0 && at(rMulti, 0).proto == 'peer_a' &&
+	       at(rMulti, 1).proto == 'peer_b',
+       sprintf('prefixes %J', [at(rMulti, 0).prefix, at(rMulti, 1).prefix, at(rMulti, 2).prefix]));
 
 /* full-table scan: table headers and blank lines are ignored */
 let rFull = routeOf('show-route-full.txt');
@@ -265,17 +299,17 @@ report('route full scan count', length(rFull) == 4, sprintf('%J', rFull));
 
 /* best-match (longest covering prefix) selection used by the fallback */
 report('route best-match /24', bestCoveringRoute(rFull, '192.0.2.55') != null &&
-       bestCoveringRoute(rFull, '192.0.2.55').prefix == '192.0.2.0/24',
+       need(bestCoveringRoute(rFull, '192.0.2.55')).prefix == '192.0.2.0/24',
        sprintf('%J', bestCoveringRoute(rFull, '192.0.2.55')));
 report('route best-match /32 dev', bestCoveringRoute(rFull, '203.0.114.7') != null &&
-       bestCoveringRoute(rFull, '203.0.114.7').prefix == '203.0.114.7/32' &&
-       bestCoveringRoute(rFull, '203.0.114.7').primary == 'dev',
+       need(bestCoveringRoute(rFull, '203.0.114.7')).prefix == '203.0.114.7/32' &&
+       need(bestCoveringRoute(rFull, '203.0.114.7')).primary == 'dev',
        sprintf('%J', bestCoveringRoute(rFull, '203.0.114.7')));
 report('route best-match default', bestCoveringRoute(rFull, '198.51.100.9') != null &&
-       bestCoveringRoute(rFull, '198.51.100.9').prefix == '0.0.0.0/0',
+       need(bestCoveringRoute(rFull, '198.51.100.9')).prefix == '0.0.0.0/0',
        sprintf('%J', bestCoveringRoute(rFull, '198.51.100.9')));
 report('route best-match v6', bestCoveringRoute(rFull, '2001:db8::1') != null &&
-       bestCoveringRoute(rFull, '2001:db8::1').prefix == '2001:db8::/48',
+       need(bestCoveringRoute(rFull, '2001:db8::1')).prefix == '2001:db8::/48',
        sprintf('%J', bestCoveringRoute(rFull, '2001:db8::1')));
 report('route best-match none', bestCoveringRoute(rFull, '2001:db9::1') == null,
        sprintf('%J', bestCoveringRoute(rFull, '2001:db9::1')));
@@ -313,7 +347,7 @@ report('route verbose attrs',
        sprintf('%J', rVerb) == sprintf('%J', expVerb),
        sprintf('%J', rVerb));
 report('route verbose cost from explicit metric',
-       rVerb[0].cost == 30 && rVerb[2].cost == 20,
+       at(rVerb, 0).cost == 30 && at(rVerb, 2).cost == 20,
        sprintf('%J', rVerb));
 report('route as_path association',
        routeAsPath(verbLines(), '192.0.2.0/24', 'peer_a') != null &&

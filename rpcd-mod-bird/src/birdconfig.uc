@@ -14,7 +14,12 @@
 
 //// Small string helpers ////
 
-/* Count occurrences of the single character @c in @s. */
+/** Count occurrences of the single character @c in @s.
+ *
+ * @param {string} s - string to scan
+ * @param {string} c - character to count
+ * @returns {integer}
+ */
 function countChar(s, c)
 {
 	let n = 0;
@@ -26,8 +31,12 @@ function countChar(s, c)
 	return n;
 }
 
-/* Brace delta of a line: +1 per `{`, -1 per `}`.  Braces inside comments or
- * quoted strings are not handled (none appear in OSPF interface blocks). */
+/** Brace delta of a line: +1 per `{`, -1 per `}`.  Braces inside comments or
+ * quoted strings are not handled (none appear in OSPF interface blocks).
+ *
+ * @param {string} line - the line to scan
+ * @returns {integer}
+ */
 function braceDelta(line)
 {
 	return countChar(line, '{') - countChar(line, '}');
@@ -40,6 +49,12 @@ function braceDelta(line)
 //
 // Every field is optional: an interface without `Type:` yields `type == null`,
 // without `Cost:` yields `cost == null` - never fail the whole parse.
+/**
+ * Parse `show ospf interface` output into per-interface objects.
+ *
+ * @param {string[]} lines - the cleaned reply lines
+ * @returns {object[]}
+ */
 export function parseOspfInterfaces(lines)
 {
 	let res = [];
@@ -64,10 +79,23 @@ export function parseOspfInterfaces(lines)
 
 //// IP / prefix helpers ////
 
-/* Parse a dotted-quad IPv4 address into 4 bytes.  Returns null unless every
- * group is a plain decimal in 0..255. */
+/**
+ * Parsed IP prefix.
+ * @typedef {object} Prefix
+ * @property {integer} fam - address family (4 or 6)
+ * @property {integer[]} addr - address bytes
+ * @property {integer} len - prefix length
+ */
+
+/** Parse a dotted-quad IPv4 address into 4 bytes.  Returns null unless every
+ * group is a plain decimal in 0..255.
+ *
+ * @param {string} s - the dotted-quad address
+ * @returns {integer[]|null}
+ */
 function ipv4Bytes(s)
 {
+	// ucode-lsp disable-next-line incompatible-function-argument   # 4 groups guaranteed by length check below
 	let t = split(s, '.');
 	if (length(t) != 4)
 		return null;
@@ -75,6 +103,7 @@ function ipv4Bytes(s)
 	let b = [];
 
 	for (let i = 0; i < 4; i++) {
+		// ucode-lsp disable-next-line nullable-argument   # element present (i < 4 == length)
 		if (!match(t[i], /^[0-9]{1,3}$/))
 			return null;
 
@@ -88,12 +117,17 @@ function ipv4Bytes(s)
 	return b;
 }
 
-/* Convert a list of ":"-separated IPv6 hextet strings into bytes. */
+/** Convert a list of ":"-separated IPv6 hextet strings into bytes.
+ *
+ * @param {string[]} groups - the hextet strings
+ * @returns {integer[]|null}
+ */
 function hextetsToBytes(groups)
 {
 	let b = [];
 
 	for (let i = 0; i < length(groups); i++) {
+		// ucode-lsp disable-next-line nullable-argument   # element present (i < length)
 		if (!match(groups[i], /^[0-9a-fA-F]{1,4}$/))
 			return null;
 
@@ -105,13 +139,18 @@ function hextetsToBytes(groups)
 	return b;
 }
 
-/* Parse an IPv6 address (with at most one "::") into 16 bytes. */
+/** Parse an IPv6 address (with at most one "::") into 16 bytes.
+ *
+ * @param {string} s - the IPv6 address text
+ * @returns {integer[]|null}
+ */
 function ipv6Bytes(s)
 {
 	if (!length(s))
 		return null;
 
 	/* reject a second "::" compression */
+	// ucode-lsp disable-next-line incompatible-function-argument   # s is a string
 	let d = index(s, '::');
 	if (d >= 0 && index(substr(s, d + 2), '::') >= 0)
 		return null;
@@ -156,19 +195,27 @@ function ipv6Bytes(s)
 		return (length(out) == 16) ? out : null;
 	}
 
+	// ucode-lsp disable-next-line incompatible-function-argument   # s is a string
 	let g = split(s, ':');
 	if (length(g) != 8)
 		return null;
 
+	// ucode-lsp disable-next-line incompatible-function-argument   # length(g) == 8 checked above
 	return hextetsToBytes(g);
 }
 
-/* Parse "<ip>" or "<ip>/<len>" into a comparable struct
+/** Parse "<ip>" or "<ip>/<len>" into a comparable struct
  * `{ fam: 4|6, addr: byte[], len }`, or null when @p is not a plain IPv4/IPv6
- * address or prefix.  A bare address (no "/len") implies a host route. */
+ * address or prefix.  A bare address (no "/len") implies a host route.
+ *
+ * @param {string|null} p - the address or prefix text
+ * @returns {Prefix}
+ */
 export function parsePrefix(p)
 {
-	if (p == null || !length(p))
+	if (p == null)
+		return null;
+	if (!length(p))
 		return null;
 
 	let m = match(p, /^([^\/]+)\/([0-9]+)$/);
@@ -179,6 +226,9 @@ export function parsePrefix(p)
 		addr = m[1];
 		len = +m[2];
 	}
+
+	if (addr == null)
+		return null;
 
 	let bytes = null;
 	let fam = 0;
@@ -230,7 +280,7 @@ const routePrefRe = /^[ \t]*preference:[ \t]+(\d+)/;
 const routeMetricRe = /^[ \t]*(local_metric|ospf_metric1|ospf_metric2):[ \t]+(\d+)/;
 const routeLocalPrefRe = /^[ \t]*bgp_local_pref:[ \t]+(\d+)/;
 
-/* Parse cleaned "show route" output lines into route objects:
+/** Parse cleaned "show route" output lines into route objects:
  *
  *   { prefix, primary, proto, preference, cost, local_pref, as_path,
  *     next_hops: [ { kind, addr, iface, cost, proto } ] }
@@ -241,6 +291,9 @@ const routeLocalPrefRe = /^[ \t]*bgp_local_pref:[ \t]+(\d+)/;
  * attribute lines refine them and fill "local_pref" (bgp_local_pref) and
  * "as_path" for BGP routes, while OSPF routes get their cost from
  * "local_metric"/"ospf_metric{N}"
+ *
+ * @param {string[]} lines - the cleaned reply lines
+ * @returns {object[]}
  */
 export function parseRoute(lines)
 {
@@ -307,6 +360,7 @@ export function parseRoute(lines)
 
 		if ((m = match(lines[i], routeAsPathRe))) {
 			let path = [];
+			// ucode-lsp disable-next-line incompatible-function-argument   # m[2] capture group, non-null when m matches
 			let toks = split(trim(m[2]), /[^0-9]+/);
 
 			for (let j = 0; j < length(toks); j++)
@@ -334,10 +388,16 @@ export function parseRoute(lines)
 	return res;
 };
 
-/* Pick the AS path of the route whose prefix and protocol match @prefix/@proto
+/** Pick the AS path of the route whose prefix and protocol match @prefix/@proto
  * out of verbose "show route all" lines (each route prints its own attribute
  * block, so a plain "first line" would mis-attach the path when the primary
- * route of the network is e.g. OSPF).  Returns null when not found. */
+ * route of the network is e.g. OSPF).  Returns null when not found.
+ *
+ * @param {string[]} lines - the cleaned reply lines
+ * @param {string} prefix - prefix to match
+ * @param {string} proto - protocol to match
+ * @returns {integer[]|null}
+ */
 export function routeAsPath(lines, prefix, proto)
 {
 	let routes = parseRoute(lines);
@@ -349,6 +409,12 @@ export function routeAsPath(lines, prefix, proto)
 	return null;
 };
 
+/** Compare two byte arrays for equality.
+ *
+ * @param {integer[]} a - first byte array
+ * @param {integer[]} b - second byte array
+ * @returns {boolean}
+ */
 function bytesEq(a, b)
 {
 	if (length(a) != length(b))
@@ -361,8 +427,13 @@ function bytesEq(a, b)
 	return true;
 }
 
-/* True when network @e (longer-prefix, "covering") contains route/prefix @q:
- * e.len <= q.len and the first e.len bits of q match e. */
+/** True when network @e (longer-prefix, "covering") contains route/prefix @q:
+ * e.len <= q.len and the first e.len bits of q match e.
+ *
+ * @param {object} q - the queried prefix struct
+ * @param {object} e - the covering network struct
+ * @returns {boolean}
+ */
 function netCovers(q, e)
 {
 	if (e.fam != q.fam)
@@ -386,8 +457,13 @@ function netCovers(q, e)
 	return true;
 }
 
-/* Return the route whose prefix equals @prefix (compared on normalized bits,
- * so "203.0.113.5" matches a table entry "203.0.113.5/32"), or null. */
+/** Return the route whose prefix equals @prefix (compared on normalized bits,
+ * so "203.0.113.5" matches a table entry "203.0.113.5/32"), or null.
+ *
+ * @param {object[]} routes - parsed route objects
+ * @param {string} prefix - the queried prefix
+ * @returns {object|null}
+ */
 export function exactRoute(routes, prefix)
 {
 	let q = parsePrefix(prefix);
@@ -397,6 +473,7 @@ export function exactRoute(routes, prefix)
 	for (let i = 0; i < length(routes); i++) {
 		let r = parsePrefix(routes[i].prefix);
 
+		// ucode-lsp disable-next-line incompatible-function-argument   # r.addr/q.addr non-null when r != null (guarded above)
 		if (r != null && r.fam == q.fam && r.len == q.len && bytesEq(r.addr, q.addr))
 			return routes[i];
 	}
@@ -404,8 +481,13 @@ export function exactRoute(routes, prefix)
 	return null;
 };
 
-/* Return the route whose prefix is the longest one covering @prefix (the
- * best-match entry the table would use), or null when nothing covers it. */
+/** Return the route whose prefix is the longest one covering @prefix (the
+ * best-match entry the table would use), or null when nothing covers it.
+ *
+ * @param {object[]} routes - parsed route objects
+ * @param {string} prefix - the queried prefix
+ * @returns {object|null}
+ */
 export function bestCoveringRoute(routes, prefix)
 {
 	let q = parsePrefix(prefix);
@@ -417,8 +499,10 @@ export function bestCoveringRoute(routes, prefix)
 
 	for (let i = 0; i < length(routes); i++) {
 		let r = parsePrefix(routes[i].prefix);
+		if (r == null)
+			continue;
 
-		if (r == null || r.fam != q.fam || (r.len > q.len) || (r.len <= bestLen))
+		if (r.fam != q.fam || (r.len > q.len) || (r.len <= bestLen))
 			continue;
 
 		if (!netCovers(q, r))
@@ -433,7 +517,7 @@ export function bestCoveringRoute(routes, prefix)
 
 //// BIRD config editor ////
 
-/* Set the OSPF `cost` of `interface "<iface>"` in a BIRD config file to
+/** Set the OSPF `cost` of `interface "<iface>"` in a BIRD config file to
  * @cost (integer 1..65535, the range BIRD enforces).
  *
  * Returns `{ ok: true, text }` with the derived config, or
@@ -446,6 +530,11 @@ export function bestCoveringRoute(routes, prefix)
  * block are replaced; otherwise a `cost N;` line is inserted right after the
  * opening brace, mirroring the block indentation.  Re-applying the same cost
  * produces byte-identical output (idempotent).
+ *
+ * @param {string} text - the current BIRD configuration
+ * @param {string} iface - interface name to edit
+ * @param {number} cost - new cost in 1..65535
+ * @returns {object}
  */
 export function editOspfCost(text, iface, cost)
 {
@@ -468,7 +557,10 @@ export function editOspfCost(text, iface, cost)
 	let q = '"' + iface + '"';
 
 	for (let i = 0; i < n; i++) {
-		let l = replace(lines[i], /^[ \t]+/, '');
+		let line = lines[i];
+		if (line == null)
+			continue;
+		let l = replace(line, /^[ \t]+/, '');
 
 		if (substr(l, 0, 10) != 'interface ')
 			continue;
@@ -485,8 +577,14 @@ export function editOspfCost(text, iface, cost)
 	/* 2. find the opening `{` (same or a following line). */
 	let openIdx = headIdx;
 
-	while (openIdx < n && index(lines[openIdx], '{') < 0)
+	while (openIdx < n) {
+		let line = lines[openIdx];
+		if (line == null)
+			break;
+		if (index(line, '{') >= 0)
+			break;
 		openIdx++;
+	}
 
 	if (openIdx >= n)
 		return { ok: false, error: `unable to locate opening brace of interface "${iface}"` };
@@ -495,10 +593,18 @@ export function editOspfCost(text, iface, cost)
 	 *    closing brace and any existing `cost` statement. */
 	let parent = 0;
 
-	for (let i = 0; i <= openIdx; i++)
-		parent += braceDelta(lines[i]);
+	for (let i = 0; i <= openIdx; i++) {
+		let line = lines[i];
+		if (line == null)
+			continue;
+		parent += braceDelta(line);
+	}
 
-	parent -= braceDelta(lines[openIdx]);
+	let openLine = lines[openIdx];
+	if (openLine == null)
+		return { ok: false, error: `unable to locate opening brace of interface "${iface}"` };
+
+	parent -= braceDelta(openLine);
 
 	/* balance is `parent + 1` inside the block (the opening brace has been
 	 * consumed); it returns to `parent` on the block's closing brace */
@@ -507,7 +613,11 @@ export function editOspfCost(text, iface, cost)
 	let costIdx = -1;
 
 	for (let i = openIdx + 1; i < n; i++) {
-		bal += braceDelta(lines[i]);
+		let line = lines[i];
+		if (line == null)
+			break;
+
+		bal += braceDelta(line);
 
 		if (bal <= parent) {
 			closeIdx = i;
@@ -515,7 +625,7 @@ export function editOspfCost(text, iface, cost)
 		}
 
 		if (costIdx < 0 &&
-		    match(replace(lines[i], /^[ \t]+/, ''), /^cost[ \t]+[0-9]+[ \t]*;/))
+		    match(replace(line, /^[ \t]+/, ''), /^cost[ \t]+[0-9]+[ \t]*;/))
 			costIdx = i;
 	}
 
@@ -534,7 +644,7 @@ export function editOspfCost(text, iface, cost)
 		}
 	}
 	else {
-		let ind = match(lines[openIdx], /^[ \t]*/)[0] + '\t';
+		let ind = match(openLine, /^[ \t]*/)[0] + '\t';
 
 		for (let i = 0; i <= openIdx; i++)
 			push(out, lines[i]);

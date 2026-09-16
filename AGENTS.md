@@ -42,8 +42,9 @@ pinned upstream ucode build.
 ## CI checks (see `.github/workflows/ci.yml`)
 
 ```sh
-# ucode lint: node ESM parse (normalized) + ucode-specific rules. No ucode
-# toolchain needed, runs first.
+# ucode lint: ucode-lsp CLI checker (type inference, flow analysis,
+# null-safety, unused imports, version gating to target 25.12). Pinned
+# ucode-lsp version; runs first.
 node scripts/uc-lint.mjs
 
 # pinned ucode + upstream modules (OpenWrt 25.12 revision), cached.
@@ -70,6 +71,40 @@ ucode -L <mods+inotify.so> ucode-mod-inotify/test/inotify.uc
 
 Run the tests locally against a build ("UCODE_MODULES" vs "UCODE_MODULE_PATH" is
 the env var each runner expects; point them at the build dir with the `*.so`s).
+
+## ucode-lsp lint conventions
+
+`scripts/uc-lint.mjs` drives `ucode-lsp` (pinned `0.8.11`) with
+`--target-version 25.12` over the maintained ucode packages:
+`rpcd-mod-bird`, `inotify-rsync/files`, `vpn-sticky/files`,
+`ucode-mod-inotify/test`. (`prometheus-node-exporter-ucode` is deliberately
+excluded — its collectors run as raw-mode scripts with runtime-injected
+globals that static analysis can't see.)
+
+To keep the linter green, follow these conventions (mirroring the
+community.openwrt collection):
+
+- **Annotate function parameters/returns with multi-line JSDoc** (`/** … */`)
+  merged with the descriptive comment — one JSDoc block per function, not a
+  `/* */` description next to a `/** */` annotation. This is what makes
+  ucode-lsp narrow argument types (e.g. `@param {string}` silences
+  `incompatible-function-argument`).
+- **`split()`/array element access yields nullable elements** in ucode-lsp's
+  model (even after a `length()` guard). Either capture into a local with an
+  explicit `if (x == null) …` guard, or use a targeted
+  `// ucode-lsp disable-next-line <CODE>   # reason` suppression when the
+  element is guaranteed present. Prefer real guards for production code;
+  `disable-next-line` is fine for tests/fixtures.
+- **The `|null` union on a `@typedef` reference is not resolved** by ucode-lsp
+  0.8.11 (e.g. `@returns {Prefix|null}` → `UC7001 Unknown type`). Declare
+  `@returns {Prefix}` and guard null at call sites, or accept the
+  `UC7005` warning.
+- **`match()` result capture groups are `string|null`** and `m[1]` etc. need a
+  guard or suppression when reused across different regexes (reusing one `m`
+  for two regexes also loses the capture-group count → `UC5008`).
+- **ucode-lsp enforces the ucode-only pitfalls** (`export function foo(){…};`
+  trailing `;` → UC6005, forward-declaration shadowing → UC1007) that the old
+  node-based linter checked manually, so they need no separate rule.
 
 ## ucode (the agent language) is NOT JavaScript
 

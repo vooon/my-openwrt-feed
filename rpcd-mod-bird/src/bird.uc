@@ -78,9 +78,13 @@ const codePrefixRe = /^[0-9]{4}( |-)/;
  * set_ospf_cost to map BIRD's verdict to the ubus `code` result */
 let birdLastCode = 0;
 
-/* A BIRD reply is terminated by a line starting with a return code
+/** A BIRD reply is terminated by a line starting with a return code
  * (0000-0999, 8000-8999 or 9000-9999).  Returns 1 once such a line is the
- * last complete line of @data. */
+ * last complete line of @data.
+ *
+ * @param {string} data - accumulated reply text
+ * @returns {boolean}
+ */
 function replyComplete(data) {
 	/* only consider newline-terminated lines; ignore a trailing partial read */
 	let nl = rindex(data, '\n');
@@ -95,8 +99,12 @@ function replyComplete(data) {
 	return match(line, statusLineRe) != null;
 }
 
-/* Strip the per-line "<4 digit code><sep>" prefix and drop the trailing
- * status line.  Returns an array of cleaned lines. */
+/** Strip the per-line "<4 digit code><sep>" prefix and drop the trailing
+ * status line.  Returns an array of cleaned lines.
+ *
+ * @param {string} data - raw reply text
+ * @returns {string[]}
+ */
 function cleanReply(data) {
 	let res = [];
 	let lines = split(data, '\n');
@@ -120,7 +128,11 @@ function cleanReply(data) {
 	return res;
 }
 
-/* Extract the 4-digit code of the reply's terminating status line. */
+/** Extract the 4-digit code of the reply's terminating status line.
+ *
+ * @param {string} data - raw reply text
+ * @returns {integer}
+ */
 function replyCode(data) {
 	let m = match(replace(data, /\n+$/, ''), /(^|\n)([0-9]{4})([ \t][^\n]*)?$/);
 
@@ -128,7 +140,12 @@ function replyCode(data) {
 }
 
 /* Connect, send @command, return cleaned reply lines (or null on error).
- * Also records the terminating reply code into birdLastCode. */
+ * Also records the terminating reply code into birdLastCode.
+ *
+ * @param {string} socket - the BIRD control socket path
+ * @param {string} command - the BIRD CLI command
+ * @returns {string[]|null}
+ */
 function birdRaw(socket, command) {
 	let sock = null;
 
@@ -144,12 +161,15 @@ function birdRaw(socket, command) {
 		let data = '';
 		for (let i = 0; i < 8; i++) {
 			let chunk = sock.recv(4096);
-			if (chunk == null || !length(chunk)) {
+			if (chunk == null)
+				chunk = '';
+			if (!length(chunk)) {
 				birdLog('err', `banner/read failed cmd='${command}' socket='${socket}': ${serr()}`);
 				sock.close();
 				return null;
 			}
 			data += chunk;
+			// ucode-lsp disable-next-line incompatible-function-argument   # chunk narrowed to string by the guards above
 			if (index(chunk, '\n') >= 0)
 				break;
 		}
@@ -181,12 +201,22 @@ function birdRaw(socket, command) {
 
 //// Shared value helpers ////
 
+/** Parse a numeric value or marker into a number (null when absent).
+ *
+ * @param {string|null} s - the value text
+ * @returns {number|null}
+ */
 function birdNum(s) {
 	if (s == null || s == '---' || !length(s))
 		return null;
 	return +s;
 }
 
+/** Parse a BIRD timestamp into a Unix epoch.
+ *
+ * @param {string} s - the timestamp text
+ * @returns {number|null}
+ */
 function tsToEpoch(s) {
 	let m = match(s, /(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
 	if (!m)
@@ -200,6 +230,11 @@ function tsToEpoch(s) {
 	return (e == null || e == -1) ? null : e;
 }
 
+/** Convert a BIRD uptime/age string into seconds since a reference point.
+ *
+ * @param {string|null} s - the uptime text
+ * @returns {number|null}
+ */
 function uptimeSeconds(s) {
 	if (s == null)
 		return null;
@@ -229,12 +264,6 @@ function isGeneric(proto) {
 		if (GENERIC_PROTOS[i] == proto)
 			return true;
 	return false;
-}
-
-function protoString(proto, ip_version) {
-	if (proto == 'OSPF')
-		return ip_version == '6' ? 'OSPFv3' : 'OSPF';
-	return proto;
 }
 
 function newProto(name, proto, up, state, uptime, ip_version) {
@@ -274,12 +303,19 @@ const bgpAsRe = /^Neighbor AS:[ \t]+(\d+)/;
 const bgpLocalAsRe = /^Local AS:[ \t]+(\d+)/;
 const bgpIdRe = /^Neighbor ID:[ \t]+(\S+)/;
 
+/** Parse `show protocols all` output into protocol detail objects.
+ *
+ * @param {string[]} lines - the cleaned reply lines
+ * @returns {object[]}
+ */
 function parseProtocols(lines) {
 	let res = [];
 	let cur = null;
 
 	for (let i = 0; i < length(lines); i++) {
 		let line = lines[i];
+		if (line == null)
+			continue;
 		let l = length(line) ? replace(line, /^[ \t]+/, '') : '';
 
 		if (!length(l)) {
@@ -375,11 +411,18 @@ function parseProtocols(lines) {
 
 //// Daemon status parser ////
 // "show status" output - see nest/cmds.c / sysdep/unix/unix.c
+/** Parse `show status` output into a status object.
+ *
+ * @param {string[]} lines - the cleaned reply lines
+ * @returns {object}
+ */
 function parseStatus(lines) {
 	let s = { version: null, router_id: null, hostname: null, server_time: null, last_reboot: null, last_reconfig: null };
 
 	for (let i = 0; i < length(lines); i++) {
 		let l = lines[i];
+		if (l == null)
+			continue;
 		let m;
 
 		if ((m = match(l, /BIRD[ \t]+(\S+)/)))
@@ -404,24 +447,35 @@ function parseStatus(lines) {
 //   area block   \tArea: %R (%u) %s    https://github.com/CZ-NIC/bird/blob/master/proto/ospf/ospf.c#L814
 //   counts       Number of interfaces/neighbors/adjacent neighbors
 //                                   https://github.com/CZ-NIC/bird/blob/master/proto/ospf/ospf.c#L840
+/** Parse `show ospf <name>` output into per-area objects.
+ *
+ * @param {string[]} lines - the cleaned reply lines
+ * @returns {object[]}
+ */
 function parseOspfAreas(lines) {
 	let areas = [];
 	let cur = null;
 
 	for (let i = 0; i < length(lines); i++) {
-		let l = replace(lines[i], /^[ \t]+/, '');
+		let line = lines[i];
+		if (line == null)
+			continue;
+		let l = replace(line, /^[ \t]+/, '');
 		let m;
 
 		if ((m = match(l, /^Area:[ \t]+\S+[ \t]+\((\S+)\)/))) {
 			cur = { name: m[1], interfaces: 0, neighbors: 0, adjacent: 0 };
 			push(areas, cur);
-		} else if (cur && (m = match(l, /^Number[ \t]+of[ \t]+([^:]+):[ \t]+(\d+)/))) {
-			if (m[1] == 'interfaces')
-				cur.interfaces = +m[2];
-			else if (m[1] == 'neighbors')
-				cur.neighbors = +m[2];
-			else if (m[1] == 'adjacent neighbors')
-				cur.adjacent = +m[2];
+		} else if (cur) {
+			let n = match(l, /^Number[ \t]+of[ \t]+([^:]+):[ \t]+(\d+)/);
+			if (!n)
+				continue;
+			if (n[1] == 'interfaces')
+				cur.interfaces = +n[2];
+			else if (n[1] == 'neighbors')
+				cur.neighbors = +n[2];
+			else if (n[1] == 'adjacent neighbors')
+				cur.adjacent = +n[2];
 		}
 	}
 
@@ -435,11 +489,19 @@ function parseOspfAreas(lines) {
 //           https://github.com/CZ-NIC/bird/blob/master/proto/ospf/neighbor.c#L867
 const ospfRawRe = /^(\S+)[ \t]+(\d+)[ \t]+(\S+)\/(\S+)[ \t]+(\S+)[ \t]+(\S+)[ \t]+(\S+)$/;
 
+/** Parse `show ospf neighbors <name>` output into neighbor rows.
+ *
+ * @param {string[]} lines - the cleaned reply lines
+ * @returns {object[]}
+ */
 function parseOspfNeighbors(lines) {
 	let res = [];
 
 	for (let i = 0; i < length(lines); i++) {
-		let m = match(replace(lines[i], /^[ \t]+/, ''), ospfRawRe);
+		let line = lines[i];
+		if (line == null)
+			continue;
+		let m = match(replace(line, /^[ \t]+/, ''), ospfRawRe);
 		if (!m)
 			continue;
 
@@ -457,11 +519,19 @@ function parseOspfNeighbors(lines) {
 //   proto/bfd/bfd.c (bfd_find_session / show facility)
 const bfdRe = /^(\S+)[ \t]+(\S+)[ \t]+(Up|Down|Init)[ \t]+(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[0-9.]*|\S+)[ \t]+([0-9.]+)[ \t]+([0-9.]+)$/;
 
+/** Parse `show bfd sessions <name>` output into session rows.
+ *
+ * @param {string[]} lines - the cleaned reply lines
+ * @returns {object[]}
+ */
 function parseBfdSessions(lines) {
 	let res = [];
 
 	for (let i = 0; i < length(lines); i++) {
-		let m = match(replace(lines[i], /^[ \t]+/, ''), bfdRe);
+		let line = lines[i];
+		if (line == null)
+			continue;
+		let m = match(replace(line, /^[ \t]+/, ''), bfdRe);
 		if (!m)
 			continue;
 

@@ -28,11 +28,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             gcc make cmake git pkg-config libjson-c-dev
 
-      - name: Lint ucode sources (node ESM parse + ucode rules)
-        # ucode is ECMAScript-based; node's parser catches syntax (after
-        # normalizing ucode's script-mode `for (k, v in obj)` and top-level
-        # `return`), plus ucode-specific checks (trailing ';' on export
-        # function, global push()/map(), non-[]-indexable strings).
+      - name: Lint ucode sources (ucode-lsp)
+        # ucode-lsp CLI checker: type inference, null-safety, target-version
+        # gating (25.12), plus the ucode-only rules (export function `;`,
+        # forward declarations). Pinned version via scripts/uc-lint.mjs.
         run: |
           set -euo pipefail
           node scripts/uc-lint.mjs
