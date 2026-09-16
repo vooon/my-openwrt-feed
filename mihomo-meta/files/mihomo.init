@@ -36,6 +36,7 @@ start_instance() {
 	procd_set_param file "$config"
 	procd_set_param stdout 1
 	procd_set_param stderr 1
+	procd_set_param reload_signal HUP
 	procd_set_param respawn
 	procd_set_param limits core="unlimited"
 	procd_set_param limits nofile="1000000 1000000"
@@ -46,6 +47,8 @@ start_instance() {
 		procd_add_jail_mount_rw "$workdir"
 		config_list_foreach "$1" ro_mount procd_add_jail_mount
 		config_list_foreach "$1" rw_mount procd_add_jail_mount_rw
+		[ -x /sbin/ujail -a -e /etc/capabilities/mihomo.json ] && \
+			procd_set_param capabilities /etc/capabilities/mihomo.json
 	fi
 
 	procd_close_instance
