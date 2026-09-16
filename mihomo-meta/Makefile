@@ -4,28 +4,25 @@ PKG_NAME:=mihomo-meta
 PKG_VERSION:=1.19.31
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/MetaCubeX/mihomo.git
-PKG_SOURCE_VERSION:=v1.19.31
-PKG_MIRROR_HASH:=2337ee0dc8bbef9921e2ac73dfa7d7617f64b8f69a5d774ffc392c748ca85b00
+PKG_SOURCE_VERSION:=v${PKG_VERSION}
+PKG_MIRROR_HASH:=skip
 
 PKG_LICENSE:=GPL3.0+
-PKG_MAINTAINER:=Joseph Mory <morytyann@gmail.com>
+PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
 PKG_BUILD_DEPENDS:=golang/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
-PKG_BUILD_VERSION:=v1.19.31
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+PKG_BUILD_VERSION:=v${PKG_VERSION}
 PKG_BUILD_TIME:=$(shell date -u -Iseconds)
 
 GO_PKG:=github.com/metacubex/mihomo
-GO_PKG_BUILD_PKG:=github.com/metacubex/mihomo
-GO_PKG_LDFLAGS_X:=$(GO_PKG)/constant.Version=$(PKG_BUILD_VERSION) $(GO_PKG)/constant.BuildTime=$(PKG_BUILD_TIME)
-GO_PKG_INSTALL_BIN_PATH:=/usr/bin
+GO_PKG_LDFLAGS_X:= \
+	$(GO_PKG)/constant.Version=$(PKG_BUILD_VERSION)
+	$(GO_PKG)/constant.BuildTime=$(PKG_BUILD_TIME)
 
 include $(INCLUDE_DIR)/package.mk
 include ../../packages/lang/golang/golang-package.mk
