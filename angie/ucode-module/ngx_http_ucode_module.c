@@ -454,8 +454,8 @@ static void
 ngx_http_ucode_execute(ngx_http_request_t *r, ngx_str_t *file)
 {
     uc_vm_t             vm;
-    uc_parse_config_t   config;
-    uc_value_t         *request, *hdr, *api, *v, *res, *respval;
+    uc_parse_config_t   config = { 0 };
+    uc_value_t         *request, *hdr, *api, *v, *res = NULL, *respval;
     uc_source_t        *src;
     uc_program_t       *program;
     char               *syntax_error = NULL;
@@ -472,6 +472,7 @@ ngx_http_ucode_execute(ngx_http_request_t *r, ngx_str_t *file)
     uc_resource_type_t *restype;
 
     uc_search_path_init(&config.module_search_path);
+    uc_search_path_init(&config.force_dynlink_list);
 
     config.lstrip_blocks = true;
     config.trim_blocks = true;
@@ -625,7 +626,11 @@ ngx_http_ucode_execute(ngx_http_request_t *r, ngx_str_t *file)
     vm.output = out;
 
     status = (ngx_int_t) uc_vm_execute(&vm, program, &res);
-    ucv_put(res);
+
+    /* The result is not guaranteed to be assigned when execution fails. */
+    if (res != NULL) {
+        ucv_put(res);
+    }
 
     if (status != STATUS_OK) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -758,12 +763,15 @@ ngx_http_ucode_execute(ngx_http_request_t *r, ngx_str_t *file)
 
     uc_vm_free(&vm);
     uc_search_path_free(&config.module_search_path);
+    uc_search_path_free(&config.force_dynlink_list);
 
     ngx_http_finalize_request(r, NGX_OK);
     return;
 
 fail:
+    uc_vm_free(&vm);
     uc_search_path_free(&config.module_search_path);
+    uc_search_path_free(&config.force_dynlink_list);
     ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
 }
 
