@@ -103,8 +103,6 @@ define Package/mihomo-meta/install
 	$(INSTALL_BIN) ./files/mihomo.init $(1)/etc/init.d/mihomo
 	$(INSTALL_DIR) $(1)/etc/capabilities
 	$(INSTALL_DATA) ./files/mihomo.json $(1)/etc/capabilities/mihomo.json
-
-	$(INSTALL_DIR) $(1)/var/lib/mihomo
 endef
 
 define Build/Prepare
