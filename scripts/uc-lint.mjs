@@ -33,6 +33,7 @@ const roots = [
 	'inotify-rsync/files',
 	'vpn-sticky/files',
 	'ucode-mod-inotify/test',
+	'angie/ucode-module/test',
 ];
 
 /* Pin the ucode-lsp version for reproducibility. Bump deliberately. */

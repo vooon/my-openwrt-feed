@@ -63,7 +63,7 @@ function run(headers) {
 		urldecode: function(s) { return s; },
 	};
 
-	let func = loadfile("./examples/profiles.ut", { raw_mode: false });
+	let func = loadfile(sourcepath(0, true) + "/../examples/profiles.ut", { raw_mode: false });
 	if (!func) {
 		fail("cannot load examples/profiles.ut");
 		return null;

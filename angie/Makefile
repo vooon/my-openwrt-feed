@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=angie
 PKG_VERSION:=1.12.1
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE:=angie-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://download.angie.software/files/
@@ -274,4 +274,4 @@ CONFIGURE_ARGS += \
 $(eval $(call BuildPackage,angie))
 $(eval $(call BuildPackage,angie-full))
 $(eval $(call BuildModule,stream,,ngx_stream,Add support for Angie request streaming.))
-$(eval $(call BuildModule,ucode,+libucode,ngx_http_ucode,Execute ucode templates as content handlers.))
+$(eval $(call BuildModule,ucode,+libucode +libjson-c,ngx_http_ucode,Execute ucode templates as content handlers.))

@@ -10,7 +10,8 @@
 #              request.method, request.uri, request.query,
 #              request.script_name, request.remote_addr, request.protocol,
 #              request.headers.<Header-Name> (array of all values,
-#              e.g. request.headers["X-Username"][0])
+#              e.g. request.headers["X-Username"][0]),
+#              request.body, request.json, request.form, request.files
 #   response - response object:
 #              response.status(code[, phrase])
 #              response.set_header(name, value)  (replace)
@@ -24,6 +25,9 @@
 # printed at the very start of the output are applied to the response too.
 #
 # uhttpd.urlencode()/uhttpd.urldecode() are also available.
+#
+# Body-bearing methods (POST, PUT, DELETE, PATCH, ...) must be enabled with the
+# ucode_methods directive; by default only GET/HEAD/OPTIONS are handled.
 #
 # The template is recompiled on every request, so edits take effect
 # immediately (no angie reload required).

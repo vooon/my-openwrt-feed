@@ -43,4 +43,17 @@ else
 fi
 rm -f assertions.err
 
+# 3. the standalone template test tool (angie-ucode-test) must compile and
+#    render the example template through the mocked globals.
+if $UCODE $MOD_ARGS test/angie-ucode-test.uc -- \
+	--method GET --uri /profiles --header "X-Username: home" \
+	../examples/profiles.ut >/dev/null 2>tool.err; then
+	echo "OK   angie-ucode-test renders examples/profiles.ut"
+else
+	cat tool.err
+	echo "FAIL angie-ucode-test run"
+	fail=1
+fi
+rm -f tool.err
+
 exit $fail
