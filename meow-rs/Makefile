@@ -21,7 +21,8 @@ PKG_BUILD_DEPENDS:=rust/host
 PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
-include ../../lang/rust/rust-package.mk
+#include ../../lang/rust/rust-package.mk
+include ../../packages/lang/rust/rust-package.mk
 
 # meow-app is the CLI entry point; the workspace resolver picks up all
 # workspace crates from the lockfile at crates/meow-app.
