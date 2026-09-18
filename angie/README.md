@@ -1,5 +1,12 @@
 # angie-mod-ucode
 
+> **Legacy / alternative.** This module embeds a ucode VM in the angie worker,
+> which blocks the worker and shares its process (no isolation from template
+> bugs). For ucode-driven sites the recommended path is the **`uwsd`** package
+> in this feed (`utpl-wrapper.uc`), reverse-proxied from angie via
+> `files/ucode-proxy.conf` — it keeps the interpreter in its own process and
+> supports template caching. This module is retained for in-process embedding.
+
 Execute OpenWrt **ucode templates** as [Angie](https://angie.software/) HTTP
 content handlers — the same request-driven templating uhttpd does, but in
 process. No uwsgi/CGI worker, no `uhttpd`; just point a location at a `.ut`

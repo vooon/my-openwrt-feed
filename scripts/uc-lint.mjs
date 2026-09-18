@@ -34,6 +34,7 @@ const roots = [
 	'vpn-sticky/files',
 	'ucode-mod-inotify/test',
 	'angie/ucode-module/test',
+	'uwsd/files',
 ];
 
 /* Pin the ucode-lsp version for reproducibility. Bump deliberately. */

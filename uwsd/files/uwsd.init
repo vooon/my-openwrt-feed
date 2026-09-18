@@ -1,0 +1,76 @@
+#!/bin/sh /etc/rc.common
+
+# shellcheck shell=dash
+USE_PROCD=1
+START=80
+
+PROG=/usr/sbin/uwsd
+CONF=uwsd
+
+start_instance() {
+	local enabled user config jail listen_http docroot
+	local instance_cfg
+
+	config_get_bool enabled "$1" enabled 0
+	[ "$enabled" -ne 0 ] || return 0
+
+	config_get config "$1" config ""
+	config_get user "$1" user "uwsd"
+	config_get_bool jail "$1" jail 1
+	config_get listen_http "$1" listen_http "127.0.0.1:7080"
+	config_get docroot "$1" docroot "/www"
+
+	# If no explicit config file is given, generate one per instance under
+	# /var/etc/uwsd from the UCI section (like uhttpd does).
+	if [ -z "$config" ]; then
+		instance_cfg="/var/etc/uwsd/${1}.conf"
+		mkdir -p /var/etc/uwsd
+		cat > "$instance_cfg" <<-EOF
+			listen ${listen_http} {
+				use-backend templates;
+			}
+		EOF
+
+		# only add the template backend if the wrapper is installed
+		if [ -r /usr/share/uwsd/utpl-wrapper.uc ]; then
+			cat >> "$instance_cfg" <<-EOF
+				backend templates {
+					run-script /usr/share/uwsd/utpl-wrapper.uc {
+						environment DOCUMENT_ROOT=${docroot};
+					}
+				}
+			EOF
+		fi
+
+		config="$instance_cfg"
+	fi
+
+	procd_open_instance "$1"
+
+	procd_set_param command "$PROG" --config "$config"
+	procd_set_param user "$user"
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_set_param respawn
+	procd_set_param file "$config"
+
+	if [ "$jail" -ne 0 ]; then
+		procd_add_jail uwsd log procfs netns
+		procd_add_jail_mount "$config"
+		procd_add_jail_mount /usr/share/uwsd
+		procd_add_jail_mount_rw /var/run/uwsd
+		config_list_foreach "$1" ro_mount procd_add_jail_mount
+		config_list_foreach "$1" rw_mount procd_add_jail_mount_rw
+	fi
+
+	procd_close_instance
+}
+
+start_service() {
+	config_load "$CONF"
+	config_foreach start_instance uwsd
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$CONF"
+}
