@@ -188,6 +188,45 @@ function push_hdr(hdrs, name, value) {
 }
 
 /**
+ * Convert response headers into the object uwsd's reply() expects.
+ *
+ * uwsd's reply() emits exactly one "Name: value" line per header key. A
+ * repeated header (accumulated via add_header into an array) is therefore
+ * expanded into additional "Name: value" lines by embedding a CRLF + the
+ * header name in the value: uwsd writes string values raw, so each array
+ * element becomes its own header line, mirroring angie-mod-ucode's
+ * repeatable add_header().
+ * @param {Object} headers
+ * @returns {Object}
+ */
+function flatten_headers(headers) {
+	let out = {};
+
+	for (let name, value in headers) {
+		if (name == null)
+			continue;
+
+		if (type(value) == "array") {
+			let joined = "";
+			let first = true;
+
+			for (let v in value) {
+				if (!first)
+					joined += "\r\n" + name + ": ";
+				joined += v;
+				first = false;
+			}
+
+			out[name] = joined;
+		} else {
+			out[name] = value;
+		}
+	}
+
+	return out;
+}
+
+/**
  * Build the angie-mod-ucode request object from the uwsd connection object.
  * @param {Object} conn uwsd request/connection object
  * @param {string} method
@@ -270,10 +309,18 @@ export function onRequest(request, method, uri) {
 		set_header: function(name, value) { rec.headers[name] = value; },
 		/** @param {string} name @param {string} value */
 		add_header: function(name, value) {
-			if (!exists(rec.headers, name))
-				rec.headers[name] = value;
-			else
-				rec.headers[name] += "," + value;
+			let vals = exists(rec.headers, name) ? rec.headers[name] : null;
+
+			// keep repeated headers repeatable: an array value becomes one
+			// header line per element at reply time
+			if (vals == null)
+				vals = [];
+
+			if (type(vals) != "array")
+				vals = [ vals ];
+
+			push(vals, value);
+			rec.headers[name] = vals;
 		},
 	};
 
@@ -394,6 +441,6 @@ export function onBody(request, data) {
 		out = "Template not found or failed to compile";
 	}
 
-	request.reply(headers, out);
+	request.reply(flatten_headers(headers), out);
 	request.close();
 };
