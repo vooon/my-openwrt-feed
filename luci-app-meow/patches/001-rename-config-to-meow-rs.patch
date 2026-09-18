@@ -1,0 +1,125 @@
+--- a/htdocs/luci-static/resources/view/meow/settings.js	2026-08-27 09:44:01.000000000 +0200
++++ b/htdocs/luci-static/resources/view/meow/settings.js	2026-09-18 10:30:12.645286517 +0200
+@@ -13,9 +13,9 @@
+ });
+ 
+ function getServiceStatus() {
+-	return L.resolveDefault(callServiceList('meow'), {}).then(function(res) {
++	return L.resolveDefault(callServiceList('meow-rs'), {}).then(function(res) {
+ 		try {
+-			return res['meow']['instances']['meow']['running'] === true;
++			return res['meow-rs']['instances']['main']['running'] === true;
+ 		} catch (e) {
+ 			return false;
+ 		}
+@@ -32,18 +32,18 @@
+ 
+ return view.extend({
+ 	load: function() {
+-		return uci.load('meow');
++		return uci.load('meow-rs');
+ 	},
+ 
+ 	render: function() {
+ 		var m, s, o;
+ 
+-		m = new form.Map('meow', _('meow'),
++		m = new form.Map('meow-rs', _('meow-rs'),
+ 			_('Rule-based tunneling proxy kernel, compatible with mihomo (Clash Meta). ' +
+ 			  'Proxies, rules and DNS are configured in the YAML file below; ' +
+ 			  'use the Panel tab for runtime control.'));
+ 
+-		s = m.section(form.NamedSection, 'main', 'meow');
++		s = m.section(form.NamedSection, 'main', 'instance');
+ 
+ 		o = s.option(form.DummyValue, '_status', _('Status'));
+ 		o.rawhtml = true;
+@@ -64,13 +64,13 @@
+ 		o.rmempty = false;
+ 
+ 		o = s.option(form.Value, 'config_file', _('Configuration file'),
+-			_('Path to the meow YAML configuration.'));
+-		o.default = '/etc/meow/config.yaml';
++			_('Path to the meow-rs YAML configuration.'));
++		o.default = '/etc/meow-rs/config.yaml';
+ 		o.rmempty = false;
+ 
+ 		o = s.option(form.Value, 'work_dir', _('Working directory'),
+ 			_('Directory for GeoIP databases, caches and downloaded rulesets.'));
+-		o.default = '/etc/meow';
++		o.default = '/var/lib/meow-rs';
+ 		o.rmempty = false;
+ 
+ 		o = s.option(form.Value, 'panel_port', _('Panel port'),
+--- a/htdocs/luci-static/resources/view/meow/panel.js	2026-08-27 09:44:01.000000000 +0200
++++ b/htdocs/luci-static/resources/view/meow/panel.js	2026-09-18 10:30:12.645286517 +0200
+@@ -2,25 +2,25 @@
+ 'require view';
+ 'require uci';
+ 
+-// Embeds meow's built-in web panel (served by the meow REST API at /ui)
++// Embeds meow-rs's built-in web panel (served by the meow-rs REST API at /ui)
+ // instead of reimplementing a dashboard in LuCI. The panel port comes from
+ // the `panel_port` UCI option, which must match the `external-controller`
+-// port in the meow YAML config.
++// port in the meow-rs YAML config.
+ 
+ return view.extend({
+ 	load: function() {
+-		return uci.load('meow');
++		return uci.load('meow-rs');
+ 	},
+ 
+ 	render: function() {
+-		var port = uci.get('meow', 'main', 'panel_port') || '9090';
++		var port = uci.get('meow-rs', 'main', 'panel_port') || '9090';
+ 		var url = window.location.protocol + '//' +
+ 			window.location.hostname + ':' + port + '/ui';
+ 
+ 		return E('div', { 'class': 'cbi-map' }, [
+-			E('h2', {}, _('meow Panel')),
++			E('h2', {}, _('meow-rs Panel')),
+ 			E('div', { 'class': 'cbi-map-descr' }, [
+-				_('Built-in web panel served by the meow REST API. '),
++				_('Built-in web panel served by the meow-rs REST API. '),
+ 				E('a', { 'href': url, 'target': '_blank', 'rel': 'noopener' },
+ 					_('Open in a new tab')),
+ 				' — ', url
+--- a/root/usr/share/luci/menu.d/luci-app-meow.json	2026-08-27 09:44:01.000000000 +0200
++++ b/root/usr/share/luci/menu.d/luci-app-meow.json	2026-09-18 10:30:12.645286517 +0200
+@@ -1,13 +1,13 @@
+ {
+ 	"admin/services/meow": {
+-		"title": "meow",
++		"title": "meow-rs",
+ 		"order": 60,
+ 		"action": {
+ 			"type": "firstchild"
+ 		},
+ 		"depends": {
+ 			"acl": [ "luci-app-meow" ],
+-			"uci": { "meow": true }
++			"uci": { "meow-rs": true }
+ 		}
+ 	},
+ 
+--- a/root/usr/share/rpcd/acl.d/luci-app-meow.json	2026-08-27 09:44:01.000000000 +0200
++++ b/root/usr/share/rpcd/acl.d/luci-app-meow.json	2026-09-18 10:30:12.645286517 +0200
+@@ -1,14 +1,14 @@
+ {
+ 	"luci-app-meow": {
+-		"description": "Grant access to meow service configuration",
++		"description": "Grant access to meow-rs service configuration",
+ 		"read": {
+-			"uci": [ "meow" ],
++			"uci": [ "meow-rs" ],
+ 			"ubus": {
+ 				"service": [ "list" ]
+ 			}
+ 		},
+ 		"write": {
+-			"uci": [ "meow" ]
++			"uci": [ "meow-rs" ]
+ 		}
+ 	}
+ }

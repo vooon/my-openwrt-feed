@@ -29,7 +29,9 @@ Package Highlights
 - Mail and notifications: `mox`, `gotify`, `gotify2telegram`,
   `gotify-alertmanager-plugin`
 - Routing and overlays: `gobgp`, `nebula`, `nylon`, `pathosd`, `vpn-sticky`,
-  `netifd-proto-dummy` (create dummy interfaces from `config interface …
+  `meow-rs` (mihomo-compatible rule-based proxy kernel in Rust),
+  `mihomo-meta`, `netifd-proto-dummy` (create dummy interfaces from
+  `config interface …
   proto dummy`) with its `luci-proto-dummy` UI, `netifd-proto-fou`
   (FOU-encapsulated tunnels over an IPv6 mesh via `fou-ip6gre` /
   `fou-ip6tnl` protos, with per-flow ECMP hashing) with the
@@ -45,5 +47,7 @@ Package Highlights
   of running eBPF programs)
 - Backup and virtualization: `proxmox-backup`, `pbs-helper`,
   `qemu-instance-init`, `rsync-sysupgrade`
+- LuCI integration: `luci-app-meow` (web panel + settings for the meow-rs
+  service, embedding its built-in dashboard)
 - File synchronization: `inotify-rsync`
 - Utilities: `envsubst`
