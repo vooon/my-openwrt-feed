@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mihomo-meta
 PKG_VERSION:=1.19.31
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/MetaCubeX/mihomo.git
@@ -103,6 +103,8 @@ define Package/mihomo-meta/install
 	$(INSTALL_BIN) ./files/mihomo.init $(1)/etc/init.d/mihomo
 	$(INSTALL_DIR) $(1)/etc/capabilities
 	$(INSTALL_DATA) ./files/mihomo.json $(1)/etc/capabilities/mihomo.json
+
+	$(INSTALL_DIR) $(1)/var/lib/mihomo
 endef
 
 define Build/Prepare

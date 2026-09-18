@@ -18,7 +18,7 @@ start_instance() {
 	[ "$enabled" -ne 0 ] || return 0
 
 	config_get config "$1" config "/etc/mihomo/config.yaml"
-	config_get workdir "$1" workdir "/usr/share/mihomo"
+	config_get workdir "$1" workdir "/var/lib/mihomo"
 	config_get_bool jail "$1" jail 1
 	config_get user "$1" user "mihomo"
 
