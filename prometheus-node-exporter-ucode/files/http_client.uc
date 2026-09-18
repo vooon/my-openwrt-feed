@@ -1,7 +1,10 @@
-let uloop = require("uloop");
-let uclient = require("uclient");
-
 export function fetch_json(api_url, endpoint, bearer_token) {
+	// Loaded lazily so that importing this module does not fail on hosts
+	// without the ucode-mod-uclient / ucode-mod-uloop modules (e.g. the CI
+	// unit-test environment), and the caller can substitute a mock.
+	let uloop = require("uloop");
+	let uclient = require("uclient");
+
 	let data = '';
 	if (bearer_token == null)
 		bearer_token = "";

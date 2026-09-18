@@ -1,6 +1,9 @@
+import { fetch_json as http_fetch } from "../http_client.uc";
+
 // clash api url
 const api_url = config["api_url"];
-const fetch_json = config["fetch_json"];
+// tests inject a mock via config; otherwise use the shared HTTP client
+const fetch_json = config["fetch_json"] || http_fetch;
 if (!api_url || !fetch_json)
 	return false;
 
