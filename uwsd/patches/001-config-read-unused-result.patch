@@ -1,0 +1,18 @@
+--- a/config.c
++++ b/config.c
+@@ -1329,7 +1329,14 @@ parse_file(int dir, const char *file, struct stat *st)
+ 
+ 	input = xalloc(st->st_size + 1);
+ 
+-	(void)read(fd, input, st->st_size);
++	if (read(fd, input, st->st_size) != st->st_size) {
++		sys_perror("Unable to read configuration file %s", file);
++		free(input);
++		close(fd);
++
++		return false;
++	}
++
+ 	close(fd);
+ 
+ 	off = (const char *)input;

@@ -1,24 +1,24 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=uwsd
-PKG_VERSION:=20250910
+PKG_VERSION:=20260910
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/jow-/uwsd.git
 PKG_SOURCE_VERSION:=1450021ba05a6a801e8c0ad446e3b2d8458ba976
-PKG_MIRROR_HASH:=617a90f5f80cdff59441f5a513f9d51eccab1b3cad65b35af1e6c4e0adc5bb4f
+PKG_MIRROR_HASH:=9d1b667a9ff3871d784693bc19574c1c8aa8bab2805c5846227abd82c8b3756a
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 PKG_LICENSE:=ISC
 PKG_LICENSE_FILES:=LICENSE
 
+include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/cmake.mk
+
 CMAKE_OPTIONS += \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DUSE_MBEDTLS=$(if $(filter mbedtls,$(BUILD_VARIANT)),1,0)
-
-include $(INCLUDE_DIR)/cmake.mk
-include $(INCLUDE_DIR)/package.mk
 
 define Package/uwsd/default
   SECTION:=net
@@ -68,7 +68,7 @@ endef
 
 define Package/uwsd/install
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/sbin/uwsd $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/uwsd $(1)/usr/sbin/
 
 	$(INSTALL_DIR) $(1)/usr/share/uwsd
 	$(INSTALL_DATA) ./files/utpl-wrapper.uc $(1)/usr/share/uwsd/
@@ -91,9 +91,7 @@ define Package/uwsd/conffiles
 /etc/uwsd/
 endef
 
-define Package/uwsd-openssl/conffiles
-$(call Package/uwsd/conffiles)
-endef
+Package/uwsd-openssl/conffiles = $(Package/uwsd/conffiles)
 
 $(eval $(call BuildPackage,uwsd))
 $(eval $(call BuildPackage,uwsd-openssl))
