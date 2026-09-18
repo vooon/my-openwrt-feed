@@ -1,8 +1,7 @@
-import { fetch_json } from "../http_client.uc";
-
 // clash api url
 const api_url = config["api_url"];
-if (!api_url || !request)
+const fetch_json = config["fetch_json"];
+if (!api_url || !fetch_json)
 	return false;
 
 // optional bearer secret
@@ -78,7 +77,7 @@ for (let conn in connections.connections) {
 	add_bytes(by_node.up, chain, conn.upload);
 	add_bytes(by_node.down, chain, conn.download);
 
-	if (!exist(by_destination.up, chain)) {
+	if (!(chain in by_destination.up)) {
 		by_destination.up[chain] = {};
 		by_destination.down[chain] = {};
 	}
