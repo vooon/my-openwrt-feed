@@ -23,13 +23,14 @@ function check(cond, msg) {
 }
 
 // Run the template with the given headers (each value an array, matching the
-// module's always-array request.headers).  Returns the recorded response
-// object calls ({ status: [code, phrase] | null, headers: {...} }).
+// module's always-array request.headers, and keyed by the lower-cased name
+// the C module uses).  Returns the recorded response object calls
+// ({ status: [code, phrase] | null, headers: {...} }).
 function run(headers) {
 	let hdrs = {};
 
 	for (let k in headers || {})
-		hdrs[k] = [headers[k]];
+		hdrs[lc(k)] = [headers[k]];
 
 	let request = {
 		method: "GET",

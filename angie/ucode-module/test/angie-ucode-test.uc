@@ -45,7 +45,8 @@ let data_arg = null;
 let json_arg = null;
 
 /**
- * Parse one "Name: value" header argument into the headers object.
+ * Parse one "Name: value" header argument into the headers object.  Names are
+ * lower-cased, matching how the C module keys request.headers.
  * @param {string} line
  */
 function add_header(line) {
@@ -54,7 +55,7 @@ function add_header(line) {
 		die("--header expects \"Name: value\", got: " + line);
 	}
 
-	let name = trim(substr(line, 0, colon));
+	let name = lc(trim(substr(line, 0, colon)));
 	let value = trim(substr(line, colon + 1));
 
 	if (!exists(headers, name))
@@ -182,6 +183,9 @@ function build_request(req_method, req_uri, req_query, req_data, req_json, req_b
 		protocol: "HTTP/1.1",
 		headers: headers,
 		body: req_body || "",
+		// the C module always defines these, even for a body-less request
+		form: {},
+		files: {},
 	};
 
 	if (req_query !== null)
@@ -205,6 +209,14 @@ function build_request(req_method, req_uri, req_query, req_data, req_json, req_b
  */
 function main() {
 	target = parse_args(ARGV);
+
+	if (content_type !== null)
+		add_header("Content-Type: " + content_type);
+	else if (json_arg !== null)
+		add_header("Content-Type: application/json");
+	else if (data_arg !== null)
+		add_header("Content-Type: application/x-www-form-urlencoded");
+
 	let request = build_request(method, uri, query, data_arg, json_arg, body);
 
 	let rec = { status: null, phrase: null, headers: {} };
@@ -216,13 +228,17 @@ function main() {
 			rec.phrase = phrase || null;
 		},
 		/** @param {string} name @param {string} value */
-		set_header: function(name, value) { rec.headers[name] = value; },
+		set_header: function(name, value) { rec.headers[name] = [value]; },
 		/** @param {string} name @param {string} value */
 		add_header: function(name, value) {
-			if (!exists(rec.headers, name))
-				rec.headers[name] = value;
-			else
-				rec.headers[name] += "," + value;
+			/** @type {Array} */
+			let vals = exists(rec.headers, name) ? rec.headers[name] : null;
+			if (vals == null) {
+				vals = [];
+				rec.headers[name] = vals;
+			}
+			// ucode-lsp disable-next-line nullable-argument   # guaranteed array above
+			push(vals, value);
 		},
 	};
 
@@ -254,7 +270,8 @@ function main() {
 	       rec.phrase ? " " + rec.phrase : "");
 
 	for (let n in rec.headers)
-		printf("%s: %s\n", n, rec.headers[n]);
+		for (let v in rec.headers[n])
+			printf("%s: %s\n", n, v);
 
 	print("\n");
 	print(out);

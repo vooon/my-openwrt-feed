@@ -9,8 +9,8 @@
 #   request  - request object:
 #              request.method, request.uri, request.query,
 #              request.script_name, request.remote_addr, request.protocol,
-#              request.headers.<Header-Name> (array of all values,
-#              e.g. request.headers["X-Username"][0]),
+#              request.headers["header-name"] (lower-cased name -> array of
+#              all values, e.g. request.headers["x-username"][0]),
 #              request.body, request.json, request.form, request.files
 #   response - response object:
 #              response.status(code[, phrase])
@@ -21,8 +21,10 @@
 # REQUEST_METHOD, REQUEST_URI, QUERY_STRING, SCRIPT_NAME, REMOTE_ADDR,
 # SERVER_PROTOCOL.
 #
-# As a fallback, CGI-style header lines ("Content-Type: ...", "Status: ...")
-# printed at the very start of the output are applied to the response too.
+# As a fallback, a CGI-style header block ("Content-Type: ...", "Status: ...")
+# printed at the very start of the output and terminated by a blank line is
+# applied to the response too, RFC 3875 style; without the blank line the
+# output is all body ("ucode_cgi_headers off" disables the fallback).
 #
 # uhttpd.urlencode()/uhttpd.urldecode() are also available.
 #
@@ -50,7 +52,8 @@ function html_escape(s) {
 	return out;
 }
 
-let user = request.headers["X-Username"] ? request.headers["X-Username"][0] : null;
+// request.headers is keyed by the lower-cased header name
+let user = request.headers["x-username"] ? request.headers["x-username"][0] : null;
 
 if (!user || user == "guest") {
 	response.status(401, "Authentication required");

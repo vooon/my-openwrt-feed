@@ -84,6 +84,11 @@ multipart_parser* multipart_parser_init
                                strlen(boundary) +
                                strlen(boundary) + 9);
 
+  /* LOCAL PATCH: upstream dereferences p unconditionally */
+  if (p == NULL) {
+    return NULL;
+  }
+
   strcpy(p->multipart_boundary, boundary);
   p->boundary_length = strlen(boundary);
   

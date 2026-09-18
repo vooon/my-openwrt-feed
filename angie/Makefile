@@ -9,15 +9,17 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=angie
 PKG_VERSION:=1.12.1
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_SOURCE:=angie-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://download.angie.software/files/
 PKG_HASH:=5f4f203be2aca6fe20770b489c720e46e51d337e521065e7e472b61e24e3d2f5
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
-PKG_LICENSE:=BSD-2-Clause
-PKG_LICENSE_FILES:=LICENSE
+# angie itself is BSD-2-Clause; the bundled ucode module is Apache-2.0 and
+# vendors multipart-parser-c under MIT
+PKG_LICENSE:=BSD-2-Clause AND Apache-2.0 AND MIT
+PKG_LICENSE_FILES:=LICENSE ucode-module/vendor/multipart-parser-c/LICENSE
 
 PKG_FIXUP:=autoreconf
 PKG_BUILD_PARALLEL:=1

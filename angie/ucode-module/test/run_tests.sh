@@ -1,10 +1,12 @@
 #!/bin/sh
 # Run the angie-mod-ucode regression tests.
 #
-# Tests the example template (examples/profiles.ut) which depends on the
-# "request"/"response"/"uhttpd" globals that the C module injects.  Those are
-# mocked here so the tests run against a standalone ucode interpreter; no
-# angie/nginx build is needed.
+# Two layers, neither of which needs an angie/nginx build:
+#   - C unit tests for http_parse.c, the module's byte-level request/response
+#     parsing (built with $CC, skipped when there is no host compiler).
+#   - the example template (examples/profiles.ut), which depends on the
+#     "request"/"response"/"uhttpd" globals that the C module injects; those
+#     are mocked so it runs against a standalone ucode interpreter.
 #
 # Uses `ucode` from $PATH (override with UCODE).  For a locally built ucode
 # whose modules are not on the default search path, point UCODE_MODULES at
@@ -22,6 +24,24 @@ if [ -n "${UCODE_MODULES:-}" ]; then
 fi
 
 fail=0
+
+# 0. C unit tests for the module's byte-level parsing (http_parse.c).  These
+#    need nothing but a host compiler; skipped if there is none.
+CC="${CC:-cc}"
+if command -v "$CC" >/dev/null 2>&1; then
+	if $CC -std=c99 -D_POSIX_C_SOURCE=200809L -Wall -Wextra \
+		-Wno-unused-parameter -o "${TMPDIR:-/tmp}/http_parse_test" \
+		test/http_parse_test.c http_parse.c 2>&1 &&
+		"${TMPDIR:-/tmp}/http_parse_test"; then
+		echo "OK   http_parse.c unit tests"
+	else
+		echo "FAIL http_parse.c unit tests"
+		fail=1
+	fi
+	rm -f "${TMPDIR:-/tmp}/http_parse_test"
+else
+	echo "SKIP http_parse.c unit tests (no $CC)"
+fi
 
 # 1. the template must syntax-compile in template mode.
 if $UCODE $MOD_ARGS -T -c -o /dev/null examples/profiles.ut; then

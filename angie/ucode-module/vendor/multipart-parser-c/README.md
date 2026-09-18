@@ -1,7 +1,7 @@
 # vendored: multipart-parser-c
 
 A battle-tested, self-contained HTTP `multipart/form-data` parser, vendored
-unchanged (upstream files only, original MIT license preserved in `LICENSE`).
+upstream (original MIT license preserved in `LICENSE`) with one local patch.
 
 ## Upstream
 
@@ -13,15 +13,22 @@ unchanged (upstream files only, original MIT license preserved in `LICENSE`).
 
 ## Files
 
-- `multipart_parser.c`, `multipart_parser.h` — the parser (verbatim upstream).
+- `multipart_parser.c`, `multipart_parser.h` — the parser.
+
+## Local patches
+
+Kept minimal and marked with a `LOCAL PATCH` comment so a re-sync is easy:
+
+- `multipart_parser_init()`: return `NULL` instead of dereferencing a failed
+  `malloc()`.
 
 ## Why
 
 The angie-mod-ucode module needs to parse uploaded `multipart/form-data`
 request bodies, which is a security-sensitive area (boundary / header /
 content-length handling). Rather than hand-rolling a parser, we vendor this
-proven, callback-driven state-machine implementation. It is embedded unchanged
-so upstream fixes can be pulled in by re-syncing this directory.
+proven, callback-driven state-machine implementation. It is embedded almost
+unchanged so upstream fixes can be pulled in by re-syncing this directory.
 
 ## Updating
 

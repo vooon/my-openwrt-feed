@@ -17,7 +17,13 @@ location /profiles {
 ```
 
 `ucode_content <file>` sets the content handler for a location to run the given
-ucode template. The file is read and compiled per request.
+ucode template. The file is read and compiled per request. A relative path is
+resolved against the angie prefix, and `angie -t` warns if the template is not
+readable.
+
+Like every other nginx content-handler directive, `ucode_content` applies to
+exactly the location it appears in — a nested `location` keeps serving whatever
+it is configured for.
 
 ```
 location /api {
@@ -29,12 +35,16 @@ location /api {
 `ucode_methods <method> ...` restricts which HTTP methods are wired to the
 template in this location (it **replaces** the default set). Any method not
 listed is answered with `405 Method Not Allowed` and an `Allow:` header.
+Listing `GET` implies `HEAD`.
 
 By default (no `ucode_methods`) only the safe read methods `GET`, `HEAD` and
 `OPTIONS` are handled. Body-bearing methods — `POST`, `PUT`, `DELETE`, `PATCH`,
 … — must be explicitly enabled, since they are the only ones that can carry
 JSON payloads, form submissions and file uploads. This keeps upload and body
 handling opt-in rather than enabled by default.
+
+`ucode_cgi_headers on|off` (default `on`, valid in `http`/`server`/`location`)
+toggles the CGI-style header fallback described below.
 
 ## Template API
 
@@ -51,16 +61,22 @@ and `{{ ... }}`; header lines printed first are handled as CGI (see below).
 | `request.script_name` | location URI |
 | `request.remote_addr` | client address |
 | `request.protocol`    | `HTTP/1.1`, … |
-| `request.headers.<Name>` | array of all values for that header (e.g. `request.headers["X-Request-Id"][0]`); repeated headers are preserved |
+| `request.headers["name"]` | array of all values for that header, keyed by the **lower-cased** name (e.g. `request.headers["x-request-id"][0]`); repeated headers are preserved |
 | `request.body`        | raw request body as a string (empty when there is no body) |
 | `request.json`        | parsed `application/json` (or `*+json`) body, if valid |
 | `request.form`        | form fields, name → array of values (from `application/x-www-form-urlencoded` and `multipart/form-data`) |
 | `request.files`       | multipart file uploads, name → array of `{ name, filename, content_type, data, size }` |
 
+Header names are lower-cased because `h->key` preserves whatever casing the
+client happened to send, which would otherwise make lookups client-dependent
+(HTTP/2 lower-cases them on the wire anyway).
+
 `request.form` / `request.files` always collect values in an array (mirroring
-`request.headers`) so repeated fields and multi-file uploads stay lossless. A
-multipart file entry has `data` (the binary file contents) plus `size`, and the
-regular fields of a multipart request land in `request.form`.
+`request.headers`) so repeated fields and multi-file uploads stay lossless.
+Both are always defined, even for a body-less request. A multipart file entry
+has `data` (the binary file contents) plus `size`, and is keyed by the form
+field `name` (not the filename); the regular fields of a multipart request land
+in `request.form`.
 
 The classic CGI variables are also available as top-level globals:
 `REQUEST_METHOD`, `REQUEST_URI`, `QUERY_STRING`, `SCRIPT_NAME`,
@@ -74,8 +90,14 @@ The classic CGI variables are also available as top-level globals:
 | `response.set_header(name, value)` | set a header, replacing any previous value of the same name |
 | `response.add_header(name, value)` | append another value (response gets multiple `Name:` lines, e.g. several `Set-Cookie`) |
 
-`Content-Type`, `Content-Length` and `Location` are handled specially
-(single-valued regardless of `set_header`/`add_header`).
+`Content-Type` and `Location` are single-valued regardless of
+`set_header`/`add_header`. `Content-Length` is ignored — the body length is
+only known once the template has finished, so the module computes it.
+
+Header names must be valid tokens and neither names nor values (nor a custom
+reason phrase) may contain CR, LF or NUL; a template that tries raises a
+runtime exception rather than splitting the response. `status()` likewise
+rejects codes outside 100–599.
 
 ### `uhttpd` — legacy helpers
 
@@ -83,17 +105,35 @@ The classic CGI variables are also available as top-level globals:
 
 ### CGI-style fallback
 
-For templates written the uhttpd way, header lines printed at the very start of
-the output (`Content-Type: …`, `Status: …`, `X-…: …`) are applied to the
+For templates written the uhttpd way, a header block printed at the very start
+of the output (`Content-Type: …`, `Status: …`, `X-…: …`) is applied to the
 response and stripped from the body. Values set via the `response` object take
 precedence. Default content type is `text/html; charset=utf-8` if neither is
 set.
+
+Following RFC 3875, a header block must consist of well-formed `token: value`
+lines **and be terminated by a blank line**:
+
+```
+Content-Type: text/plain
+Status: 201
+
+created
+```
+
+Anything else is treated as body in its entirety, so output that merely looks
+header-ish is never swallowed — a template printing `{"error":"nope"}` or
+`Error: nope` gets exactly that as its body. The flip side is that a template
+emitting only headers still has to print the trailing blank line.
+
+Set `ucode_cgi_headers off;` to disable the fallback entirely and drive the
+response only through the `response` object.
 
 ## Example
 
 ```ucode
 {%
-let user = request.headers["X-Username"] ? request.headers["X-Username"][0] : null;
+let user = request.headers["x-username"] ? request.headers["x-username"][0] : null;
 
 if (!user || user == "guest") {
     response.status(401, "Authentication required");
@@ -134,6 +174,20 @@ print("{\"hello\":\"" + name + "\"}");
 - Requires `libucode` and `libjson-c` (OpenWrt shared libraries), selected
   automatically.
 
+## Security
+
+A `.ut` template is **executable code, not a sandboxed template**. It runs with
+the full ucode standard library and the default module search path, so it can
+`require("fs")` and do anything the worker process can. Treat template files
+like any other server-side code: they must not live anywhere writable by the
+content the server exposes, and untrusted input must never be rendered into a
+path or command.
+
+Uploads are buffered: a multipart body is held both as the raw
+`request.body` copy and as the decoded `request.files` entries, so peak memory
+is a small multiple of the body size. On a router, set `client_max_body_size`
+on ucode locations accordingly rather than relying on the global default.
+
 ## Building
 
 ```
@@ -154,9 +208,18 @@ Reloading (`/etc/init.d/angie reload`) re-loads the module and picks up
 UCODE=…/ucode UCODE_MODULES=… angie/ucode-module/test/run_tests.sh
 ```
 
-Mocks `request`/`response`/`uhttpd` and asserts the example template's
-behaviour (syntax compile + behaviour assertions) without needing an
-Angie build.
+Two layers, neither needing an Angie build:
+
+- `test/http_parse_test.c` — unit tests for `http_parse.c`, the module's
+  byte-level parsing (header name/value validation, `Content-Disposition` and
+  media-type parameter extraction, CGI header-block detection, URL codec).
+  Built with `$CC` on the host; skipped if there is no compiler.
+- `test/profiles.test.uc` — mocks `request`/`response`/`uhttpd` and asserts the
+  example template's behaviour, plus a template-mode syntax compile.
+
+`http_parse.c` exists as a separate, nginx-free translation unit precisely so
+this parsing can be tested directly; `ngx_http_ucode_module.c` wraps it in
+`ngx_str_t`/pool plumbing.
 
 ### Rendering a template standalone
 
@@ -168,6 +231,7 @@ template without booting a server:
 ```sh
 angie-ucode-test -- --method GET --uri /profiles \
     --header "X-Username: home" angie/ucode-module/examples/profiles.ut
+# (header names are lower-cased into request.headers, as the module does)
 
 angie-ucode-test -- --method POST --content-type application/json \
     --json '{"name":"vovan"}' myapi.ut

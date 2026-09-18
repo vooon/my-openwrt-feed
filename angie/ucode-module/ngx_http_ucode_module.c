@@ -23,6 +23,7 @@
 #include <ngx_http.h>
 
 #include <ctype.h>
+#include <inttypes.h>
 #include <strings.h>
 
 #include <ucode/compiler.h>
@@ -33,11 +34,13 @@
 #include <json-c/json.h>
 #include <json-c/printbuf.h>
 
+#include "http_parse.h"
 #include "vendor/multipart-parser-c/multipart_parser.h"
 
 typedef struct {
     ngx_str_t     file;
     ngx_uint_t    methods;    /* allowed HTTP methods bitmask; 0 = all */
+    ngx_flag_t    cgi_headers;
 } ngx_http_ucode_loc_conf_t;
 
 /*
@@ -85,10 +88,12 @@ typedef struct {
     uc_parse_config_t    config;
     uc_vm_t              vm;
     uc_value_t          *request;
+    unsigned             vm_valid:1;   /* VM/search paths still need freeing */
 } ngx_http_ucode_ctx_t;
 
 static ngx_int_t ngx_http_ucode_handler(ngx_http_request_t *r);
 static void ngx_http_ucode_body_handler(ngx_http_request_t *r);
+static void ngx_http_ucode_cleanup(void *data);
 
 static char *ngx_http_ucode_content(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
@@ -98,8 +103,6 @@ static char *ngx_http_ucode_methods(ngx_conf_t *cf, ngx_command_t *cmd,
 static void *ngx_http_ucode_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_ucode_merge_loc_conf(ngx_conf_t *cf,
     void *parent, void *child);
-
-static ngx_int_t ngx_http_ucode_init(ngx_conf_t *cf);
 
 /* ------------------------------------------------------------------------- */
 
@@ -119,12 +122,20 @@ static ngx_command_t ngx_http_ucode_commands[] = {
       0,
       NULL },
 
+    { ngx_string("ucode_cgi_headers"),
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF
+          | NGX_HTTP_LIF_CONF | NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_ucode_loc_conf_t, cgi_headers),
+      NULL },
+
       ngx_null_command
 };
 
 static ngx_http_module_t ngx_http_ucode_module_ctx = {
     NULL,                            /* preconfiguration */
-    ngx_http_ucode_init,             /* postconfiguration */
+    NULL,                            /* postconfiguration */
     NULL,                            /* create main configuration */
     NULL,                            /* init main configuration */
     NULL,                            /* create server configuration */
@@ -156,129 +167,90 @@ ngx_module_t ngx_http_ucode_module = {
  * in-process and the real stdin/stdout belong to the nginx process.
  */
 
-static int
-ngx_http_ucode_urldecode(char *dst, size_t dst_size, const char *src,
-    size_t src_len)
-{
-    size_t i, o = 0;
-    int hi;
-
-    for (i = 0; i < src_len && o < dst_size - 1; i++) {
-        if (src[i] == '%' && i + 2 < src_len &&
-            (hi = ngx_hextoi((u_char *) (src + i + 1), 2)) >= 0) {
-            dst[o++] = (char) hi;
-            i += 2;
-        } else if (src[i] == '+') {
-            dst[o++] = ' ';
-        } else {
-            dst[o++] = src[i];
-        }
-    }
-
-    dst[o] = 0;
-
-    return (int) o;
-}
-
-static int
-ngx_http_ucode_urlencode(char *dst, size_t dst_size, const char *src,
-    size_t src_len)
-{
-    static const char hex[] = "0123456789abcdef";
-    size_t i, o = 0;
-
-    for (i = 0; i < src_len && o < dst_size - 3; i++) {
-        u_char c = (u_char) src[i];
-
-        if (isalnum((u_char) c) || c == '-' || c == '_' || c == '.' || c == '~') {
-            dst[o++] = (char) c;
-        } else {
-            dst[o++] = '%';
-            dst[o++] = hex[c >> 4];
-            dst[o++] = hex[c & 0x0f];
-        }
-    }
-
-    dst[o] = 0;
-
-    return (int) o;
-}
-
 /*
- * URL-decode into a buffer allocated from the request pool.  This variant is
- * used for request-body parsing where values may exceed the fixed 4k stack
- * buffer used by the uhttpd-style conversion helpers above.
+ * URL-decode into a buffer allocated from the request pool, for request-body
+ * parsing where values can be arbitrarily long.
  */
 static ngx_int_t
 ngx_http_ucode_urldecode_alloc(ngx_pool_t *pool, ngx_str_t *dst,
     const char *src, size_t src_len)
 {
-    size_t i, o = 0;
-    int hi;
     u_char *p;
 
     p = ngx_pnalloc(pool, src_len + 1);
     if (p == NULL) {
+        ngx_str_null(dst);
         return NGX_ERROR;
     }
 
-    for (i = 0; i < src_len; i++) {
-        if (src[i] == '%' && i + 2 < src_len &&
-            (hi = ngx_hextoi((u_char *) (src + i + 1), 2)) >= 0) {
-            p[o++] = (u_char) hi;
-            i += 2;
-        } else if (src[i] == '+') {
-            p[o++] = ' ';
-        } else {
-            p[o++] = (u_char) src[i];
-        }
-    }
-
-    p[o] = '\0';
-    dst->len = o;
+    dst->len = uc_http_urldecode((char *) p, src, src_len);
     dst->data = p;
 
     return NGX_OK;
 }
 
+/*
+ * Shared body of uhttpd.urlencode()/urldecode().  The destination buffer is
+ * sized from the input (expand = 3 for encoding, 1 for decoding) so that
+ * arbitrarily long values convert without truncation.
+ */
 static uc_value_t *
-ngx_http_ucode_strconvert(uc_vm_t *vm, size_t nargs,
-    int (*convert)(char *, size_t, const char *, size_t))
+ngx_http_ucode_strconvert(uc_vm_t *vm, size_t nargs, size_t expand,
+    size_t (*convert)(char *, const char *, size_t))
 {
     uc_value_t *val = uc_fn_arg(0);
-    static char out[4096];
-    int out_len;
+    uc_value_t *res;
+    const char *in;
+    char       *tmp = NULL, *out;
+    size_t      in_len, out_len;
 
-    if (ucv_type(val) == UC_STRING) {
-        out_len = convert(out, sizeof(out), ucv_string_get(val),
-                          ucv_string_length(val));
-    } else if (val != NULL) {
-        char *p = ucv_to_string(vm, val);
-        out_len = p ? convert(out, sizeof(out), p, strlen(p)) : 0;
-        free(p);
-    } else {
-        out_len = 0;
+    if (val == NULL) {
+        return ucv_string_new_length("", 0);
     }
 
-    if (out_len < 0) {
-        uc_vm_raise_exception(vm, EXCEPTION_RUNTIME,
-                              "URL conversion error");
+    if (ucv_type(val) == UC_STRING) {
+        in = ucv_string_get(val);
+        in_len = ucv_string_length(val);
+    } else {
+        tmp = ucv_to_string(vm, val);
+
+        if (tmp == NULL) {
+            uc_vm_raise_exception(vm, EXCEPTION_RUNTIME,
+                                  "URL conversion error");
+            return NULL;
+        }
+
+        in = tmp;
+        in_len = strlen(tmp);
+    }
+
+    out = malloc(in_len * expand + 1);
+
+    if (out == NULL) {
+        free(tmp);
+        uc_vm_raise_exception(vm, EXCEPTION_RUNTIME, "Out of memory");
         return NULL;
     }
 
-    return ucv_string_new_length(out, out_len);
+    out_len = convert(out, in, in_len);
+    res = ucv_string_new_length(out, out_len);
+
+    free(out);
+    free(tmp);
+
+    return res;
 }
 
 static uc_value_t *
 ngx_http_ucode_urlencode_fn(uc_vm_t *vm, size_t nargs)
 {
-    return ngx_http_ucode_strconvert(vm, nargs, ngx_http_ucode_urlencode);
+    return ngx_http_ucode_strconvert(vm, nargs, 3, uc_http_urlencode);
 }
 
 static uc_value_t *
 ngx_http_ucode_urldecode_fn(uc_vm_t *vm, size_t nargs)
 {
-    return ngx_http_ucode_strconvert(vm, nargs, ngx_http_ucode_urldecode);
+    return ngx_http_ucode_strconvert(vm, nargs, 1, uc_http_urldecode);
 }
 
 /*
@@ -288,17 +260,29 @@ ngx_http_ucode_urldecode_fn(uc_vm_t *vm, size_t nargs)
  * body comes from print()/{{ }} output.
  */
 
-static void
+static ngx_int_t
 ngx_http_ucode_res_strcopy(ngx_pool_t *pool, ngx_str_t *dst, const char *src, size_t len)
 {
-    dst->len = len;
-    dst->data = ngx_pnalloc(pool, len + 1);
+    u_char *p;
 
-    if (dst->data) {
-        ngx_memcpy(dst->data, src, len);
-        dst->data[len] = '\0';
+    p = ngx_pnalloc(pool, len + 1);
+
+    if (p == NULL) {
+        ngx_str_null(dst);
+        return NGX_ERROR;
     }
+
+    ngx_memcpy(p, src, len);
+    p[len] = '\0';
+
+    dst->data = p;
+    dst->len = len;
+
+    return NGX_OK;
 }
+
+#define ngx_http_ucode_name_eq(name, nlen, lit) \
+    uc_http_name_is(name, nlen, lit, sizeof(lit) - 1)
 
 static uc_value_t *
 ngx_http_ucode_res_status(uc_vm_t *vm, size_t nargs)
@@ -306,25 +290,43 @@ ngx_http_ucode_res_status(uc_vm_t *vm, size_t nargs)
     ngx_http_ucode_res_t *resp = uc_fn_thisval(NGX_HTTP_UCODE_RESP_TYPE);
     uc_value_t *code = uc_fn_arg(0);
     uc_value_t *phrase = uc_fn_arg(1);
-    ngx_uint_t status;
+    int64_t status;
 
     if (!resp || !code)
         return NULL;
 
-    status = (ngx_uint_t) ucv_to_integer(code);
-    resp->r->headers_out.status = status;
+    status = ucv_to_integer(code);
+
+    if (status < NGX_HTTP_CONTINUE || status > 599) {
+        uc_vm_raise_exception(vm, EXCEPTION_RUNTIME,
+                              "HTTP status code out of range: %" PRId64,
+                              status);
+        return NULL;
+    }
+
+    resp->r->headers_out.status = (ngx_uint_t) status;
 
     if (phrase && ucv_type(phrase) != UC_NULL) {
         char *p = ucv_to_string(vm, phrase);
         ngx_str_t sl;
         size_t plen = p ? strlen(p) : 0;
 
-        sl.len = 4 + plen; /* "418 " + phrase */
+        /* the phrase lands verbatim in the status line, so it must not be
+         * able to terminate it */
+        if (!uc_http_is_field_value(p ? p : "", plen)) {
+            free(p);
+            uc_vm_raise_exception(vm, EXCEPTION_RUNTIME,
+                                  "invalid character in HTTP reason phrase");
+            return NULL;
+        }
+
+        sl.len = 3 + 1 + plen; /* "418" SP phrase */
         sl.data = ngx_pnalloc(resp->r->pool, sl.len + 1);
 
         if (sl.data) {
-            ngx_snprintf(sl.data, sl.len + 1, "%ui %s",
-                         (ngx_uint_t) status, p ? p : "");
+            ngx_sprintf(sl.data, "%03ui %*s", (ngx_uint_t) status, plen,
+                        p ? p : "");
+            sl.data[sl.len] = '\0';
             resp->r->headers_out.status_line = sl;
         }
 
@@ -334,28 +336,53 @@ ngx_http_ucode_res_status(uc_vm_t *vm, size_t nargs)
     return NULL;
 }
 
-static void
-ngx_http_ucode_res_header_special(ngx_http_request_t *r, char *nv, char *vv)
+/*
+ * Content-Type and Location live in dedicated headers_out members rather
+ * than the generic header list, so they are always single-valued: both
+ * set_header() and add_header() replace the previous value.
+ *
+ * Content-Length is deliberately ignored - the body length is known only
+ * once the template has finished, and ngx_http_ucode_run() computes it.
+ *
+ * Returns true when the header was handled here.
+ */
+static bool
+ngx_http_ucode_res_header_special(ngx_http_request_t *r, const char *nv,
+    size_t nlen, const char *vv, size_t vlen)
 {
-    if (strcasecmp(nv, "Content-Type") == 0) {
+    if (ngx_http_ucode_name_eq(nv, nlen, "Content-Type")) {
         ngx_http_ucode_res_strcopy(r->pool, &r->headers_out.content_type,
-                                   vv, strlen(vv));
-    } else if (strcasecmp(nv, "Content-Length") == 0) {
-        off_t len = ngx_atosz((u_char *) vv, strlen(vv));
+                                   vv, vlen);
+        r->headers_out.content_type_len = r->headers_out.content_type.len;
+        r->headers_out.content_type_lowcase = NULL;
+        return true;
+    }
 
-        if (len >= 0)
-            r->headers_out.content_length_n = len;
-    } else if (strcasecmp(nv, "Location") == 0) {
-        ngx_table_elt_t *he = ngx_list_push(&r->headers_out.headers);
+    if (ngx_http_ucode_name_eq(nv, nlen, "Content-Length")) {
+        return true;
+    }
 
-        if (he) {
+    if (ngx_http_ucode_name_eq(nv, nlen, "Location")) {
+        ngx_table_elt_t *he = r->headers_out.location;
+
+        if (he == NULL) {
+            he = ngx_list_push(&r->headers_out.headers);
+
+            if (he == NULL) {
+                return true;
+            }
+
             he->key.data = (u_char *) "Location";
             he->key.len = sizeof("Location") - 1;
-            ngx_http_ucode_res_strcopy(r->pool, &he->value, vv, strlen(vv));
             he->hash = 1;
             r->headers_out.location = he;
         }
+
+        ngx_http_ucode_res_strcopy(r->pool, &he->value, vv, vlen);
+        return true;
     }
+
+    return false;
 }
 
 /*
@@ -370,6 +397,7 @@ ngx_http_ucode_res_header_internal(uc_vm_t *vm, size_t nargs, bool replace)
     uc_value_t *nameval = uc_fn_arg(0);
     uc_value_t *valval = uc_fn_arg(1);
     char *nv, *vv;
+    size_t nlen, vlen;
     ngx_http_request_t *r;
     ngx_table_elt_t *he;
     ngx_list_part_t *part;
@@ -389,10 +417,27 @@ ngx_http_ucode_res_header_internal(uc_vm_t *vm, size_t nargs, bool replace)
         return NULL;
     }
 
-    if (strcasecmp(nv, "Content-Type") == 0 ||
-        strcasecmp(nv, "Content-Length") == 0 ||
-        strcasecmp(nv, "Location") == 0) {
-        ngx_http_ucode_res_header_special(r, nv, vv);
+    nlen = strlen(nv);
+    vlen = strlen(vv);
+
+    if (!uc_http_is_token(nv, nlen)) {
+        uc_vm_raise_exception(vm, EXCEPTION_RUNTIME,
+                              "invalid response header name: %s", nv);
+        free(nv);
+        free(vv);
+        return NULL;
+    }
+
+    if (!uc_http_is_field_value(vv, vlen)) {
+        uc_vm_raise_exception(vm, EXCEPTION_RUNTIME,
+                              "invalid character in value of response "
+                              "header %s", nv);
+        free(nv);
+        free(vv);
+        return NULL;
+    }
+
+    if (ngx_http_ucode_res_header_special(r, nv, nlen, vv, vlen)) {
         free(nv);
         free(vv);
         return NULL;
@@ -416,8 +461,8 @@ ngx_http_ucode_res_header_internal(uc_vm_t *vm, size_t nargs, bool replace)
             }
 
             if (he[i].hash &&
-                he[i].key.len == strlen(nv) &&
-                ngx_strncasecmp(he[i].key.data, (u_char *) nv, he[i].key.len) == 0) {
+                he[i].key.len == nlen &&
+                ngx_strncasecmp(he[i].key.data, (u_char *) nv, nlen) == 0) {
                 he[i].hash = 0;
             }
         }
@@ -425,9 +470,13 @@ ngx_http_ucode_res_header_internal(uc_vm_t *vm, size_t nargs, bool replace)
 
     he = ngx_list_push(&r->headers_out.headers);
     if (he) {
-        ngx_http_ucode_res_strcopy(r->pool, &he->key, nv, strlen(nv));
-        ngx_http_ucode_res_strcopy(r->pool, &he->value, vv, strlen(vv));
-        he->hash = 1;
+        if (ngx_http_ucode_res_strcopy(r->pool, &he->key, nv, nlen) != NGX_OK
+            || ngx_http_ucode_res_strcopy(r->pool, &he->value, vv, vlen)
+                   != NGX_OK) {
+            he->hash = 0;
+        } else {
+            he->hash = 1;
+        }
     }
 
     free(nv);
@@ -462,6 +511,7 @@ ngx_http_ucode_create_loc_conf(ngx_conf_t *cf)
 
     ngx_str_null(&lcf->file);
     lcf->methods = NGX_CONF_UNSET_UINT;
+    lcf->cgi_headers = NGX_CONF_UNSET;
 
     return lcf;
 }
@@ -472,9 +522,16 @@ ngx_http_ucode_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_http_ucode_loc_conf_t *prev = parent;
     ngx_http_ucode_loc_conf_t *conf = child;
 
-    ngx_conf_merge_str_value(conf->file, prev->file, "");
+    /*
+     * conf->file is deliberately NOT inherited: ucode_content installs a
+     * content handler for exactly the location it appears in, like every
+     * other nginx content-handler directive.  A nested location without its
+     * own ucode_content must keep serving whatever it is configured for.
+     */
+
     ngx_conf_merge_uint_value(conf->methods, prev->methods,
                               NGX_HTTP_GET | NGX_HTTP_HEAD | NGX_HTTP_OPTIONS);
+    ngx_conf_merge_value(conf->cgi_headers, prev->cgi_headers, 1);
 
     return NGX_CONF_OK;
 }
@@ -514,6 +571,12 @@ ngx_http_ucode_methods(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
+    /* HEAD is GET without a body everywhere else in nginx; keep it that way
+     * so "ucode_methods GET POST" does not answer HEAD with 405 */
+    if (methods & NGX_HTTP_GET) {
+        methods |= NGX_HTTP_HEAD;
+    }
+
     lcf->methods = methods;
 
     return NGX_CONF_OK;
@@ -523,7 +586,9 @@ static char *
 ngx_http_ucode_content(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_http_ucode_loc_conf_t *lcf = conf;
-    ngx_str_t *args;
+    ngx_http_core_loc_conf_t  *clcf;
+    ngx_file_info_t            fi;
+    ngx_str_t                 *args;
 
     if (lcf->file.len) {
         return "is duplicate";
@@ -532,25 +597,21 @@ ngx_http_ucode_content(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     args = cf->args->elts;
     lcf->file = args[1];
 
-    return NGX_CONF_OK;
-}
-
-static ngx_int_t
-ngx_http_ucode_init(ngx_conf_t *cf)
-{
-    ngx_http_handler_pt         *h;
-    ngx_http_core_main_conf_t   *cmcf;
-
-    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
-
-    h = ngx_array_push(&cmcf->phases[NGX_HTTP_CONTENT_PHASE].handlers);
-    if (h == NULL) {
-        return NGX_ERROR;
+    /* resolve a relative template path against the angie prefix */
+    if (ngx_conf_full_name(cf->cycle, &lcf->file, 0) != NGX_OK) {
+        return NGX_CONF_ERROR;
     }
 
-    *h = ngx_http_ucode_handler;
+    if (ngx_file_info(lcf->file.data, &fi) == NGX_FILE_ERROR) {
+        ngx_conf_log_error(NGX_LOG_WARN, cf, ngx_errno,
+                           "ucode template \"%V\" is not accessible",
+                           &lcf->file);
+    }
 
-    return NGX_OK;
+    clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    clcf->handler = ngx_http_ucode_handler;
+
+    return NGX_CONF_OK;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -707,6 +768,12 @@ typedef struct {
     unsigned        has_filename;
 } ngx_http_ucode_mp_t;
 
+/*
+ * Called by the vendored parser before the headers of each part (both for
+ * the first part and after every subsequent boundary), so this is where all
+ * per-part state has to be reset - otherwise a plain field following a file
+ * upload inherits the previous part's filename and content type.
+ */
 static int
 ngx_http_ucode_mp_on_part_data_begin(multipart_parser *p)
 {
@@ -721,7 +788,33 @@ ngx_http_ucode_mp_on_part_data_begin(multipart_parser *p)
         return -1;
     }
 
+    ngx_str_null(&mp->name);
+    ngx_str_null(&mp->filename);
+    ngx_str_null(&mp->ctype);
+    ngx_str_null(&mp->hfield);
+    mp->has_filename = 0;
+
     return 0;
+}
+
+/*
+ * ngx_str_t wrapper around uc_http_param(): resolve the returned offset into
+ * a slice of the header value.
+ */
+static bool
+ngx_http_ucode_mp_param(ngx_str_t *dst, u_char *hv, size_t hl,
+    const char *attr, size_t alen)
+{
+    size_t off, len;
+
+    if (!uc_http_param((const char *) hv, hl, attr, alen, &off, &len)) {
+        return false;
+    }
+
+    dst->data = hv + off;
+    dst->len = len;
+
+    return true;
 }
 
 static int
@@ -751,46 +844,11 @@ ngx_http_ucode_mp_on_header_value(multipart_parser *p, const char *at,
     if (mp->hfield.len == 19
         && ngx_strncasecmp(mp->hfield.data,
             (u_char *) "Content-Disposition", 19) == 0) {
-        size_t k;
 
-        for (k = 0; k + 5 < hl; k++) {
-            if (hv[k] == 'n' && ngx_strncasecmp(hv + k, (u_char *) "name=", 5) == 0) {
-                size_t s = k + 5, q = 0;
+        ngx_http_ucode_mp_param(&mp->name, hv, hl, "name", 4);
 
-                if (s < hl && hv[s] == '"') {
-                    s++;
-                    while (s + q < hl && hv[s + q] != '"') {
-                        q++;
-                    }
-                } else {
-                    while (s + q < hl && hv[s + q] != ';'
-                           && hv[s + q] != ' ' && hv[s + q] != '\t') {
-                        q++;
-                    }
-                }
-
-                mp->name.data = hv + s;
-                mp->name.len = q;
-            } else if (hv[k] == 'f' && k + 9 < hl
-                && ngx_strncasecmp(hv + k, (u_char *) "filename=", 9) == 0) {
-                size_t s = k + 9, q = 0;
-
-                if (s < hl && hv[s] == '"') {
-                    s++;
-                    while (s + q < hl && hv[s + q] != '"') {
-                        q++;
-                    }
-                } else {
-                    while (s + q < hl && hv[s + q] != ';'
-                           && hv[s + q] != ' ' && hv[s + q] != '\t') {
-                        q++;
-                    }
-                }
-
-                mp->filename.data = hv + s;
-                mp->filename.len = q;
-                mp->has_filename = 1;
-            }
+        if (ngx_http_ucode_mp_param(&mp->filename, hv, hl, "filename", 8)) {
+            mp->has_filename = 1;
         }
     } else if (mp->hfield.len == 12
         && ngx_strncasecmp(mp->hfield.data, (u_char *) "Content-Type", 12) == 0) {
@@ -871,28 +929,23 @@ ngx_http_ucode_mp_on_body_end(multipart_parser *p)
 }
 
 static ngx_int_t
-ngx_http_ucode_parse_multipart(ngx_pool_t *pool, uc_vm_t *vm,
+ngx_http_ucode_parse_multipart(ngx_http_request_t *r, uc_vm_t *vm,
     uc_value_t *form, uc_value_t *files, ngx_str_t *body, ngx_str_t *boundary)
 {
     multipart_parser            *mp;
     multipart_parser_settings    settings;
     ngx_http_ucode_mp_t          ctx;
+    ngx_pool_t                  *pool = r->pool;
     size_t                       rc;
-    char                        *b;
     char                        *bnd;
 
-    if (boundary->len == 0 || boundary->len > 200) {
+    /* RFC 2046 caps the boundary at 70 characters */
+    if (boundary->len == 0 || boundary->len > 70) {
+        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                      "ucode: multipart body with missing or oversized "
+                      "boundary, ignored");
         return NGX_OK;
     }
-
-    /* the vendored parser works on NUL-terminated C strings */
-    b = ngx_pnalloc(pool, body->len + 1);
-    if (b == NULL) {
-        return NGX_ERROR;
-    }
-
-    ngx_memcpy(b, body->data, body->len);
-    b[body->len] = '\0';
 
     ngx_memzero(&settings, sizeof(settings));
     settings.on_part_data_begin = ngx_http_ucode_mp_on_part_data_begin;
@@ -920,38 +973,39 @@ ngx_http_ucode_parse_multipart(ngx_pool_t *pool, uc_vm_t *vm,
         return NGX_ERROR;
     }
 
+    ngx_memzero(&ctx, sizeof(ctx));
     ctx.pool = pool;
     ctx.vm = vm;
     ctx.form = form;
     ctx.files = files;
-    ctx.buf = NULL;
-    ctx.name.data = NULL;
-    ctx.name.len = 0;
-    ctx.filename.data = NULL;
-    ctx.filename.len = 0;
-    ctx.ctype.data = NULL;
-    ctx.ctype.len = 0;
-    ctx.has_filename = 0;
 
     multipart_parser_set_data(mp, &ctx);
 
-    rc = multipart_parser_execute(mp, b, body->len);
+    /* the parser reads buf[0..len), so the body is passed in place */
+    rc = multipart_parser_execute(mp, (const char *) body->data, body->len);
 
     if (ctx.buf) {
         printbuf_free(ctx.buf);
     }
 
-    /* the parser reports the first byte it could not consume on error */
+    multipart_parser_free(mp);
+
+    /* the parser reports the first byte it could not consume on error;
+     * whatever was decoded up to that point stays in request.form/files */
     if (rc < body->len) {
-        multipart_parser_free(mp);
-        return NGX_OK;
+        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                      "ucode: malformed multipart body, stopped at offset %uz "
+                      "of %uz", rc, body->len);
     }
 
-    multipart_parser_free(mp);
     return NGX_OK;
 }
 
 /* ------------------------------------------------------------------------- */
+
+#define ngx_http_ucode_ct_eq(ct, type) \
+    uc_http_media_type_is((const char *) (ct)->data, (ct)->len, type, \
+                          sizeof(type) - 1)
 
 /*
  * Once the request body has been fully read, copy it into a contiguous
@@ -971,7 +1025,6 @@ ngx_http_ucode_body_parse(ngx_http_ucode_ctx_t *ctx)
     u_char             *p;
     ngx_str_t           body;
     ngx_str_t           ct = ngx_null_string;
-    ngx_str_t           empty_ct = ngx_null_string;
     uc_value_t         *form, *files;
 
     body.len = 0;
@@ -984,11 +1037,10 @@ ngx_http_ucode_body_parse(ngx_http_ucode_ctx_t *ctx)
 
         p = ngx_pnalloc(r->pool, len + 1);
         if (p == NULL) {
-            goto fail;
+            goto empty;
         }
 
         body.data = p;
-        body.len = len;
 
         for (cl = r->request_body->bufs; cl; cl = cl->next) {
             ngx_buf_t *b = cl->buf;
@@ -999,19 +1051,31 @@ ngx_http_ucode_body_parse(ngx_http_ucode_ctx_t *ctx)
                 ngx_memcpy(p, b->pos, sz);
                 p += sz;
             } else if (b->in_file) {
-                ssize_t n = ngx_read_file(b->file, p,
-                    (size_t) (b->file_last - b->file_pos), b->file_pos);
+                size_t  want = (size_t) (b->file_last - b->file_pos);
+                off_t   at = b->file_pos;
 
-                if (n < 0) {
-                    goto fail;
+                while (want) {
+                    ssize_t n = ngx_read_file(b->file, p, want, at);
+
+                    if (n <= 0) {
+                        ngx_log_error(NGX_LOG_ERR, r->connection->log, ngx_errno,
+                                      "ucode: reading buffered request body "
+                                      "from \"%V\" failed", &b->file->name);
+                        goto empty;
+                    }
+
+                    p += n;
+                    at += n;
+                    want -= (size_t) n;
                 }
-
-                p += n;
             }
         }
 
+        body.len = (size_t) (p - body.data);
         *p = '\0';
     }
+
+empty:
 
     ucv_object_add(ctx->request, "body",
         ucv_string_new_length((const char *) (body.data ? body.data : (u_char *) ""),
@@ -1027,75 +1091,41 @@ ngx_http_ucode_body_parse(ngx_http_ucode_ctx_t *ctx)
         return;
     }
 
-    ct = r->headers_in.content_type ? r->headers_in.content_type->value
-                                    : empty_ct;
-
-    /* application/json or any *+json */
-    if (ct.len >= 16
-        && ngx_strncasecmp(ct.data, (u_char *) "application/json", 16) == 0) {
-        uc_value_t *json = ngx_http_ucode_parse_json(&ctx->vm, &body);
-
-        if (json) {
-            ucv_object_add(ctx->request, "json", json);
-        }
-        return;
+    if (r->headers_in.content_type) {
+        ct = r->headers_in.content_type->value;
     }
 
-    if (ct.len > 5
-        && ngx_strncasecmp(ct.data + ct.len - 5, (u_char *) "+json", 5) == 0) {
+    /* application/json or any */
+    if (ngx_http_ucode_ct_eq(&ct, "application/json")
+        || uc_http_media_type_is_json((const char *) ct.data, ct.len)) {
         uc_value_t *json = ngx_http_ucode_parse_json(&ctx->vm, &body);
 
         if (json) {
             ucv_object_add(ctx->request, "json", json);
+        } else {
+            ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                          "ucode: request body is not valid JSON, "
+                          "request.json left unset");
         }
         return;
     }
 
     /* application/x-www-form-urlencoded */
-    if (ct.len >= 33
-        && ngx_strncasecmp(ct.data, (u_char *) "application/x-www-form-urlencoded", 33) == 0) {
+    if (ngx_http_ucode_ct_eq(&ct, "application/x-www-form-urlencoded")) {
         ngx_http_ucode_parse_urlencoded(r->pool, &ctx->vm, form, &body);
         return;
     }
 
     /* multipart/form-data; boundary=... */
-    if (ct.len >= 19
-        && ngx_strncasecmp(ct.data, (u_char *) "multipart/form-data", 19) == 0) {
+    if (ngx_http_ucode_ct_eq(&ct, "multipart/form-data")) {
         ngx_str_t boundary = ngx_null_string;
-        size_t    i;
 
-        for (i = 0; i + 9 < ct.len; i++) {
-            if (ngx_strncasecmp(ct.data + i, (u_char *) "boundary=", 9) == 0) {
-                size_t s = i + 9;
-                size_t e = s;
+        ngx_http_ucode_mp_param(&boundary, ct.data, ct.len, "boundary", 8);
 
-                if (e < ct.len && ct.data[e] == '"') {
-                    s++;
-                    e = s;
-                    while (e < ct.len && ct.data[e] != '"') {
-                        e++;
-                    }
-                } else {
-                    while (e < ct.len && ct.data[e] != ';'
-                           && ct.data[e] != ' ' && ct.data[e] != '\t'
-                           && ct.data[e] != '\r' && ct.data[e] != '\n') {
-                        e++;
-                    }
-                }
-
-                boundary.data = ct.data + s;
-                boundary.len = e - s;
-                break;
-            }
-        }
-
-        ngx_http_ucode_parse_multipart(r->pool, &ctx->vm,
+        ngx_http_ucode_parse_multipart(r, &ctx->vm,
             form, files, &body, &boundary);
         return;
     }
-
-fail:
-    return;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -1115,7 +1145,8 @@ fail:
  *   request  - request object:
  *              request.method, request.uri, request.query,
  *              request.script_name, request.remote_addr, request.protocol,
- *              request.headers.<Header-Name>  (array of all values),
+ *              request.headers["header-name"]  (lower-cased name -> array
+ *              of all values),
  *              request.body, request.json, request.form, request.files
  *   response - response object with response.status(code[, phrase]),
  *              response.set_header(name, value) and
@@ -1125,9 +1156,11 @@ fail:
  * REQUEST_METHOD, REQUEST_URI, QUERY_STRING, SCRIPT_NAME, REMOTE_ADDR and
  * SERVER_PROTOCOL.
  *
- * As a fallback, CGI-style header lines (Content-Type:/Status:/X-...)
- * printed at the very start of the output are also applied to the response
- * (and stripped from the body), mirroring uhttpd templates.
+ * As a fallback, a CGI-style header block (Content-Type:/Status:/X-...)
+ * printed at the very start of the output is also applied to the response
+ * (and stripped from the body), mirroring uhttpd templates.  See
+ * uc_http_cgi_block_len() for what counts as a header block, and
+ * "ucode_cgi_headers off" to disable it.
  *
  * The template is recompiled on every request, so edits to the .ut file are
  * picked up immediately and no reload is required.
@@ -1149,6 +1182,7 @@ ngx_http_ucode_prepare(ngx_http_request_t *r, ngx_str_t *file)
     uc_value_t           *request, *hdr, *api, *respval;
     ngx_http_ucode_res_t *resp;
     uc_resource_type_t   *restype;
+    ngx_pool_cleanup_t   *cln;
     ngx_uint_t            i;
     ngx_list_part_t      *part;
     ngx_table_elt_t      *h;
@@ -1157,6 +1191,21 @@ ngx_http_ucode_prepare(ngx_http_request_t *r, ngx_str_t *file)
     if (ctx == NULL) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
+
+    /*
+     * The VM and its search paths are heap allocations that outlive this
+     * function but are not owned by the request pool, and the request can be
+     * torn down before the body handler ever runs (client abort, or a 413
+     * from ngx_http_read_client_request_body).  Register the cleanup up
+     * front so those paths cannot leak.
+     */
+    cln = ngx_pool_cleanup_add(r->pool, 0);
+    if (cln == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    cln->handler = ngx_http_ucode_cleanup;
+    cln->data = ctx;
 
     ctx->r = r;
     ctx->file = *file;
@@ -1172,6 +1221,8 @@ ngx_http_ucode_prepare(ngx_http_request_t *r, ngx_str_t *file)
 
     ngx_memzero(&ctx->vm, sizeof(ctx->vm));
     uc_vm_init(&ctx->vm, &ctx->config);
+    ctx->vm_valid = 1;
+
     uc_stdlib_load(uc_vm_scope_get(&ctx->vm));
 
     /* "uhttpd" api table */
@@ -1197,8 +1248,8 @@ ngx_http_ucode_prepare(ngx_http_request_t *r, ngx_str_t *file)
     }
 
     resp = ngx_pcalloc(r->pool, sizeof(ngx_http_ucode_res_t));
-    if (resp == NULL) {
-        goto fail;
+    if (restype == NULL || resp == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     resp->r = r;
@@ -1249,6 +1300,11 @@ ngx_http_ucode_prepare(ngx_http_request_t *r, ngx_str_t *file)
         ucv_string_new_length((const char *) r->http_protocol.data,
                               r->http_protocol.len));
 
+    /*
+     * Request headers are keyed by their lower-cased name: h->key preserves
+     * whatever casing the client happened to send, which would make lookups
+     * client-dependent (and HTTP/2 lower-cases names on the wire anyway).
+     */
     hdr = ucv_object_new(&ctx->vm);
 
     part = &r->headers_in.headers.part;
@@ -1266,17 +1322,11 @@ ngx_http_ucode_prepare(ngx_http_request_t *r, ngx_str_t *file)
         }
 
         if (h[i].hash) {
-            uc_value_t *val = ucv_string_new_length(
-                (const char *) h[i].value.data, h[i].value.len);
-            uc_value_t *arr = ucv_object_get(hdr,
-                (const char *) h[i].key.data, NULL);
-
-            if (arr == NULL) {
-                arr = ucv_array_new(&ctx->vm);
-                ucv_object_add(hdr, (const char *) h[i].key.data, arr);
-            }
-
-            ucv_array_push(arr, val);
+            /* h->lowcase_key is not NUL-terminated, so map_add() copies it */
+            ngx_http_ucode_map_add(r->pool, &ctx->vm, hdr,
+                (const char *) h[i].lowcase_key, h[i].key.len,
+                ucv_string_new_length((const char *) h[i].value.data,
+                                      h[i].value.len));
         }
     }
 
@@ -1291,12 +1341,122 @@ ngx_http_ucode_prepare(ngx_http_request_t *r, ngx_str_t *file)
     ngx_http_set_ctx(r, ctx, ngx_http_ucode_module);
 
     return NGX_OK;
+}
 
-fail:
+/*
+ * Release the ucode VM.  Called either explicitly once the template has run
+ * or, if the request never got that far, from the request pool cleanup.
+ */
+static void
+ngx_http_ucode_cleanup(void *data)
+{
+    ngx_http_ucode_ctx_t *ctx = data;
+
+    if (!ctx->vm_valid) {
+        return;
+    }
+
+    ctx->vm_valid = 0;
+    ctx->request = NULL;
+
     uc_vm_free(&ctx->vm);
     uc_search_path_free(&ctx->config.module_search_path);
     uc_search_path_free(&ctx->config.force_dynlink_list);
-    return NGX_HTTP_INTERNAL_SERVER_ERROR;
+}
+
+/*
+ * Apply one header of a validated CGI block to the response.  Values the
+ * template already set through the "response" object take precedence.
+ */
+static void
+ngx_http_ucode_cgi_apply(ngx_http_request_t *r, uc_http_header_t *hdr)
+{
+    ngx_str_t value;
+
+    value.data = (u_char *) hdr->value;
+    value.len = hdr->value_len;
+
+    if (ngx_http_ucode_name_eq(hdr->name, hdr->name_len, "Status")) {
+        ngx_int_t sc = ngx_atoi(value.data, value.len);
+
+        /* the code may be followed by a reason phrase */
+        if (sc == NGX_ERROR) {
+            u_char *sp = ngx_strlchr(value.data, value.data + value.len, ' ');
+
+            if (sp) {
+                sc = ngx_atoi(value.data, sp - value.data);
+            }
+        }
+
+        if (sc < NGX_HTTP_CONTINUE || sc > 599) {
+            ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                          "ucode: ignoring out-of-range CGI status \"%V\"",
+                          &value);
+
+        } else if (r->headers_out.status == 0) {
+            r->headers_out.status = (ngx_uint_t) sc;
+        }
+
+        return;
+    }
+
+    if ((ngx_http_ucode_name_eq(hdr->name, hdr->name_len, "Content-Type")
+         && r->headers_out.content_type.len)
+        || (ngx_http_ucode_name_eq(hdr->name, hdr->name_len, "Location")
+            && r->headers_out.location)) {
+        /* already set through the response object; that wins */
+        return;
+    }
+
+    if (!ngx_http_ucode_res_header_special(r, hdr->name, hdr->name_len,
+                                           hdr->value, hdr->value_len)) {
+        ngx_table_elt_t *he = ngx_list_push(&r->headers_out.headers);
+
+        if (he) {
+            if (ngx_http_ucode_res_strcopy(r->pool, &he->key, hdr->name,
+                    hdr->name_len) != NGX_OK
+                || ngx_http_ucode_res_strcopy(r->pool, &he->value, hdr->value,
+                       hdr->value_len) != NGX_OK) {
+                he->hash = 0;
+            } else {
+                he->hash = 1;
+            }
+        }
+    }
+}
+
+/*
+ * uhttpd-style fallback: apply a CGI header block printed by the template
+ * and return the offset of the response body within the output.  The block
+ * is validated as a whole first (see uc_http_cgi_block_len), so output that
+ * only looks header-ish - `{"error":"nope"}` and friends - is left alone.
+ */
+static size_t
+ngx_http_ucode_cgi_headers(ngx_http_request_t *r, u_char *buf, size_t len)
+{
+    ngx_http_ucode_loc_conf_t *lcf;
+    uc_http_header_t           hdr;
+    size_t                     body_off, off = 0;
+
+    lcf = ngx_http_get_module_loc_conf(r, ngx_http_ucode_module);
+
+    if (!lcf->cgi_headers || len == 0) {
+        return 0;
+    }
+
+    body_off = uc_http_cgi_block_len((const char *) buf, len);
+
+    if (body_off == 0) {
+        return 0;
+    }
+
+    while (off < body_off
+           && uc_http_cgi_line((const char *) buf, len, &off, &hdr)
+                  == UC_HTTP_CGI_HEADER) {
+        ngx_http_ucode_cgi_apply(r, &hdr);
+    }
+
+    return body_off;
 }
 
 /*
@@ -1310,19 +1470,21 @@ ngx_http_ucode_run(ngx_http_request_t *r, ngx_http_ucode_ctx_t *ctx)
     uc_program_t       *program;
     uc_value_t         *res = NULL;
     char               *syntax_error = NULL;
+    char               *obuf = NULL;
+    size_t              osize = 0;
     FILE               *out;
+    u_char             *out_buf = NULL;
     ngx_buf_t          *b;
     ngx_chain_t        *cl;
-    ngx_int_t           status;
-    size_t              n, off;
-    ngx_table_elt_t    *he;
+    ngx_int_t           rc, status;
+    size_t              off, body_len;
 
     ngx_http_ucode_body_parse(ctx);
 
     /* compile template */
     src = uc_source_new_file((const char *) ctx->file.data);
     if (src == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, errno,
                       "ucode: unable to open template %V", &ctx->file);
         goto fail;
     }
@@ -1338,11 +1500,11 @@ ngx_http_ucode_run(ngx_http_request_t *r, ngx_http_ucode_ctx_t *ctx)
         goto fail;
     }
 
-    /* capture output */
-    out = tmpfile();
+    /* capture template output in memory */
+    out = open_memstream(&obuf, &osize);
     if (out == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "ucode: tmpfile() failed: %s", strerror(errno));
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, errno,
+                      "ucode: open_memstream() failed");
         uc_program_put(program);
         goto fail;
     }
@@ -1356,149 +1518,90 @@ ngx_http_ucode_run(ngx_http_request_t *r, ngx_http_ucode_ctx_t *ctx)
         ucv_put(res);
     }
 
+    uc_program_put(program);
+
+    /* fclose() flushes and publishes obuf/osize; drop the dangling handle */
+    fclose(out);
+    ctx->vm.output = stdout;
+
     if (status != STATUS_OK) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                       "ucode: execution error: %s",
                       ctx->vm.exception.message ? ctx->vm.exception.message : "?");
-        uc_program_put(program);
-        fclose(out);
+        free(obuf);
         goto fail;
     }
 
-    uc_program_put(program);
+    if (osize) {
+        out_buf = ngx_pnalloc(r->pool, osize + 1);
 
-    fflush(out);
-
-    {
-        size_t len = (size_t) ftell(out);
-
-        rewind(out);
-
-        b = ngx_create_temp_buf(r->pool, len + 1);
-        if (b == NULL) {
-            fclose(out);
+        if (out_buf == NULL) {
+            free(obuf);
             goto fail;
         }
 
-        n = fread(b->pos, 1, len, out);
-        fclose(out);
-
-        b->last = b->pos + n;
-        *b->last = '\0';
-
-        /*
-         * CGI-style fallback: templates may print header lines
-         * ("Content-Type: ...", "Status: ...", "X-Foo: ...") at the very
-         * start of the output, uhttpd style.  Parse them, strip them from
-         * the body, and apply them to the response unless the template
-         * already set the same header via the "response" object.
-         */
-        off = 0;
-
-        while (off < n) {
-            u_char  *line = b->pos + off;
-            u_char  *eol = ngx_strlchr(line, b->last, '\n');
-            size_t   linelen = eol ? (size_t) (eol - line) : n - off;
-            u_char  *colon;
-            ngx_str_t name, value;
-
-            if (linelen == 0 || line[0] == '\r' || line[0] == '\n') {
-                off += linelen + (eol ? 1 : 0);
-                break;
-            }
-
-            colon = ngx_strlchr(line, line + linelen, ':');
-
-            if (colon == NULL) {
-                break;
-            }
-
-            name.data = line;
-            name.len = colon - line;
-
-            /* skip leading whitespace after the colon */
-            value.data = colon + 1;
-            value.len = linelen - (colon - line) - 1;
-
-            while (value.len && (value.data[0] == ' ' || value.data[0] == '\t')) {
-                value.data++;
-                value.len--;
-            }
-            while (value.len && (value.data[value.len - 1] == '\r' ||
-                                 value.data[value.len - 1] == ' ' ||
-                                 value.data[value.len - 1] == '\t')) {
-                value.len--;
-            }
-
-            if (ngx_strncasecmp(name.data, (u_char *) "Content-Type", name.len) == 0 &&
-                r->headers_out.content_type.len == 0) {
-                r->headers_out.content_type = value;
-            } else if (ngx_strncasecmp(name.data, (u_char *) "Status", name.len) == 0 &&
-                       r->headers_out.status == 0) {
-                ngx_int_t sc = ngx_atoi(value.data, value.len);
-
-                if (sc > 0) {
-                    r->headers_out.status = sc;
-                }
-            } else {
-                he = ngx_list_push(&r->headers_out.headers);
-                if (he) {
-                    ngx_http_ucode_res_strcopy(r->pool, &he->key,
-                                               (const char *) name.data, name.len);
-                    ngx_http_ucode_res_strcopy(r->pool, &he->value,
-                                               (const char *) value.data, value.len);
-                    he->hash = 1;
-                }
-            }
-
-            off += linelen + (eol ? 1 : 0);
-
-            if (eol == NULL) {
-                break;
-            }
-        }
-
-        b->pos += off;
-
-        if (r->headers_out.content_type.len == 0) {
-            r->headers_out.content_type.data =
-                (u_char *) "text/html; charset=utf-8";
-            r->headers_out.content_type.len =
-                sizeof("text/html; charset=utf-8") - 1;
-        }
-
-        if (r->headers_out.status == 0) {
-            r->headers_out.status = NGX_HTTP_OK;
-        }
-
-        r->headers_out.content_length_n = b->last - b->pos;
-
-        cl = ngx_alloc_chain_link(r->pool);
-        if (cl == NULL) {
-            goto fail;
-        }
-
-        b->last_buf = (r == r->main) ? 1 : 0;
-        b->last_in_chain = 1;
-
-        cl->buf = b;
-        cl->next = NULL;
-
-        ngx_http_send_header(r);
-        ngx_http_output_filter(r, cl);
+        ngx_memcpy(out_buf, obuf, osize);
+        out_buf[osize] = '\0';
     }
 
-    uc_vm_free(&ctx->vm);
-    uc_search_path_free(&ctx->config.module_search_path);
-    uc_search_path_free(&ctx->config.force_dynlink_list);
+    free(obuf);
 
-    ngx_http_finalize_request(r, NGX_OK);
+    off = osize ? ngx_http_ucode_cgi_headers(r, out_buf, osize) : 0;
+    body_len = osize - off;
+
+    if (r->headers_out.content_type.len == 0) {
+        ngx_str_set(&r->headers_out.content_type, "text/html; charset=utf-8");
+        r->headers_out.content_type_len = r->headers_out.content_type.len;
+    }
+
+    if (r->headers_out.status == 0) {
+        r->headers_out.status = NGX_HTTP_OK;
+    }
+
+    r->headers_out.content_length_n = body_len;
+
+    rc = ngx_http_send_header(r);
+
+    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
+        ngx_http_ucode_cleanup(ctx);
+        ngx_http_finalize_request(r, rc);
+        return;
+    }
+
+    cl = ngx_alloc_chain_link(r->pool);
+    b = ngx_calloc_buf(r->pool);
+
+    if (cl == NULL || b == NULL) {
+        goto fail;
+    }
+
+    /*
+     * A template that only sets headers produces no output at all.  Such a
+     * buffer must carry no memory flags, otherwise ngx_buf_special() is
+     * false and the write filter rejects it as a "zero size buf".
+     */
+    if (body_len) {
+        b->pos = out_buf + off;
+        b->last = out_buf + osize;
+        b->memory = 1;
+    } else {
+        b->sync = 1;
+    }
+
+    b->last_buf = (r == r->main) ? 1 : 0;
+    b->last_in_chain = 1;
+
+    cl->buf = b;
+    cl->next = NULL;
+
+    rc = ngx_http_output_filter(r, cl);
+
+    ngx_http_ucode_cleanup(ctx);
+    ngx_http_finalize_request(r, rc);
     return;
 
 fail:
-    uc_vm_free(&ctx->vm);
-    uc_search_path_free(&ctx->config.module_search_path);
-    uc_search_path_free(&ctx->config.force_dynlink_list);
+    ngx_http_ucode_cleanup(ctx);
     ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
 }
 
@@ -1512,11 +1615,6 @@ ngx_http_ucode_body_handler(ngx_http_request_t *r)
 {
     ngx_http_ucode_ctx_t *ctx;
 
-    if (r != r->main) {
-        ngx_http_finalize_request(r, NGX_DONE);
-        return;
-    }
-
     ctx = ngx_http_get_module_ctx(r, ngx_http_ucode_module);
     if (ctx == NULL) {
         ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
@@ -1524,6 +1622,99 @@ ngx_http_ucode_body_handler(ngx_http_request_t *r)
     }
 
     ngx_http_ucode_run(r, ctx);
+}
+
+/*
+ * Answer a method that ucode_methods did not wire to the template with
+ * 405 and an Allow: header listing the ones it did.
+ */
+static ngx_int_t
+ngx_http_ucode_not_allowed(ngx_http_request_t *r, ngx_uint_t methods)
+{
+    static u_char    body[] = "405 Method Not Allowed" CRLF;
+    ngx_uint_t       m;
+    ngx_str_t        allow;
+    u_char          *p;
+    ngx_buf_t       *b;
+    ngx_chain_t      cl;
+    ngx_table_elt_t *he;
+    ngx_int_t        rc;
+    size_t           len = 0;
+
+    /* an unread body would be taken for a pipelined request on keepalive */
+    rc = ngx_http_discard_request_body(r);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    for (m = 0; ngx_http_ucode_method_names[m].name; m++) {
+        if (methods & ngx_http_ucode_method_names[m].bit) {
+            len += ngx_strlen(ngx_http_ucode_method_names[m].name) + 2;
+        }
+    }
+
+    p = ngx_pnalloc(r->pool, len + 1);
+    if (p == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    allow.data = p;
+    allow.len = 0;
+
+    for (m = 0; ngx_http_ucode_method_names[m].name; m++) {
+        if (methods & ngx_http_ucode_method_names[m].bit) {
+            if (allow.len) {
+                *p++ = ',';
+                *p++ = ' ';
+                allow.len += 2;
+            }
+
+            len = ngx_strlen(ngx_http_ucode_method_names[m].name);
+            ngx_memcpy(p, ngx_http_ucode_method_names[m].name, len);
+            p += len;
+            allow.len += len;
+        }
+    }
+
+    *p = '\0';
+
+    if (allow.len) {
+        he = ngx_list_push(&r->headers_out.headers);
+        if (he == NULL) {
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+        he->hash = 1;
+        ngx_str_set(&he->key, "Allow");
+        he->value = allow;
+    }
+
+    r->headers_out.status = NGX_HTTP_NOT_ALLOWED;
+    ngx_str_set(&r->headers_out.content_type, "text/plain");
+    r->headers_out.content_type_len = r->headers_out.content_type.len;
+    r->headers_out.content_length_n = sizeof(body) - 1;
+
+    rc = ngx_http_send_header(r);
+
+    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
+        return rc;
+    }
+
+    b = ngx_calloc_buf(r->pool);
+    if (b == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    b->pos = body;
+    b->last = body + sizeof(body) - 1;
+    b->memory = 1;
+    b->last_buf = (r == r->main) ? 1 : 0;
+    b->last_in_chain = 1;
+
+    cl.buf = b;
+    cl.next = NULL;
+
+    return ngx_http_output_filter(r, &cl);
 }
 
 static ngx_int_t
@@ -1538,98 +1729,8 @@ ngx_http_ucode_handler(ngx_http_request_t *r)
         return NGX_DECLINED;
     }
 
-    /* reject methods not wired to this template with 405 + Allow header.
-     * The response is emitted here and NGX_DONE returned so the content
-     * phase finalizes the request exactly once. */
     if (!(lcf->methods & (ngx_uint_t) r->method)) {
-        ngx_uint_t   m;
-        ngx_str_t    allow;
-        u_char      *p;
-        ngx_buf_t   *b;
-        ngx_chain_t *cl;
-        size_t       len = 0;
-        u_char      *body = (u_char *) "405 Method Not Allowed";
-
-        for (m = 0; ngx_http_ucode_method_names[m].name; m++) {
-            if (lcf->methods & ngx_http_ucode_method_names[m].bit) {
-                len += ngx_strlen(ngx_http_ucode_method_names[m].name) + 2;
-            }
-        }
-
-        p = ngx_pnalloc(r->pool, len + 1);
-        if (p == NULL) {
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        allow.data = p;
-        allow.len = 0;
-
-        for (m = 0; ngx_http_ucode_method_names[m].name; m++) {
-            if (lcf->methods & ngx_http_ucode_method_names[m].bit) {
-                if (allow.len) {
-                    *p++ = ',';
-                    *p++ = ' ';
-                    allow.len += 2;
-                }
-
-                len = ngx_strlen(ngx_http_ucode_method_names[m].name);
-                ngx_memcpy(p, ngx_http_ucode_method_names[m].name, len);
-                p += len;
-                allow.len += len;
-            }
-        }
-
-        *p = '\0';
-
-        r->headers_out.status = NGX_HTTP_NOT_ALLOWED;
-        r->headers_out.content_type.data = (u_char *) "text/plain";
-        r->headers_out.content_type.len = sizeof("text/plain") - 1;
-        r->headers_out.content_length_n = (off_t) ngx_strlen((char *) body);
-
-        {
-            ngx_table_elt_t *he = ngx_list_push(&r->headers_out.headers);
-
-            if (he) {
-                he->hash = 1;
-                he->key.data = (u_char *) "Allow";
-                he->key.len = sizeof("Allow") - 1;
-                he->value = allow;
-            }
-        }
-
-        b = ngx_create_temp_buf(r->pool, r->headers_out.content_length_n + 1);
-        if (b == NULL) {
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        ngx_memcpy(b->pos, body, r->headers_out.content_length_n);
-        b->last = b->pos + r->headers_out.content_length_n;
-        *b->last = '\0';
-
-        cl = ngx_alloc_chain_link(r->pool);
-        if (cl == NULL) {
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        b->last_buf = (r == r->main) ? 1 : 0;
-        b->last_in_chain = 1;
-
-        cl->buf = b;
-        cl->next = NULL;
-
-        if (ngx_http_send_header(r) == NGX_ERROR) {
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        if (r->method != NGX_HTTP_HEAD) {
-            ngx_http_output_filter(r, cl);
-        }
-
-        return NGX_DONE;
-    }
-
-    if (r->method == NGX_HTTP_HEAD) {
-        r->header_only = 1;
+        return ngx_http_ucode_not_allowed(r, lcf->methods);
     }
 
     rc = ngx_http_ucode_prepare(r, &lcf->file);
