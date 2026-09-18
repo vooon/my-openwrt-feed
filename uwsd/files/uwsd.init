@@ -31,14 +31,14 @@ start_instance() {
 		instance_cfg="/var/etc/uwsd/${1}.conf"
 		mkdir -p /var/etc/uwsd
 		cat > "$instance_cfg" <<-EOF
-			listen ${listen_http} {
-				use-backend templates;
-			}
-
 			backend templates {
 				run-script ${wrapper} {
 					environment DOCUMENT_ROOT=${docroot};
 				}
+			}
+
+			listen ${listen_http} {
+				use-backend templates;
 			}
 		EOF
 
@@ -59,8 +59,9 @@ start_instance() {
 	if [ "$jail" -ne 0 ]; then
 		procd_add_jail uwsd log
 		procd_add_jail_mount "$config"
-		procd_add_jail_mount "$wrapper"
 		procd_add_jail_mount /usr/share/uwsd
+		[ -e "$wrapper" ] && procd_add_jail_mount "$wrapper"
+		[ -e "$docroot" ] && procd_add_jail_mount "$docroot"
 		config_list_foreach "$1" ro_mount procd_add_jail_mount
 		config_list_foreach "$1" rw_mount procd_add_jail_mount_rw
 	fi
