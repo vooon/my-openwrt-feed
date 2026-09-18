@@ -40,7 +40,7 @@ define Package/meow-rs
   CATEGORY:=Network
   TITLE:=A high-performance, rule-based tunneling proxy in Rust
   URL:=https://github.com/meow-rs/meow-rs
-  DEPENDS:=$(RUST_ARCH_DEPENDS) +ca-bundle +ip-full +kmod-inet-diag +kmod-nft-tproxy +kmod-tun
+  DEPENDS:=$(RUST_ARCH_DEPENDS) +libstdcpp +ca-bundle +ip-full +kmod-inet-diag +kmod-nft-tproxy +kmod-tun
   USERID:=meow=5589:meow=5589
 endef
 
