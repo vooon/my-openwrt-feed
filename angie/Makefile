@@ -8,12 +8,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=angie
-PKG_VERSION:=1.12.1
-PKG_RELEASE:=3
+PKG_VERSION:=1.12.2
+PKG_RELEASE:=1
 
 PKG_SOURCE:=angie-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://download.angie.software/files/
-PKG_HASH:=5f4f203be2aca6fe20770b489c720e46e51d337e521065e7e472b61e24e3d2f5
+PKG_HASH:=4f0a51b1de8dd9f09248b2845bbfa4df4f034877bf92f605e499fd7fff09c77c
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 # angie itself is BSD-2-Clause; the bundled ucode module is Apache-2.0 and
