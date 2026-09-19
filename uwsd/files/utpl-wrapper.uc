@@ -51,9 +51,17 @@
  * backend behave the same. Response headers keep the casing the template
  * chose.
  *
- * The compiled template is cached per file and reused while the file's
- * mtime and size are unchanged; editing the .ut on disk reloads it on the
- * next request (no server restart needed).
+ * The compiled template is cached per file. Without the optional
+ * ucode-mod-inotify plugin the cache entry is validated against the file's
+ * mtime and size on every request, so editing the .ut on disk reloads it on
+ * the next request (no server restart needed). When the plugin is installed,
+ * DOCUMENT_ROOT is watched recursively, the whole cache is dropped as soon as
+ * a .ut/.uc file changes and cache hits need no stat() at all -- this also
+ * covers imported .uc modules, whose own mtime/size is not part of the
+ * per-file key because they are compiled into the template. The plugin is
+ * loaded with the runtime require() (not a compile-time import) so a build
+ * without it is not a load-time error and simply falls back to the
+ * mtime/size check.
  */
 
 'use strict';
@@ -64,6 +72,161 @@ import * as fs from 'fs';
  * Compiled-template cache: path -> { mtime, size, fn }.
  */
 let cache = {};
+
+/* -------------------------------------------------------------------------
+ * Optional inotify-driven cache invalidation
+ * ---------------------------------------------------------------------- */
+
+/*
+ * Watch mask letters as understood by the ucode inotify module / busybox
+ * inotifyd: close-write, moved-to, create, delete, moved-from, delete-self
+ * and move-self. The kernel cannot filter on a file name, so whole
+ * directories are watched and events are filtered by suffix below.
+ */
+let WATCH_MASK = "wyndmDM";
+
+/* Event flag values from <sys/inotify.h>. */
+let IN_DELETE_SELF = 0x00000400;
+let IN_MOVE_SELF   = 0x00000800;
+let IN_Q_OVERFLOW  = 0x00004000;
+let IN_ISDIR       = 0x40000000;
+
+/* Watcher state; null when inotify is unavailable. */
+let watcher = null;
+let watcher_tried = false;
+
+/**
+ * Whether a name ends in the given suffix.
+ * @param {string} s
+ * @param {string} suffix
+ * @returns {boolean}
+ */
+function ends_with(s, suffix) {
+	let n = length(s);
+	let m = length(suffix);
+
+	return n >= m && substr(s, n - m) == suffix;
+}
+
+/**
+ * Decide whether an inotify event should invalidate the template cache.
+ *
+ * Only events that can change the content or the set of .ut/.uc templates
+ * count: a template child being written, created, deleted or renamed, a
+ * watched directory disappearing, any subdirectory change (which may bring or
+ * remove a whole template subtree) and queue overflow (something was missed).
+ * @param {Object} ev an event as returned by inotify.read()
+ * @returns {boolean}
+ */
+export function stale_event(ev) {
+	let mask = ev.mask ?? 0;
+	let name = ev.name;
+
+	if (mask & IN_Q_OVERFLOW)
+		return true;
+
+	if (mask & (IN_DELETE_SELF | IN_MOVE_SELF))
+		return true;
+
+	if (type(name) != "string" || !length(name))
+		return false;
+
+	if (mask & IN_ISDIR)
+		return true;
+
+	return ends_with(name, ".ut") || ends_with(name, ".uc");
+};
+
+/**
+ * Add an inotify watch for `dir` and every directory below it.
+ * Symlinked directories are not followed (lstat), so a link loop cannot
+ * recurse forever.
+ * @param {Object} w watcher
+ * @param {string} dir
+ */
+function watch_dirs(w, dir) {
+	if (w.mod.add(w.fd, dir, WATCH_MASK) == null)
+		return;
+
+	for (let name in fs.lsdir(dir) ?? []) {
+		let sub = dir + "/" + name;
+		let st = fs.lstat(sub);
+
+		if (st != null && st.type == "directory")
+			watch_dirs(w, sub);
+	}
+}
+
+/**
+ * Try to set up an inotify watcher over `docroot`.
+ *
+ * require() is used instead of import so that a build without the optional
+ * ucode-mod-inotify plugin still loads: the exception is caught and the
+ * wrapper falls back to the mtime/size check.
+ * @param {string} docroot
+ * @returns {?Object} watcher object or null when inotify is unavailable
+ */
+function init_watcher(docroot) {
+	let mod = null;
+	let fd;
+
+	try {
+		mod = require("inotify");
+	} catch (e) {
+		return null;
+	}
+
+	if (mod == null || type(mod.add) != "function" || type(mod.read) != "function")
+		return null;
+
+	fd = mod.init();
+
+	if (fd == null)
+		return null;
+
+	let w = { mod, fd, root: docroot };
+
+	watch_dirs(w, docroot);
+
+	return w;
+}
+
+/**
+ * Lazily initialise the watcher on the first request, once.
+ * @param {string} docroot
+ */
+function ensure_watcher(docroot) {
+	if (watcher_tried)
+		return;
+
+	watcher_tried = true;
+	watcher = init_watcher(docroot);
+}
+
+/**
+ * Drain pending inotify events and drop the template cache if any of them
+ * touched a .ut/.uc file, so the next lookup recompiles.
+ * @param {Object} w watcher
+ */
+function poll_watcher(w) {
+	let evs = w.mod.read(w.fd);
+	let dirty = false;
+
+	for (let ev in evs) {
+		if (stale_event(ev)) {
+			dirty = true;
+			break;
+		}
+	}
+
+	if (!dirty)
+		return;
+
+	cache = {};
+
+	/* a directory may have appeared or vanished: refresh the watch set */
+	watch_dirs(w, w.root);
+}
 
 /**
  * URL-decode a percent/plus encoded string.
@@ -169,24 +332,32 @@ function resolve_template(docroot, uri) {
 }
 
 /**
- * Return a compiled template closure for the given path, compiling (and
- * caching) only when the file content changed since the last call.
+ * Return a compiled template closure for the given path.
+ *
+ * When the inotify watcher is active it has already dropped the cache on any
+ * .ut/.uc change, so a cache hit can be returned as-is and the per-request
+ * stat() is skipped entirely. Without inotify the entry is validated against
+ * the file's mtime and size on every call, as before.
  * @param {string} path
  * @returns {?Function}
  */
 function get_template(path) {
-	let st = fs.stat(path);
-	let hit;
+	let hit = cache[path];
+	let st;
+	let fn;
+
+	if (hit != null && watcher != null)
+		return hit.fn;
+
+	st = fs.stat(path);
 
 	if (st == null || st.type != "file")
 		return null;
 
-	hit = cache[path];
-
 	if (hit && hit.mtime == st.mtime && hit.size == st.size)
 		return hit.fn;
 
-	let fn = loadfile(path, { raw_mode: false });
+	fn = loadfile(path, { raw_mode: false });
 
 	if (fn == null)
 		return null;
@@ -430,6 +601,13 @@ export function onRequest(request, method, uri) {
 		request.close();
 		return;
 	}
+
+	// drop the cache if a .ut/.uc file changed since the last request
+	// ucode-lsp disable-next-line nullable-argument   # guarded to "/www" above
+	ensure_watcher(docroot);
+
+	if (watcher != null)
+		poll_watcher(watcher);
 
 	let tpl = get_template(path);
 	// ucode-lsp disable-next-line incompatible-function-argument   # uwsd passes strings

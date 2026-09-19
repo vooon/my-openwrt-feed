@@ -18,7 +18,7 @@
 
 import * as fs from 'fs';
 
-import { onRequest, onBody } from '../files/utpl-wrapper.uc';
+import { onRequest, onBody, stale_event } from '../files/utpl-wrapper.uc';
 
 let failures = 0;
 let count = 0;
@@ -471,6 +471,53 @@ eq('response Content-Type defaults to text/html',
 	get.headers['Content-Type'], 'text/html; charset=utf-8');
 
 eq('response Status defaults to 200 OK', get.headers.Status, '200 OK');
+
+/* --- inotify event filtering -------------------------------------------- */
+
+/* The optional inotify watcher must only invalidate the compiled-template
+ * cache for changes that can affect .ut/.uc templates.  These exercise the
+ * pure filter so the branch is covered even on hosts without inotify.so. */
+
+let IN_CLOSE_WRITE = 0x00000008;
+let IN_MOVED_TO    = 0x00000080;
+let IN_CREATE      = 0x00000100;
+let IN_DELETE_SELF = 0x00000400;
+let IN_MOVE_SELF   = 0x00000800;
+let IN_Q_OVERFLOW  = 0x00004000;
+let IN_ISDIR       = 0x40000000;
+
+eq('a written .ut file invalidates the cache',
+	stale_event({ mask: IN_CLOSE_WRITE, name: 'index.ut' }), true);
+
+eq('a written .uc module invalidates the cache',
+	stale_event({ mask: IN_CLOSE_WRITE, name: 'helpers.uc' }), true);
+
+eq('a renamed-in .ut file invalidates the cache',
+	stale_event({ mask: IN_MOVED_TO, name: 'page.ut' }), true);
+
+eq('a created .uc module invalidates the cache',
+	stale_event({ mask: IN_CREATE, name: 'part.uc' }), true);
+
+eq('an unrelated file is ignored',
+	stale_event({ mask: IN_CLOSE_WRITE, name: 'style.css' }), false);
+
+eq('an extensionless child is ignored',
+	stale_event({ mask: IN_CLOSE_WRITE, name: 'Makefile' }), false);
+
+eq('a subdirectory event invalidates (new template subtree)',
+	stale_event({ mask: IN_CREATE | IN_ISDIR, name: 'partials' }), true);
+
+eq('a removed watched directory invalidates',
+	stale_event({ mask: IN_DELETE_SELF, name: null }), true);
+
+eq('a moved watched directory invalidates',
+	stale_event({ mask: IN_MOVE_SELF, name: null }), true);
+
+eq('queue overflow invalidates unconditionally',
+	stale_event({ mask: IN_Q_OVERFLOW, name: null }), true);
+
+eq('a nameless non-directory event is ignored',
+	stale_event({ mask: IN_CLOSE_WRITE, name: null }), false);
 
 /* --- cleanup ------------------------------------------------------------- */
 
