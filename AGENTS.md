@@ -34,6 +34,12 @@ pinned upstream ucode build.
 - `ucode-mod-inotify/` — C ucode module wrapping the Linux inotify API
   (`src/inotify.c`, cmake). Built in CI against the pinned ucode headers and
   exercised with `test/inotify.uc` (real kernel round-trip).
+- `ucode-mod-sqlite/` — C ucode module binding the SQLite3 API
+  (`src/sqlite.c`, cmake + pkg-config `sqlite3`). Exposes `open()`, database
+  methods (`exec`/`query`/`run`/`prepare`/…) and a prepared-statement resource
+  type, mapping ucode values to SQLite columns (arrays/objects are JSON
+  encoded, blobs map to binary-safe strings). Built in CI and exercised with
+  `test/sqlite.uc` (in-memory database).
 - `inotify-rsync/` — `files/inotify-rsync.uc`: `require()`-based daemon script
   (fs/uloop/uci/log/inotify), run by `files/inotify-rsync.init`.
 - `vpn-sticky/` — `files/vpn-sticky.nft.uc`: a ucode **nft template** (raw text
@@ -67,6 +73,11 @@ UCODE=.../ucode UCODE_MODULE_PATH=... rpcd-mod-bird/test/run_tests.sh
 cmake -S ucode-mod-inotify/src -B ... -Ducode_include_dir=$UCODE_SRC/include
 cmake --build ...
 ucode -L <mods+inotify.so> ucode-mod-inotify/test/inotify.uc
+
+# C plugin (pkg-config sqlite3, needs libsqlite3-dev / sqlite3.pc):
+cmake -S ucode-mod-sqlite/src -B ... -Ducode_include_dir=$UCODE_SRC/include
+cmake --build ...
+ucode -L <mods+sqlite.so> ucode-mod-sqlite/test/sqlite.uc
 ```
 
 Run the tests locally against a build ("UCODE_MODULES" vs "UCODE_MODULE_PATH" is
@@ -77,7 +88,7 @@ the env var each runner expects; point them at the build dir with the `*.so`s).
 `scripts/uc-lint.mjs` drives `ucode-lsp` (pinned `0.8.11`) with
 `--target-version 25.12` over the maintained ucode packages:
 `rpcd-mod-bird`, `inotify-rsync/files`, `vpn-sticky/files`,
-`ucode-mod-inotify/test`. (`prometheus-node-exporter-ucode` is deliberately
+`ucode-mod-inotify/test`, `ucode-mod-sqlite/test`. (`prometheus-node-exporter-ucode` is deliberately
 excluded — its collectors run as raw-mode scripts with runtime-injected
 globals that static analysis can't see.)
 

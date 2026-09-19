@@ -109,6 +109,7 @@ Package overview
 | Package            | Description                              |
 |--------------------|------------------------------------------|
 | `ucode-mod-inotify`| ucode module for the Linux inotify API   |
+| `ucode-mod-sqlite` | ucode module for the SQLite3 engine      |
 | `envsubst`         | Environment variable substitution        |
 | `rsync-sysupgrade` | Sysupgrade via rsync                     |
 

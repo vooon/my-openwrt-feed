@@ -26,7 +26,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            gcc make cmake git pkg-config libjson-c-dev
+            gcc make cmake git pkg-config libjson-c-dev libsqlite3-dev
 
       - name: Lint ucode sources (ucode-lsp)
         # ucode-lsp CLI checker: type inference, null-safety, target-version
@@ -132,6 +132,23 @@ jobs:
           cp "${{ steps.ucode.outputs.mods }}"/*.so "$mods"/
           cp "$build"/inotify.so "$mods"/
           "${{ steps.ucode.outputs.bin }}" -L "$mods" ucode-mod-inotify/test/inotify.uc
+
+      - name: Build + smoke-test ucode-mod-sqlite
+        # Compile the C plugin against the pinned ucode headers and run the
+        # in-memory SQLite round-trip through the built interpreter (upstream
+        # modules + sqlite.so on the module path).
+        if: ${{ hashFiles('ucode-mod-sqlite/src/CMakeLists.txt') != '' }}
+        run: |
+          set -euo pipefail
+          build="${{ runner.temp }}/sqlite-build"
+          cmake -S ucode-mod-sqlite/src -B "$build" \
+            -Ducode_include_dir="${{ steps.ucode.outputs.inc }}"
+          cmake --build "$build"
+          mods="${{ runner.temp }}/sqlite-mods"
+          mkdir -p "$mods"
+          cp "${{ steps.ucode.outputs.mods }}"/*.so "$mods"/
+          cp "$build"/sqlite.so "$mods"/
+          "${{ steps.ucode.outputs.bin }}" -L "$mods" ucode-mod-sqlite/test/sqlite.uc
 
   feed-health:
     name: Feed registration check
