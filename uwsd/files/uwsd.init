@@ -62,6 +62,12 @@ start_instance() {
 		procd_add_jail_mount /usr/share/uwsd
 		[ -e "$wrapper" ] && procd_add_jail_mount "$wrapper"
 		[ -e "$docroot" ] && procd_add_jail_mount "$docroot"
+		# ucode dlopen()s its plugin modules (fs.so, uci.so, ubus.so, ...)
+		# at runtime; they are not part of uwsd's ELF NEEDED list, so ujail
+		# never mounts them on its own. Without this even the shipped
+		# utpl-wrapper fails, as it imports fs. The glob exposes whichever
+		# ucode-mod-* packages are installed.
+		procd_add_jail_mount /usr/lib/ucode/*.so
 		config_list_foreach "$1" ro_mount procd_add_jail_mount
 		config_list_foreach "$1" rw_mount procd_add_jail_mount_rw
 	fi

@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=uwsd
 PKG_VERSION:=20260910
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/jow-/uwsd.git
@@ -36,7 +36,7 @@ endef
 define Package/uwsd
   $(Package/uwsd/default)
   TITLE += (TLS: mbedtls)
-  DEPENDS:=+libubox +libucode +libjson-c +libmbedtls \
+  DEPENDS:=+libubox +libucode +libjson-c +libmbedtls +ucode-mod-fs \
     +USE_GLIBC:libcrypt-compat
   VARIANT:=mbedtls
   DEFAULT_VARIANT:=1
@@ -53,7 +53,7 @@ endef
 define Package/uwsd-openssl
   $(Package/uwsd/default)
   TITLE += (TLS: openssl)
-  DEPENDS:=+libubox +libucode +libjson-c +libopenssl \
+  DEPENDS:=+libubox +libucode +libjson-c +libopenssl +ucode-mod-fs \
     +USE_GLIBC:libcrypt-compat
   VARIANT:=openssl
   PROVIDES:=uwsd-tls
