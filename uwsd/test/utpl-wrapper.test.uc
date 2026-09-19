@@ -75,6 +75,16 @@ fs.writefile(probe, '{%\n' +
 	'	headers: request.headers,\n' +
 	'	cookie: request.headers["cookie"],\n' +
 	'	protocol: request.protocol,\n' +
+	'	// convenience accessors\n' +
+	'	get_header_canon: request.get_header("Content-Type"),\n' +
+	'	get_header_lower: request.get_header("content-type"),\n' +
+	'	get_header_absent: request.get_header("X-Nope"),\n' +
+	'	get_cookie: request.get_cookie("sysauth"),\n' +
+	'	get_cookie_absent: request.get_cookie("nope"),\n' +
+	'	// uhttpd helpers\n' +
+	'	enc: uhttpd.urlencode("a b/~ä-_.%"),\n' +
+	'	dec: uhttpd.urldecode("a+b%2Fc"),\n' +
+	'	docroot: uhttpd.docroot,\n' +
 	'}));\n' +
 	'%}');
 
@@ -306,6 +316,50 @@ let chunked = (function() {
 
 eq('a chunked form body is accumulated and parsed',
 	chunked.form, { username: [ 'default' ], password: [ 'rkn' ] });
+
+/* --- convenience accessors ----------------------------------------------- */
+
+/* request.get_header() must find a header regardless of the casing the caller
+ * spells it with, and regardless of the casing that arrived on the wire. */
+eq('get_header finds a lower-case header via canonical spelling',
+	lower.out.get_header_canon, 'application/x-www-form-urlencoded');
+
+eq('get_header finds a lower-case header via lower-case spelling',
+	lower.out.get_header_lower, 'application/x-www-form-urlencoded');
+
+eq('get_header finds a canonical header via canonical spelling',
+	canonical.out.get_header_canon, 'application/x-www-form-urlencoded');
+
+eq('get_header finds a canonical header via lower-case spelling',
+	canonical.out.get_header_lower, 'application/x-www-form-urlencoded');
+
+eq('get_header returns null for an absent header',
+	lower.out.get_header_absent, null);
+
+eq('get_cookie extracts a named cookie', lower.out.get_cookie, 'abc123');
+eq('get_cookie returns null for an absent cookie',
+	lower.out.get_cookie_absent, null);
+
+/* --- uhttpd helpers ------------------------------------------------------ */
+
+/* uh_urlencode(): unreserved [A-Za-z0-9-_.~] pass through, everything else
+ * becomes %xx with lower-case hex, byte-wise (so "ä" is two escapes). A space
+ * is %20, not "+". */
+eq('urlencode matches uhttpd uh_urlencode semantics',
+	lower.out.enc, 'a%20b%2f~%c3%a4-_.%25');
+
+eq('urldecode decodes %xx and maps + to space', lower.out.dec, 'a b/c');
+
+eq('uhttpd.docroot is exposed', lower.out.docroot, root);
+
+/* --- multi-cookie / split Cookie headers --------------------------------- */
+
+let cookies = request('GET', {
+	'cookie': 'first=1; sysauth=tok%2Bval; last=9',
+}, '');
+
+eq('get_cookie picks the right cookie out of several',
+	cookies.out.get_cookie, 'tok%2Bval');
 
 /* --- no body / GET ------------------------------------------------------- */
 

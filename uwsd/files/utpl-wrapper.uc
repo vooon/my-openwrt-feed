@@ -25,9 +25,23 @@
  *   keyed by the lower-cased header name), request.body, plus parsed
  *   request.json / request.form when the Content-Type asks for it;
  *   response.status()/set_header()/add_header();
- *   uhttpd.urlencode()/urldecode(); and the classic CGI globals
+ *   uhttpd.urlencode()/urldecode()/docroot; and the classic CGI globals
  *   (REQUEST_METHOD, REQUEST_URI, QUERY_STRING, SCRIPT_NAME, REMOTE_ADDR,
  *   SERVER_PROTOCOL).
+ *
+ * On top of that (not present in either uhttpd or angie-mod-ucode, so keep
+ * their use to templates that only ever run here):
+ *
+ *   request.get_header(name) - first value of a header, any casing, else null
+ *   request.get_cookie(name) - one cookie value from the Cookie header, else
+ *                              null (cookie names stay case-sensitive)
+ *
+ * Both are named get_* rather than header()/cookie() so that a typo cannot
+ * silently resolve to the request.headers dict instead of a value.
+ *
+ * uhttpd.urlencode()/urldecode() follow uhttpd's uh_urlencode()/uh_urldecode()
+ * semantics, except that urldecode() also maps "+" to a space (it backs the
+ * form and query-string parsing here).
  *
  * Request header names are lower-cased because the casing on the wire is
  * client- and proxy-dependent: a browser request arriving via HAProxy/Angie
@@ -53,6 +67,10 @@ let cache = {};
 
 /**
  * URL-decode a percent/plus encoded string.
+ *
+ * Unlike uhttpd's uh_urldecode(), "+" is translated to a space: this decoder
+ * is also used for application/x-www-form-urlencoded bodies and query strings,
+ * where "+" means space.
  * @param {string} s
  * @returns {string}
  */
@@ -71,6 +89,38 @@ function urldecode(s) {
 		} else {
 			out += c;
 		}
+	}
+
+	return out;
+}
+
+/**
+ * Percent-encode a string for use in a URL.
+ *
+ * Mirrors uhttpd's uh_urlencode(): the RFC 3986 unreserved characters
+ * (A-Z a-z 0-9 "-" "_" "." "~") are passed through, every other byte becomes
+ * "%" plus two lower-case hex digits. Encoding is byte-wise, so UTF-8 input
+ * yields one escape per byte. Note that a space becomes "%20", not "+".
+ * @param {string} s
+ * @returns {string}
+ */
+function urlencode(s) {
+	let out = "";
+
+	for (let i = 0; i < length(s); i++) {
+		let c = substr(s, i, 1);
+		let b = ord(s, i);
+
+		if (b == null)
+			continue;
+
+		if ((b >= 48 && b <= 57) ||		// 0-9
+		    (b >= 65 && b <= 90) ||		// A-Z
+		    (b >= 97 && b <= 122) ||		// a-z
+		    c == "-" || c == "_" || c == "." || c == "~")
+			out += c;
+		else
+			out += sprintf("%%%02x", b);
 	}
 
 	return out;
@@ -235,6 +285,42 @@ function media_type(value) {
 }
 
 /**
+ * Look up a single cookie value in the request's Cookie header(s).
+ *
+ * Cookie names are case-sensitive (unlike header names). The value is returned
+ * verbatim, without percent-decoding: "+" is a legal cookie octet, so running
+ * it through urldecode() would corrupt base64 session tokens. All Cookie
+ * headers are searched, so a client splitting them across lines still works.
+ * Returns null when the cookie is absent.
+ * @param {Object} hdrs request.headers
+ * @param {string} name cookie name
+ * @returns {?string}
+ */
+function get_cookie(hdrs, name) {
+	let arr = exists(hdrs, "cookie") ? hdrs["cookie"] : null;
+
+	if (type(arr) != "array")
+		return null;
+
+	for (let line in arr) {
+		if (type(line) != "string")
+			continue;
+
+		for (let pair in split(line, ";")) {
+			let eq = index(pair, "=");
+
+			if (eq < 0)
+				continue;
+
+			if (trim(substr(pair, 0, eq)) == name)
+				return trim(substr(pair, eq + 1));
+		}
+	}
+
+	return null;
+}
+
+/**
  * Convert response headers into the object uwsd's reply() expects.
  *
  * uwsd's reply() emits exactly one "Name: value" line per header key. A
@@ -374,9 +460,26 @@ export function onRequest(request, method, uri) {
 
 	let uhttpd = {
 		/** @param {string} s @returns {string} */
-		urlencode: function(s) { return s; },
+		urlencode: function(s) { return urlencode(s); },
 		/** @param {string} s @returns {string} */
 		urldecode: function(s) { return urldecode(s); },
+		docroot: docroot,
+	};
+
+	// convenience accessors on top of the normalized request.headers; not part
+	// of the uhttpd API, but spelled out here so templates need not re-implement
+	// the array unwrapping and casing dance. Named get_* so a typo cannot
+	// silently resolve to the request.headers dict itself.
+	/** @param {string} name @returns {?string} */
+	req.get_header = function(name) {
+		let v = get_hdr(req.headers, name);
+
+		return length(v) ? v : null;
+	};
+
+	/** @param {string} name @returns {?string} */
+	req.get_cookie = function(name) {
+		return get_cookie(req.headers, name);
 	};
 
 	let scope = { request: req, response, uhttpd };
