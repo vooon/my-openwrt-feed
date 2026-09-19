@@ -35,6 +35,7 @@ const roots = [
 	'ucode-mod-inotify/test',
 	'angie/ucode-module/test',
 	'uwsd/files',
+	'uwsd/test',
 ];
 
 /* Pin the ucode-lsp version for reproducibility. Bump deliberately. */

@@ -21,12 +21,21 @@
  * request/response/uhttpd globals that angie-mod-ucode injects:
  *
  *   request.method, request.uri, request.query, request.script_name,
- *   request.remote_addr, request.protocol, request.headers.<Name> (array),
- *   request.body, plus parsed request.json / request.form when the
- *   Content-Type asks for it; response.status()/set_header()/add_header();
+ *   request.remote_addr, request.protocol, request.headers.<name> (array,
+ *   keyed by the lower-cased header name), request.body, plus parsed
+ *   request.json / request.form when the Content-Type asks for it;
+ *   response.status()/set_header()/add_header();
  *   uhttpd.urlencode()/urldecode(); and the classic CGI globals
  *   (REQUEST_METHOD, REQUEST_URI, QUERY_STRING, SCRIPT_NAME, REMOTE_ADDR,
  *   SERVER_PROTOCOL).
+ *
+ * Request header names are lower-cased because the casing on the wire is
+ * client- and proxy-dependent: a browser request arriving via HAProxy/Angie
+ * (or any HTTP/2 hop) delivers "content-type", while curl sends
+ * "Content-Type". Lower-casing makes lookups deterministic and matches how
+ * angie-mod-ucode keys request.headers, so templates written against either
+ * backend behave the same. Response headers keep the casing the template
+ * chose.
  *
  * The compiled template is cached per file and reused while the file's
  * mtime and size are unchanged; editing the .ut on disk reloads it on the
@@ -188,6 +197,44 @@ function push_hdr(hdrs, name, value) {
 }
 
 /**
+ * Look up a request header by name, returning its first value.
+ *
+ * request.headers is keyed by the lower-cased header name (see
+ * build_request()), so the name is lower-cased here too and callers may pass
+ * any casing.
+ * @param {Object} hdrs request.headers
+ * @param {string} name
+ * @returns {string}
+ */
+function get_hdr(hdrs, name) {
+	let key = lc(name);
+	let arr = exists(hdrs, key) ? hdrs[key] : null;
+
+	if (type(arr) != "array" || !length(arr))
+		return "";
+
+	// ucode-lsp disable-next-line nullable-argument   # non-empty array above
+	return arr[0] ?? "";
+}
+
+/**
+ * Extract the bare media type of a Content-Type value: strip any
+ * ";parameter" section plus surrounding whitespace and lower-case the result,
+ * so "Application/JSON; charset=utf-8" becomes "application/json".
+ *
+ * Mirrors uc_http_media_type_is() in angie-mod-ucode, which compares the
+ * media type case-insensitively and only up to the parameter delimiter.
+ * @param {string} value raw Content-Type header value
+ * @returns {string}
+ */
+function media_type(value) {
+	let semi = index(value, ";");
+	let bare = semi >= 0 ? substr(value, 0, semi) : value;
+
+	return lc(trim(bare));
+}
+
+/**
  * Convert response headers into the object uwsd's reply() expects.
  *
  * uwsd's reply() emits exactly one "Name: value" line per header key. A
@@ -253,11 +300,12 @@ function build_request(conn, method, uri, docroot) {
 	if (query !== null)
 		req.query = query;
 
-	// normalize header values (angie-mod-ucode exposes arrays)
+	// normalize header names and values (angie-mod-ucode exposes arrays keyed
+	// by the lower-cased name)
 	for (let name, value in conn.header()) {
 		if (name != null && type(name) == "string" && value != null)
 			// ucode-lsp disable-next-line incompatible-function-argument   # narrowed to string above
-			push_hdr(hdrs, name, value);
+			push_hdr(hdrs, lc(name), value);
 	}
 
 	return req;
@@ -363,8 +411,6 @@ export function onBody(request, data) {
 	let body;
 	/** @type {string} */
 	let ctype;
-	/** @type {Array} */
-	let ctarr;
 	/** @type {?Function} */
 	let tpl;
 	/** @type {Object} */
@@ -397,9 +443,10 @@ export function onBody(request, data) {
 
 	req.body = body;
 
-	// lightweight form/json parsing mirroring the C module
-	ctarr = req.headers["Content-Type"];
-	ctype = (ctarr && length(ctarr)) ? ctarr[0] : "";
+	// lightweight form/json parsing mirroring the C module. request.headers is
+	// keyed by the lower-cased name, and the media type is compared without
+	// its ";charset=..." parameters.
+	ctype = media_type(get_hdr(req.headers, "content-type"));
 
 	headers["Content-Type"] = headers["Content-Type"] ?? "text/html; charset=utf-8";
 
@@ -408,7 +455,6 @@ export function onBody(request, data) {
 	else
 		headers["Status"] = "200 OK";
 
-	// ucode-lsp disable-next-line incompatible-function-argument   # ctype is a string from the guard above
 	if (ctype == "application/json" || (length(ctype) > 5 && substr(ctype, length(ctype) - 5) == "+json")) {
 		if (length(body)) {
 			try {
@@ -419,8 +465,7 @@ export function onBody(request, data) {
 			}
 		}
 	}
-	// ucode-lsp disable-next-line incompatible-function-argument   # ctype is a string from the guard above
-	else if (substr(ctype, 0, 33) == "application/x-www-form-urlencoded") {
+	else if (ctype == "application/x-www-form-urlencoded") {
 		req.form = parse_form(body);
 	}
 

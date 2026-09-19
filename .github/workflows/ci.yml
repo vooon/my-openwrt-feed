@@ -75,6 +75,18 @@ jobs:
           UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
             rpcd-mod-bird/test/run_tests.sh
 
+      - name: Run uwsd utpl-wrapper unit tests
+        # Drives files/utpl-wrapper.uc through a fake uwsd connection object and
+        # asserts request.headers normalization (lower-cased names, as HTTP/2
+        # and the HAProxy/Angie hops deliver them) plus the Content-Type driven
+        # request.form / request.json parsing.
+        if: ${{ hashFiles('uwsd/test/run_tests.sh') != '' }}
+        run: |
+          set -euo pipefail
+          UCODE="${{ steps.ucode.outputs.bin }}" \
+          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
+            uwsd/test/run_tests.sh
+
       - name: Run angie-mod-ucode template tests
         # Exercises the example template (examples/profiles.ut) against mocked
         # request/response/uhttpd globals; no angie build required.
