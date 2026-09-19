@@ -394,16 +394,15 @@ config collector 'mihomo'
     option per_connection '0'
 ```
 
-The collector reads `/version`, `/traffic`, `/memory`, `/connections`, and
-`/proxies`. Traffic and connection totals are exported directly, while active
-connections are aggregated by outbound node and destination. Per-connection
-metrics are opt-in because their labels can create many time series.
+The collector reads `/version`, `/connections`, and `/proxies`. Traffic and
+memory totals come from `/connections`, while active connections are aggregated
+by outbound node and destination. Per-connection metrics are opt-in because
+their labels can create many time series.
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
 | `mihomo_up` | gauge | `url` | API reachable (0/1) |
 | `mihomo_version_info` | gauge | `meta`, `version` | Mihomo version info |
-| `mihomo_traffic_*_bytes_per_second` | gauge | — | Current traffic rate |
 | `mihomo_traffic_*_bytes_total` | counter | — | Cumulative traffic |
 | `mihomo_memory_used_bytes` | gauge | — | Memory in use |
 | `mihomo_connections_active_total` | gauge | — | Active connection count |

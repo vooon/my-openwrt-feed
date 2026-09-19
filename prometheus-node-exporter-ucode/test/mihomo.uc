@@ -22,8 +22,6 @@ function metric(name, help) {
 
 const responses = {
 	"/version": {meta: true, version: "1.19.0"},
-	"/traffic": {up: 12, down: 34, upTotal: 1200, downTotal: 3400},
-	"/memory": {inuse: 65536, oslimit: 0},
 	"/connections": {
 		uploadTotal: 1200,
 		downloadTotal: 3400,
@@ -91,12 +89,31 @@ function find(name, label, value) {
 }
 
 check(find("mihomo_up", "url", "http://mihomo").value == 1, "API is up");
-check(find("mihomo_traffic_upload_bytes_per_second", null, null).value == 12, "upload rate");
+check(find("mihomo_traffic_upload_bytes_total", null, null).value == 1200, "upload total");
+check(find("mihomo_traffic_download_bytes_total", null, null).value == 3400, "download total");
+check(find("mihomo_memory_used_bytes", null, null).value == 65536, "memory usage");
+check(find("mihomo_connections_active_total", null, null).value == 1, "active connections");
 check(find("mihomo_connection_download_bytes_by_node", "outbound_node", "Proxy A").value == 20,
 	"download aggregation by node");
 check(find("mihomo_connection_upload_bytes_by_destination", "destination", "example.com").value == 10,
 	"upload aggregation by destination");
 check(find("mihomo_proxy_latency_ms", "name", "Proxy A").value == 87, "proxy latency");
+
+// An idle controller reports "connections": null; the collector must not throw
+// nor silently drop the active-connection metric.
+emitted = [];
+responses["/connections"] = {
+	uploadTotal: 1200,
+	downloadTotal: 3400,
+	memory: 65536,
+	connections: null,
+};
+
+if (call(collector, null, {config, gauge, counter}) == false)
+	fail("collector returned false with idle connections");
+
+check(find("mihomo_up", "url", "http://mihomo").value == 1, "API is up when idle");
+check(find("mihomo_connections_active_total", null, null).value == 0, "zero active connections");
 
 if (failures) {
 	warn(failures + " assertion(s) failed\n");

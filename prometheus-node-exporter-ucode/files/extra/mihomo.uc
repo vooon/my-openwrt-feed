@@ -14,8 +14,6 @@ const per_connection = config["per_connection"] == "1";
 
 let m_up = gauge("mihomo_up", "Mihomo API connected");
 let m_version = gauge("mihomo_version_info", "Mihomo version");
-let m_traffic_up = gauge("mihomo_traffic_upload_bytes_per_second", "Current upload rate [bytes/s]");
-let m_traffic_down = gauge("mihomo_traffic_download_bytes_per_second", "Current download rate [bytes/s]");
 let m_traffic_up_total = counter("mihomo_traffic_upload_bytes_total", "Cumulative uploaded bytes");
 let m_traffic_down_total = counter("mihomo_traffic_download_bytes_total", "Cumulative downloaded bytes");
 let m_memory = gauge("mihomo_memory_used_bytes", "Memory in use [bytes]");
@@ -31,24 +29,27 @@ let m_per_conn_up = gauge("mihomo_connection_upload_bytes", "Connection upload [
 let m_per_conn_down = gauge("mihomo_connection_download_bytes", "Connection download [bytes]");
 
 const version = fetch_json(api_url, "/version", secret);
-const traffic = fetch_json(api_url, "/traffic", secret);
-const memory = fetch_json(api_url, "/memory", secret);
+// /traffic and /memory are chunked streams that never EOF; their totals and
+// memory are also carried by /connections, so only query the snapshot API.
 const connections = fetch_json(api_url, "/connections", secret);
 const proxies = fetch_json(api_url, "/proxies", secret);
 
-if (!version || !traffic || !memory || !connections || !proxies) {
+if (!version || !connections || !proxies) {
 	m_up({url: api_url}, 0);
 	return false;
 }
 
 m_up({url: api_url}, 1);
 m_version({meta: version.meta, version: version.version}, 1);
-m_traffic_up({}, traffic.up);
-m_traffic_down({}, traffic.down);
-m_traffic_up_total({}, traffic.upTotal);
-m_traffic_down_total({}, traffic.downTotal);
-m_memory({}, memory.inuse);
-m_connections({}, length(connections.connections));
+m_traffic_up_total({}, connections.uploadTotal);
+m_traffic_down_total({}, connections.downloadTotal);
+m_memory({}, connections.memory);
+
+// /connections returns "connections": null when there are no active ones
+let conns = connections.connections;
+if (conns == null)
+	conns = [];
+m_connections({}, length(conns));
 
 let by_node = { up: {}, down: {} };
 let by_destination = { up: {}, down: {} };
@@ -64,7 +65,7 @@ function add_bytes(store, key, value) {
 	store[key] = old + value;
 }
 
-for (let conn in connections.connections) {
+for (let conn in conns) {
 	let chain = "DIRECT";
 	if (length(conn.chains) > 0)
 		chain = conn.chains[length(conn.chains) - 1];
