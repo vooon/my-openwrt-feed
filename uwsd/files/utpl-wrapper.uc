@@ -530,6 +530,52 @@ function flatten_headers(headers) {
 	return out;
 }
 
+/*
+ * Default reason phrases for the status codes templates commonly emit. Only
+ * needed because uwsd's reply() parses the Status header primarily to get the
+ * code: it demands a digit triple followed by whitespace (script.c:
+ * isdigit(p[0..2]) && isspace(p[3])) and otherwise ignores the header, replying
+ * 200 OK. A phrase-less "302" therefore silently becomes a 200, so the wrapper
+ * always appends a reason phrase (or at least the separating space).
+ */
+let REASONS = {
+	"100": "Continue", "101": "Switching Protocols",
+	"200": "OK", "201": "Created", "202": "Accepted",
+	"203": "Non-Authoritative Information", "204": "No Content",
+	"205": "Reset Content", "206": "Partial Content",
+	"300": "Multiple Choices", "301": "Moved Permanently", "302": "Found",
+	"303": "See Other", "304": "Not Modified", "305": "Use Proxy",
+	"307": "Temporary Redirect", "308": "Permanent Redirect",
+	"400": "Bad Request", "401": "Unauthorized", "402": "Payment Required",
+	"403": "Forbidden", "404": "Not Found", "405": "Method Not Allowed",
+	"406": "Not Acceptable", "407": "Proxy Authentication Required",
+	"408": "Request Timeout", "409": "Conflict", "410": "Gone",
+	"411": "Length Required", "412": "Precondition Failed",
+	"413": "Payload Too Large", "414": "URI Too Long",
+	"415": "Unsupported Media Type", "416": "Range Not Satisfiable",
+	"417": "Expectation Failed", "422": "Unprocessable Entity",
+	"426": "Upgrade Required", "428": "Precondition Required",
+	"429": "Too Many Requests", "431": "Request Header Fields Too Large",
+	"451": "Unavailable For Legal Reasons",
+	"500": "Internal Server Error", "501": "Not Implemented", "502": "Bad Gateway",
+	"503": "Service Unavailable", "504": "Gateway Timeout",
+	"505": "HTTP Version Not Supported",
+};
+
+/**
+ * Return the standard reason phrase for a status code, or "" when the code is
+ * unknown (the status line then carries just the separating space, which is
+ * still valid HTTP and still lets uwsd pick up the code).
+ * @param {number|string} code
+ * @returns {string}
+ */
+function reason_phrase(code) {
+	let c = int(code);
+	let reason = c != null ? REASONS[c] : null;
+
+	return reason ?? "";
+}
+
 /**
  * Build the angie-mod-ucode request object from the uwsd connection object.
  * @param {Object} conn uwsd request/connection object
@@ -764,9 +810,15 @@ export function onBody(request, data) {
 
 	// Resolve the status line only once the template has run: response.status()
 	// records into rec.status, so reading it any earlier would pin the reply to
-	// 200 and silently drop a template's redirect, 304 or error status.
-	if (rec.status !== null)
-		headers["Status"] = rec.status + (rec.phrase ? " " + rec.phrase : "");
+	// 200 and silently drop a template's redirect, 304 or error status. A
+	// phrase-less status() call still gets a standard reason phrase (and, for an
+	// unknown code, at least the separating space) because uwsd only honors a
+	// Status header whose fourth byte is whitespace.
+	if (rec.status !== null) {
+		let phrase = rec.phrase ?? reason_phrase(rec.status);
+
+		headers["Status"] = phrase ? rec.status + " " + phrase : rec.status + " ";
+	}
 	else
 		headers["Status"] = "200 OK";
 

@@ -422,9 +422,20 @@ eq('response.status(302) reaches the reply', redirect.headers.Status, '302 Found
 eq('response.set_header travels with the redirect',
 	redirect.headers.Location, '/luci/');
 
+/* uwsd's reply() only parses the Status header when its fourth byte is
+ * whitespace (isdigit(p[0..2]) && isspace(p[3])), so a phrase-less status must
+ * still be emitted with a reason phrase or uwsd silently answers 200 OK. */
 let notmodified = render_template('nm.ut', '{%\nresponse.status(304);\n%}');
 
-eq('response.status(304) without a phrase', notmodified.headers.Status, '304');
+eq('response.status(304) without a phrase gains the standard reason',
+	notmodified.headers.Status, '304 Not Modified');
+
+/* An unknown code has no standard phrase, but the separating space is still
+ * required for uwsd to honor the code at all. */
+let oddstatus = render_template('odd.ut', '{%\nresponse.status(299);\n%}');
+
+eq('an unknown phrase-less status keeps the separating space',
+	oddstatus.headers.Status, '299 ');
 
 let servererr = render_template('err.ut',
 	'{%\nresponse.status(503, "Service Unavailable");\nprint("down");\n%}');
