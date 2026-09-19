@@ -361,6 +361,103 @@ let cookies = request('GET', {
 eq('get_cookie picks the right cookie out of several',
 	cookies.out.get_cookie, 'tok%2Bval');
 
+/* --- response.status() ordering ------------------------------------------ */
+
+/** Drive a request against an arbitrary template body and return the reply.
+ *
+ * Unlike request() this does not expect JSON on stdout, so a fixture can
+ * exercise the response object instead of dumping the request.
+ *
+ * @param {string} name - fixture file name, created under DOCUMENT_ROOT
+ * @param {string} source - template source
+ * @returns {Object} { headers, body }
+ */
+function render_template(name, source) {
+	let file = root + '/' + name;
+
+	fs.writefile(file, source);
+
+	let state = null;
+	let reply_headers = null;
+	let reply_body = null;
+
+	let conn = {
+		info: function() { return { peer_address: '192.0.2.10' }; },
+		version: function() { return 1.1; },
+		header: function() { return {}; },
+		/* uwsd's request.data(): one argument stashes, none fetches. */
+		data: function(...args) {
+			if (length(args))
+				state = args[0];
+
+			return state;
+		},
+		/** @param {Object} h - reply headers
+		 *  @param {string} b - reply body */
+		reply: function(h, b) {
+			reply_headers = h;
+			reply_body = b;
+		},
+		close: function() {},
+	};
+
+	onRequest(conn, 'GET', '/' + name);
+	onBody(conn, '');
+
+	fs.unlink(file);
+
+	return { headers: reply_headers ?? {}, body: reply_body ?? '' };
+}
+
+/* A template calling response.status() records into rec.status, which is only
+ * read when the status line is built.  Building it before render() pinned every
+ * reply to "200 OK" and silently dropped redirects, 304s and error statuses. */
+let redirect = render_template('redirect.ut',
+	'{%\n' +
+	'response.status(302, "Found");\n' +
+	'response.set_header("Location", "/luci/");\n' +
+	'%}');
+
+eq('response.status(302) reaches the reply', redirect.headers.Status, '302 Found');
+eq('response.set_header travels with the redirect',
+	redirect.headers.Location, '/luci/');
+
+let notmodified = render_template('nm.ut', '{%\nresponse.status(304);\n%}');
+
+eq('response.status(304) without a phrase', notmodified.headers.Status, '304');
+
+let servererr = render_template('err.ut',
+	'{%\nresponse.status(503, "Service Unavailable");\nprint("down");\n%}');
+
+eq('response.status(503) reaches the reply',
+	servererr.headers.Status, '503 Service Unavailable');
+eq('body is still rendered alongside a custom status',
+	servererr.body, 'down');
+
+/* A template overriding Content-Type must win over the wrapper default, which
+ * is now applied after render() for the same reason. */
+let ctoverride = render_template('ct.ut',
+	'{%\nresponse.set_header("Content-Type", "application/json");\nprint("{}");\n%}');
+
+eq('response.set_header overrides the default Content-Type',
+	ctoverride.headers['Content-Type'], 'application/json');
+
+/* Absent any response.status() call the reply still defaults to 200. */
+let plain = render_template('plain.ut', '{%\nprint("hi");\n%}');
+
+eq('status defaults to 200 OK when the template sets none',
+	plain.headers.Status, '200 OK');
+eq('Content-Type defaults when the template sets none',
+	plain.headers['Content-Type'], 'text/html; charset=utf-8');
+
+/* A template that dies must still produce a 500, not a 200 with a stack trace. */
+let broken = render_template('broken.ut', '{%\ndie("boom");\n%}');
+
+eq('a dying template replies 500',
+	broken.headers.Status, '500 Internal Server Error');
+eq('a dying template replies as text/plain',
+	broken.headers['Content-Type'], 'text/plain');
+
 /* --- no body / GET ------------------------------------------------------- */
 
 let get = request('GET', { 'cookie': 'sysauth=zz' }, '');

@@ -551,13 +551,6 @@ export function onBody(request, data) {
 	// its ";charset=..." parameters.
 	ctype = media_type(get_hdr(req.headers, "content-type"));
 
-	headers["Content-Type"] = headers["Content-Type"] ?? "text/html; charset=utf-8";
-
-	if (rec.status !== null)
-		headers["Status"] = rec.status + (rec.phrase ? " " + rec.phrase : "");
-	else
-		headers["Status"] = "200 OK";
-
 	if (ctype == "application/json" || (length(ctype) > 5 && substr(ctype, length(ctype) - 5) == "+json")) {
 		if (length(body)) {
 			try {
@@ -578,16 +571,29 @@ export function onBody(request, data) {
 			// closure gets the per-request scope injected as globals via call().
 			out = render(function() { call(tpl, null, scope); });
 		} catch (e) {
-			headers["Status"] = "500 Internal Server Error";
+			rec.status = 500;
+			rec.phrase = "Internal Server Error";
 			headers["Content-Type"] = "text/plain";
 			out = "Template error: " + e;
 		}
 	}
 	else {
-		headers["Status"] = "500 Internal Server Error";
+		rec.status = 500;
+		rec.phrase = "Internal Server Error";
 		headers["Content-Type"] = "text/plain";
 		out = "Template not found or failed to compile";
 	}
+
+	// Resolve the status line only once the template has run: response.status()
+	// records into rec.status, so reading it any earlier would pin the reply to
+	// 200 and silently drop a template's redirect, 304 or error status.
+	if (rec.status !== null)
+		headers["Status"] = rec.status + (rec.phrase ? " " + rec.phrase : "");
+	else
+		headers["Status"] = "200 OK";
+
+	// likewise default the content type last, so response.set_header() wins
+	headers["Content-Type"] = headers["Content-Type"] ?? "text/html; charset=utf-8";
 
 	request.reply(flatten_headers(headers), out);
 	request.close();
