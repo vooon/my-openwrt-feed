@@ -24,7 +24,7 @@ runs:
         sha="$(sed -n 's/.*UCODE_SHA="\([0-9a-f]\{40\}\)".*/\1/p' "${GITHUB_WORKSPACE}/scripts/build-ucode.sh")"
         echo "cache-key=ucode-${sha}" >> "${GITHUB_OUTPUT}"
 
-    - uses: actions/cache/restore@v4
+    - uses: actions/cache/restore@v6
       id: cache
       with:
         path: ${{ runner.temp }}/ucode-build
@@ -39,7 +39,7 @@ runs:
     - name: Save ucode cache
       if: steps.cache.outputs.cache-hit != 'true'
       continue-on-error: true
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v6
       with:
         path: ${{ runner.temp }}/ucode-build
         key: ${{ steps.id.outputs.cache-key }}

@@ -3,7 +3,9 @@ updates:
   # Keep the pinned GitHub Actions (actions/checkout, actions/cache) current.
   # No package managers beyond that: the feed ships plain shell/node tooling.
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/build-ucode
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
