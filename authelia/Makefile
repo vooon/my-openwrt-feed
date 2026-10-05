@@ -1,12 +1,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=authelia
-PKG_VERSION:=4.39.20
+PKG_VERSION:=4.39.28
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/authelia/authelia.git
-PKG_MIRROR_HASH:=625e4d6255c91e73210d28e9ed0b50116cb509d577cbee34874a89c1a4e790e4
+PKG_MIRROR_HASH:=79b6051fce9c66921b844986501f90ee632139e2ee58dbd7367f6723321b012c
 PKG_SOURCE_VERSION:=v${PKG_VERSION}
 
 PKG_LICENSE:=ASL-2.0
@@ -14,7 +14,7 @@ PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
 HOST_BUILD_DEPENDS:=node/host
-PKG_BUILD_DEPENDS:=golang/host node/host authelia/host
+PKG_BUILD_DEPENDS:=golang1.27/host node/host authelia/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
@@ -56,7 +56,7 @@ endef
 
 define Host/Install
 	# XXX: quite ad-hoc solution...
-	npm install -g pnpm@latest-11
+	npm install -g pnpm@latest-12
 endef
 
 define Build/Compile
