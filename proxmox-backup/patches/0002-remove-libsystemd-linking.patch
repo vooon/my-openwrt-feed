@@ -72,7 +72,7 @@ Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
 +use proxmox_systemd_escape::escape_unit;
  
  use pbs_api_types::{
-     ArchiveType, Authid, BACKUP_DATE_REGEX, BackupGroupDeleteStats, BackupNamespace, BackupType,
+     ArchiveType, Authid, BACKUP_DATE_REGEX, BackupArchiveName, BackupGroupDeleteStats,
 --- a/proxmox-backup-client/Cargo.toml
 +++ b/proxmox-backup-client/Cargo.toml
 @@ -31,7 +31,8 @@ proxmox-router = { workspace = true, fea
