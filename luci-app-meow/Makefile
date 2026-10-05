@@ -1,14 +1,14 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-meow
-PKG_VERSION:=0.21.2
+PKG_VERSION:=0.22.0
 PKG_RELEASE:=1
 
 # Sources come from the meow-rs upstream tarball; only the `openwrt/luci-app-meow`
 # subtree is used. Local UCI-rename patches (meow -> meow-rs) live in patches/.
 PKG_SOURCE:=meow-rs-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/meow-rs/meow-rs/tar.gz/refs/tags/v$(PKG_VERSION)?
-PKG_HASH:=92856addeffaa007a1fd3d175694be858f9b1a452342f8cc3a0b2dbdbe8c2b32
+PKG_HASH:=c8fc3d854bb114e2ff2f2b1837e03b58bbefc30468fde9518b1468031da4ee87
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 PKG_ARCH:=all
