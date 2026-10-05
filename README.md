@@ -48,7 +48,6 @@ Package overview
 |-------------------|-------------------------------------------------------|
 | `mihomo-meta`     | mihomo (Clash Meta) rule-based proxy kernel in Go     |
 | `meow-rs`         | mihomo-compatible rule-based proxy kernel in Rust     |
-| `luci-app-meow`   | LuCI web panel + settings for meow-rs                 |
 | `nebula`          | Scalable overlay networking                           |
 | `nylon`           | Self-healing WireGuard mesh with Babel routing        |
 | `vpn-sticky`      | Sticky VPN policy routing with connmark propagation   |
