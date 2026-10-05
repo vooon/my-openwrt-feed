@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mihomo-meta
-PKG_VERSION:=1.19.31
-PKG_RELEASE:=2
+PKG_VERSION:=1.19.32
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/MetaCubeX/mihomo.git
