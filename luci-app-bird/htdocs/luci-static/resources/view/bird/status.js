@@ -70,15 +70,18 @@ function resumeCostPoll() {
 		poll.start();
 }
 
-/* Inline editable OSPF interface cost: a numeric input between `-` and `+`
- * stepper buttons. A value is applied on Enter/blur or on a button press;
- * the steppers adjust by 1, clamped to 1..65535. */
+/* Inline editable OSPF interface cost: a numeric input (the browser spinner
+ * steps by 1). A value is applied on Enter/blur, or shortly after the last
+ * spinner click, clamped to 1..65535. */
 function costWidget(iface) {
 	if (!iface || !iface.interface)
 		return '';
 
 	var disabled = (iface.cost == null) ? 'disabled' : null;
 	var applied = false;
+	var lastApplied = iface.cost;
+	var spinTimer = null;
+	var spinPaused = false;
 
 	var input = E('input', {
 		'type': 'number',
@@ -95,14 +98,28 @@ function costWidget(iface) {
 		return (parseInt(input.value, 10) || iface.cost || 0);
 	}
 
+	/* End a pending spinner debounce, resuming the poll if it paused it. */
+	function endSpin() {
+		if (spinTimer) {
+			clearTimeout(spinTimer);
+			spinTimer = null;
+		}
+		if (spinPaused) {
+			spinPaused = false;
+			resumeCostPoll();
+		}
+	}
+
 	function apply(value) {
+		endSpin();
 		value = clampCost(value);
 		if (value == null)
 			return;
 		input.value = value;
 		applied = true;
-		if (value == iface.cost)
+		if (value == lastApplied)
 			return;
+		lastApplied = value;
 		return applyCost(iface.interface, value);
 	}
 
@@ -125,6 +142,28 @@ function costWidget(iface) {
 		}
 	});
 
+	/* The spinner arrows fire `change` without necessarily focusing the
+	 * input, so apply after a short pause in clicking. Keep the poll stopped
+	 * meanwhile so a refresh does not replace the input mid-click. */
+	input.addEventListener('change', function() {
+		if (spinTimer)
+			clearTimeout(spinTimer);
+		if (document.activeElement !== input && !spinPaused) {
+			spinPaused = true;
+			pauseCostPoll();
+		}
+		spinTimer = setTimeout(function() {
+			spinTimer = null;
+			/* Blur a focused input (its handler applies the value) so the
+			 * refresh does not swap the input out from under the focus and
+			 * leave the poll stopped. */
+			if (document.activeElement === input)
+				input.blur();
+			else
+				apply(current());
+		}, 700);
+	});
+
 	/* Parking a blank input (e.g. via Delete) reverts to the current cost
 	 * when the field is blurred. */
 	input.addEventListener('input', function() {
@@ -132,27 +171,7 @@ function costWidget(iface) {
 			input.value = (iface.cost != null) ? iface.cost : '';
 	});
 
-	return E('span', { 'class': 'bird-cost-widget' }, [
-		E('button', {
-			'type': 'button',
-			'class': 'btn cbi-button cbi-button-negative',
-			'disabled': disabled,
-			'click': function() {
-				return apply(current() - 1);
-			}
-		}, '-'),
-		' ',
-		input,
-		' ',
-		E('button', {
-			'type': 'button',
-			'class': 'btn cbi-button cbi-button-positive',
-			'disabled': disabled,
-			'click': function() {
-				return apply(current() + 1);
-			}
-		}, '+')
-	]);
+	return input;
 }
 
 function updateDaemon(s) {
@@ -315,6 +334,15 @@ function updateBfd(bfd) {
 		}
 	}
 
+	/* rpcd-mod-bird reports every BFD protocol, even one without sessions;
+	 * hide the whole section only when no BFD protocol is configured. */
+	if (!(bfd || []).length) {
+		if (bfdTbl)
+			dom.content(document.getElementById('bird-bfd-box'), []);
+		bfdTbl = null;
+		return;
+	}
+
 	if (!bfdTbl) {
 		bfdTbl = new L.ui.Table(
 			[ _('Protocol'), _('Peer'), _('Interface'), _('State'), _('Interval'), _('Timeout') ],
@@ -322,7 +350,10 @@ function updateBfd(bfd) {
 			E('em', [ _('No BFD sessions') ])
 		);
 
-		dom.content(document.getElementById('bird-bfd-box'), bfdTbl.render());
+		dom.content(document.getElementById('bird-bfd-box'), [
+			E('h3', [ _('BFD') ]),
+			bfdTbl.render()
+		]);
 	}
 
 	bfdTbl.update(rows);
