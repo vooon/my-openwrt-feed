@@ -1,0 +1,26 @@
+# Re-creating the table inside one transaction keeps the replace atomic.
+table inet vpn_sticky
+delete table inet vpn_sticky
+
+table inet vpn_sticky {
+	chain prerouting {
+		type filter hook prerouting priority -140; policy accept;
+		iifname "wg0" ct direction original ct mark & 0x70000000 == 0x0 ct mark set ct mark & 0x8fffffff | 0x10000000
+		iifname "wg1" ct direction original ct mark & 0x70000000 == 0x0 ct mark set ct mark & 0x8fffffff | 0x20000000
+		iifname "wg2" ct direction original ct mark & 0x70000000 == 0x0 ct mark set ct mark & 0x8fffffff | 0x30000000
+		iifname "wg3" ct direction original ct mark & 0x70000000 == 0x0 ct mark set ct mark & 0x8fffffff | 0x40000000
+
+		iifname { "br-lan" } ct direction reply ct mark & 0x70000000 == 0x10000000 meta mark set meta mark & 0x8fffffff | 0x10000000
+		iifname { "br-lan" } ct direction reply ct mark & 0x70000000 == 0x20000000 meta mark set meta mark & 0x8fffffff | 0x20000000
+		iifname { "br-lan" } ct direction reply ct mark & 0x70000000 == 0x30000000 meta mark set meta mark & 0x8fffffff | 0x30000000
+		iifname { "br-lan" } ct direction reply ct mark & 0x70000000 == 0x40000000 meta mark set meta mark & 0x8fffffff | 0x40000000
+	}
+
+	chain output {
+		type route hook output priority -140; policy accept;
+		ct direction reply ct mark & 0x70000000 == 0x10000000 meta mark set meta mark & 0x8fffffff | 0x10000000
+		ct direction reply ct mark & 0x70000000 == 0x20000000 meta mark set meta mark & 0x8fffffff | 0x20000000
+		ct direction reply ct mark & 0x70000000 == 0x30000000 meta mark set meta mark & 0x8fffffff | 0x30000000
+		ct direction reply ct mark & 0x70000000 == 0x40000000 meta mark set meta mark & 0x8fffffff | 0x40000000
+	}
+}

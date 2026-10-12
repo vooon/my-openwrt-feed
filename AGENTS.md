@@ -43,7 +43,13 @@ pinned upstream ucode build.
 - `inotify-rsync/` — `files/inotify-rsync.uc`: `require()`-based daemon script
   (fs/uloop/uci/log/inotify), run by `files/inotify-rsync.init`.
 - `vpn-sticky/` — `files/vpn-sticky.nft.uc`: a ucode **nft template** (raw text
-  + `{% %}` blocks), compiled with `ucode -T`.
+  + `{% %}` blocks), compiled with `ucode -T`. Tested with
+  [utest](https://github.com/m00qek/utest) (pinned in `test/run_tests.sh`,
+  fetched on first run): `test/nft_template_test.uc` renders the template
+  against `mock.global.patch('uci', …)` data and compares with goldens in
+  `test/expected/` (`UPDATE_GOLDEN=1` rewrites them); `NFT="sudo nft"` adds an
+  `nft -c` pass. `test/lib/uci.uc` is a stand-in so utest can shim `uci` on
+  hosts without OpenWrt's `uci.so`.
 
 ## CI checks (see `.github/workflows/ci.yml`)
 
@@ -68,6 +74,7 @@ sh scripts/build-ucode.sh /tmp/ucode-build
 # unit tests (upstream modules on the module path):
 UCODE=.../ucode UCODE_MODULES=... prometheus-node-exporter-ucode/test.sh
 UCODE=.../ucode UCODE_MODULE_PATH=... rpcd-mod-bird/test/run_tests.sh
+UCODE=.../ucode UCODE_MODULE_PATH=... NFT="sudo nft" vpn-sticky/test/run_tests.sh
 
 # C plugin:
 cmake -S ucode-mod-inotify/src -B ... -Ducode_include_dir=$UCODE_SRC/include
@@ -87,7 +94,7 @@ the env var each runner expects; point them at the build dir with the `*.so`s).
 
 `scripts/uc-lint.mjs` drives `ucode-lsp` (pinned `0.8.11`) with
 `--target-version 25.12` over the maintained ucode packages:
-`rpcd-mod-bird`, `inotify-rsync/files`, `vpn-sticky/files`,
+`rpcd-mod-bird`, `inotify-rsync/files`, `vpn-sticky/files`, `vpn-sticky/test`,
 `ucode-mod-inotify/test`, `ucode-mod-sqlite/test`. (`prometheus-node-exporter-ucode` is deliberately
 excluded — its collectors run as raw-mode scripts with runtime-injected
 globals that static analysis can't see.)

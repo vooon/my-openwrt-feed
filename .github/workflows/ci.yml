@@ -75,6 +75,20 @@ jobs:
           UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
             rpcd-mod-bird/test/run_tests.sh
 
+      - name: Run vpn-sticky nft template tests
+        # utest suite (framework pinned in run_tests.sh): renders
+        # files/vpn-sticky.nft.uc against mocked uci configs, compares with the
+        # golden rulesets in test/expected/, then `nft -c` checks each golden
+        # (check mode only, nothing is applied).
+        if: ${{ hashFiles('vpn-sticky/test/run_tests.sh') != '' }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y --no-install-recommends nftables
+          UCODE="${{ steps.ucode.outputs.bin }}" \
+          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
+          NFT="sudo nft" \
+            vpn-sticky/test/run_tests.sh
+
       - name: Run uwsd utpl-wrapper unit tests
         # Drives files/utpl-wrapper.uc through a fake uwsd connection object and
         # asserts request.headers normalization (lower-cased names, as HTTP/2

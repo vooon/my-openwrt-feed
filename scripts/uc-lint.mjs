@@ -32,6 +32,7 @@ const roots = [
 	'rpcd-mod-bird',
 	'inotify-rsync/files',
 	'vpn-sticky/files',
+	'vpn-sticky/test',
 	'ucode-mod-inotify/test',
 	'ucode-mod-sqlite/test',
 	'angie/ucode-module/test',
