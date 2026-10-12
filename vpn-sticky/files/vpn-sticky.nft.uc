@@ -9,16 +9,34 @@ if (!enabled) {
 	return;
 }
 
+/**
+ * Parse a mark value given as hex ("0x70000000") or decimal.
+ * @param {string} s
+ * @returns {number}
+ */
+function parse_mark(s) {
+	s = trim(`${s}`);
+	return match(s, /^0[xX]/) ? hex(s) : int(s);
+}
+
+/**
+ * @param {number} n
+ * @returns {string}
+ */
+function fmt_mark(n) {
+	return sprintf("0x%08x", n);
+}
+
+let mask = parse_mark(daemon.mark_mask ?? "0x70000000");
+let mark_mask = fmt_mark(mask);
+let keep_mask = fmt_mark(~mask & 0xffffffff);
 let lan_ifs = [];
-let mark_mask = daemon.mark_mask ?? "0x70000000";
 let ifaces = [];
 
 if (type(daemon.lan_if) == "array")
 	lan_ifs = daemon.lan_if;
 else if (daemon.lan_if)
 	lan_ifs = [ daemon.lan_if ];
-else
-	lan_ifs = [ "br-lan" ];
 
 let seen_lan_ifs = {};
 let uniq_lan_ifs = [];
@@ -30,7 +48,10 @@ for (let lan_if in lan_ifs) {
 	push(uniq_lan_ifs, lan_if);
 }
 
-lan_ifs = length(uniq_lan_ifs) ? uniq_lan_ifs : [ "br-lan" ];
+/* no lan_if: replies arriving on any interface follow the sticky tunnel */
+let reply_iif = length(uniq_lan_ifs)
+	? `iifname { ${join(", ", map(uniq_lan_ifs, n => `"${n}"`))} } `
+	: "";
 
 uci.foreach("vpn-sticky", "iface", section => {
 	let name = section.name ?? section[".name"];
@@ -41,22 +62,32 @@ uci.foreach("vpn-sticky", "iface", section => {
 	if (!name || !mark || !rule_pref || !route_table)
 		return;
 
-	push(ifaces, { name, mark });
+	push(ifaces, { name, mark: fmt_mark(parse_mark(mark) & mask) });
 });
 -%}
+# Re-creating the table inside one transaction keeps the replace atomic.
+table inet vpn_sticky
+delete table inet vpn_sticky
+
 table inet vpn_sticky {
 	chain prerouting {
 		type filter hook prerouting priority -140; policy accept;
 {% for (let iface in ifaces): %}
-		iifname "{{ iface.name }}" ct state new ct mark set {{ iface.mark }}
+		iifname "{{ iface.name }}" ct direction original ct mark & {{ mark_mask }} == 0x0 ct mark set ct mark & {{ keep_mask }} | {{ iface.mark }}
 {% endfor %}
-{% for (let lan_if in lan_ifs): %}
-		iifname "{{ lan_if }}" ct state { established, related } ct mark & {{ mark_mask }} != 0x0 meta mark set ct mark
+{#
+ # Copy only the sticky bits to the packet mark, keeping other users' bits
+ # (pbr, fw4). One rule per mark: older kernels can't OR two registers.
+ #}
+{% for (let iface in ifaces): %}
+		{{ reply_iif }}ct direction reply ct mark & {{ mark_mask }} == {{ iface.mark }} meta mark set meta mark & {{ keep_mask }} | {{ iface.mark }}
 {% endfor %}
 	}
 
 	chain output {
 		type route hook output priority -140; policy accept;
-		ct state { established, related } ct mark & {{ mark_mask }} != 0x0 meta mark set ct mark
+{% for (let iface in ifaces): %}
+		ct direction reply ct mark & {{ mark_mask }} == {{ iface.mark }} meta mark set meta mark & {{ keep_mask }} | {{ iface.mark }}
+{% endfor %}
 	}
 }

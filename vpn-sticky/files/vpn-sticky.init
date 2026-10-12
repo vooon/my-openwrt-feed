@@ -8,20 +8,32 @@ USE_PROCD=1
 CONFIG_FILE="/etc/config/vpn-sticky"
 NFT_TEMPLATE="/usr/share/vpn-sticky/vpn-sticky.nft.uc"
 RUNTIME_NFT="/tmp/vpn-sticky.nft"
+# Kernel objects (rules/routes) installed by the last apply, one per line:
+#   rule <family> <pref>
+#   route <family> <table> <prefix>
+# Lets a reload update in place and remove only what is no longer wanted,
+# instead of flushing everything first (which opened a no-route window).
+STATE_FILE="/var/run/vpn-sticky.state"
+LOCK_FILE="/var/lock/vpn-sticky.lock"
 
 . /lib/functions.sh
 
 VS_ENABLED=1
+VS_IPV6=1
 VS_MARK_MASK="0x70000000"
 VS_PREFIXES=""
 VS_IFACES=""
 VS_DEBUG=0
-VS_APPLY_RETRIES=5
-VS_APPLY_DELAY=1
+VS_STATE=""
 
 vlog() {
 	[ "$VS_DEBUG" = "1" ] || return 0
 	logger -p daemon.info -t vpn-sticky "$*"
+}
+
+# Normalize a mark to the form `ip rule show` prints (lowercase hex).
+norm_mark() {
+	printf "0x%x" "$1" 2>/dev/null
 }
 
 collect_prefix() {
@@ -44,12 +56,17 @@ collect_iface() {
 	[ -n "$rule_pref" ] || return 0
 	[ -n "$route_table" ] || return 0
 
-	VS_IFACES="${VS_IFACES}${name}|${mark}|${rule_pref}|${route_table}
-"
+	mark="$(norm_mark "$mark")" || {
+		logger -p daemon.err -t vpn-sticky "iface $name: invalid mark, skipping"
+		return 0
+	}
+
+	VS_IFACES="${VS_IFACES} ${name}|${mark}|${rule_pref}|${route_table}"
 }
 
 load_config_data() {
 	VS_ENABLED=1
+	VS_IPV6=1
 	VS_MARK_MASK="0x70000000"
 	VS_PREFIXES=""
 	VS_IFACES=""
@@ -57,79 +74,173 @@ load_config_data() {
 
 	config_load vpn-sticky || return 1
 	config_get_bool VS_ENABLED daemon enabled 1
+	config_get_bool VS_IPV6 daemon ipv6 1
 	config_get VS_MARK_MASK daemon mark_mask "0x70000000"
 	config_get_bool VS_DEBUG daemon debug 0
 	config_list_foreach daemon target_prefix collect_prefix
 	config_foreach collect_iface iface
 
-	vlog "config: enabled=$VS_ENABLED mark_mask=$VS_MARK_MASK prefixes='$VS_PREFIXES'"
-}
+	VS_MARK_MASK="$(norm_mark "$VS_MARK_MASK")" || return 1
 
-flush_routes() {
-	local name mark rule_pref route_table
-
-	printf "%s" "$VS_IFACES" | while IFS='|' read -r name mark rule_pref route_table; do
-		[ -n "$name" ] || continue
-		ip -4 rule del pref "$rule_pref" 2>/dev/null || true
-		ip -4 route flush table "$route_table" 2>/dev/null || true
-		vlog "flushed routes for $name (table $route_table)"
-	done
+	vlog "config: enabled=$VS_ENABLED ipv6=$VS_IPV6 mark_mask=$VS_MARK_MASK prefixes='$VS_PREFIXES'"
 }
 
 iface_netifd_up() {
 	# Authoritative readiness: netifd reports the interface as up (addresses
-	# applied, device present). Fails fast when the iface is down or gone so a
-	# down/teardown event (interface.down trigger) never gets stuck waiting.
+	# applied, device present). A down iface is skipped, not waited for: the
+	# next interface.update trigger brings its routes in.
 	ubus call "network.interface.$1" status 2>/dev/null | grep -q '"up": *true'
 }
 
-apply_routes() {
-	local name mark rule_pref route_table prefix
-	local attempt link_up
+# Prefixes routed into the sticky table for a family. Without target_prefix
+# the table holds a default route: a marked packet is always a reply to a host
+# that reached us through that tunnel, so the tunnel is the way back.
+family_prefixes() {
+	local fam="$1"
+	local prefix out=""
 
-	printf "%s" "$VS_IFACES" | while IFS='|' read -r name mark rule_pref route_table; do
-		[ -n "$name" ] || continue
+	[ -n "$VS_PREFIXES" ] || { echo default; return; }
 
-		attempt=0
-		link_up=0
-		while [ "$attempt" -lt "$VS_APPLY_RETRIES" ]; do
-			if iface_netifd_up "$name"; then
-				link_up=1
-				break
-			fi
-			attempt=$((attempt + 1))
-			vlog "iface $name not up, retry $attempt/$VS_APPLY_RETRIES"
-			sleep "$VS_APPLY_DELAY"
-		done
-
-		if [ "$link_up" -ne 1 ]; then
-			logger -p daemon.warn -t vpn-sticky "iface $name not up after $VS_APPLY_RETRIES retries, skipping routes/rule"
-			continue
-		fi
-
-		for prefix in $VS_PREFIXES; do
-			ip -4 route replace table "$route_table" "$prefix" dev "$name" \
-				|| logger -p daemon.err -t vpn-sticky "route add failed: $prefix dev $name table $route_table"
-		done
-
-		ip -4 rule del pref "$rule_pref" 2>/dev/null || true
-		ip -4 rule add pref "$rule_pref" fwmark "$mark/$VS_MARK_MASK" lookup "$route_table" \
-			|| logger -p daemon.err -t vpn-sticky "rule add failed: pref $rule_pref mark $mark table $route_table"
-
-		vlog "applied routes for $name (table $route_table, mark $mark)"
+	for prefix in $VS_PREFIXES; do
+		case "$prefix" in
+		default) out="$out $prefix" ;;
+		*:*) [ "$fam" = 6 ] && out="$out $prefix" ;;
+		*) [ "$fam" = 4 ] && out="$out $prefix" ;;
+		esac
 	done
+	echo "${out# }"
+}
+
+state_add() {
+	VS_STATE="${VS_STATE}$*
+"
+}
+
+ensure_rule() {
+	local fam="$1" pref="$2" mark="$3" table="$4"
+	local want="fwmark $mark/$VS_MARK_MASK lookup $table"
+
+	state_add rule "$fam" "$pref"
+
+	# Already correct: leave it alone, a del/add would drop packets.
+	[ "$(ip -"$fam" rule show pref "$pref" 2>/dev/null)" = "$pref:	from all $want" ] && return 0
+
+	while ip -"$fam" rule del pref "$pref" 2>/dev/null; do :; done
+	# shellcheck disable=SC2086
+	ip -"$fam" rule add pref "$pref" $want \
+		|| logger -p daemon.err -t vpn-sticky "rule add failed: -$fam pref $pref $want"
+}
+
+apply_iface() {
+	local name="$1" mark="$2" rule_pref="$3" route_table="$4"
+	local fam prefix up=0
+
+	iface_netifd_up "$name" && up=1
+	[ "$up" = 1 ] || logger -p daemon.notice -t vpn-sticky "iface $name not up, routes skipped"
+
+	for fam in 4 6; do
+		[ "$fam" = 6 ] && [ "$VS_IPV6" != 1 ] && continue
+
+		ensure_rule "$fam" "$rule_pref" "$mark" "$route_table"
+
+		[ "$up" = 1 ] || continue
+		for prefix in $(family_prefixes "$fam"); do
+			state_add route "$fam" "$route_table" "$prefix"
+			ip -"$fam" route replace table "$route_table" "$prefix" dev "$name" \
+				|| logger -p daemon.err -t vpn-sticky "route add failed: -$fam $prefix dev $name table $route_table"
+		done
+	done
+
+	vlog "applied $name (table $route_table, mark $mark, up=$up)"
+}
+
+remove_state_entry() {
+	local kind="$1" fam="$2"
+
+	case "$kind" in
+	rule)
+		while ip -"$fam" rule del pref "$3" 2>/dev/null; do :; done
+		;;
+	route)
+		ip -"$fam" route del table "$3" "$4" 2>/dev/null
+		;;
+	esac
+	vlog "removed stale $*"
+}
+
+# Remove every state line from $1 (file) that is not in $2 (file, may be empty).
+remove_stale() {
+	local old="$1" new="$2" line
+
+	[ -f "$old" ] || return 0
+	# not grep -vxFf: busybox grep matches every line with an empty pattern file
+	awk -v newf="$new" 'BEGIN { while ((getline l < newf) > 0) want[l] = 1 } !($0 in want)' "$old" |
+	while read -r line; do
+		# shellcheck disable=SC2086
+		[ -n "$line" ] && remove_state_entry $line
+	done
+}
+
+# Pre-state-file installs flushed+re-added everything; on the first apply
+# without a state file, clear what the configured ifaces may have left behind.
+flush_legacy() {
+	local entry name mark rule_pref route_table fam oldifs
+
+	for entry in $VS_IFACES; do
+		oldifs="$IFS"; IFS='|'
+		# shellcheck disable=SC2086
+		set -- $entry
+		IFS="$oldifs"
+		rule_pref="$3" route_table="$4"
+		for fam in 4 6; do
+			while ip -"$fam" rule del pref "$rule_pref" 2>/dev/null; do :; done
+			ip -"$fam" route flush table "$route_table" 2>/dev/null
+		done
+	done
+}
+
+apply_routes() {
+	local entry oldifs tmp
+
+	VS_STATE=""
+	[ -f "$STATE_FILE" ] || flush_legacy
+
+	if [ "$VS_ENABLED" = "1" ]; then
+		for entry in $VS_IFACES; do
+			oldifs="$IFS"; IFS='|'
+			# shellcheck disable=SC2086
+			set -- $entry
+			IFS="$oldifs"
+			apply_iface "$1" "$2" "$3" "$4"
+		done
+	fi
+
+	tmp="${STATE_FILE}.new"
+	printf "%s" "$VS_STATE" >"$tmp"
+	remove_stale "$STATE_FILE" "$tmp"
+	mv "$tmp" "$STATE_FILE"
+}
+
+remove_routes() {
+	local empty="${STATE_FILE}.empty"
+
+	: >"$empty"
+	remove_stale "$STATE_FILE" "$empty"
+	rm -f "$empty" "$STATE_FILE"
 }
 
 apply_nft_rules() {
 	local tmpfile
 
 	command -v nft >/dev/null 2>&1 || return 0
+
+	if [ "$VS_ENABLED" != "1" ]; then
+		disable_nft_rules
+		return 0
+	fi
+
 	command -v utpl >/dev/null 2>&1 || return 0
 	[ -r "$NFT_TEMPLATE" ] || return 1
-
-	nft delete table inet vpn_sticky >/dev/null 2>&1 || true
-
-	[ "$VS_ENABLED" = "1" ] || return 0
 
 	tmpfile="$(mktemp -p /tmp vpn-sticky.nft.XXXXXX)" || return 1
 
@@ -141,6 +252,8 @@ apply_nft_rules() {
 
 	mv "$tmpfile" "$RUNTIME_NFT"
 
+	# The rendered file deletes and re-creates the table in one transaction:
+	# on failure the old ruleset stays in place.
 	if ! nft -f "$RUNTIME_NFT"; then
 		logger -p daemon.err -t vpn-sticky "failed to apply nft rules"
 		return 1
@@ -156,28 +269,35 @@ start_service() {
 	reload_service
 }
 
-reload_routes() {
-	[ -f "$CONFIG_FILE" ] || return 0
-	load_config_data || return 1
-
-	vlog "reload triggered (enabled=$VS_ENABLED)"
-	flush_routes
-	[ "$VS_ENABLED" = "1" ] && apply_routes
-}
-
 reload_service() {
-	logger -p daemon.info -t vpn-sticky "reload_service called"
-	reload_routes || return 1
-	apply_nft_rules
+	local ret=0
+
+	[ -f "$CONFIG_FILE" ] || return 0
+
+	# procd triggers and manual reloads may overlap
+	lock "$LOCK_FILE"
+	vlog "reload_service called"
+
+	if load_config_data; then
+		apply_nft_rules || ret=1
+		apply_routes
+	else
+		ret=1
+	fi
+
+	lock -u "$LOCK_FILE"
+	return $ret
 }
 
 stop_service() {
-	if [ -f "$CONFIG_FILE" ]; then
-		load_config_data || return 1
-		flush_routes
-	fi
-
+	lock "$LOCK_FILE"
 	disable_nft_rules
+	if [ -f "$STATE_FILE" ]; then
+		remove_routes
+	elif [ -f "$CONFIG_FILE" ] && load_config_data; then
+		flush_legacy
+	fi
+	lock -u "$LOCK_FILE"
 }
 
 add_iface_trigger() {
@@ -189,8 +309,8 @@ add_iface_trigger() {
 
 	vlog "registering netifd trigger for iface $name"
 	# netifd emits interface.update on bring-up and interface.down on teardown.
-	# Only react to bring-up, otherwise an ifdown reloads while the device is
-	# being removed.
+	# Only react to bring-up: on teardown the kernel drops the dev routes
+	# itself and the rule then just falls through to the main table.
 	procd_add_interface_trigger "interface.update" "$name" /etc/init.d/vpn-sticky reload
 }
 
@@ -198,7 +318,6 @@ service_triggers() {
 	config_get_bool VS_DEBUG daemon debug 0
 	vlog "registering triggers"
 	procd_add_reload_trigger "vpn-sticky"
-	procd_add_interface_trigger "interface.update" "lan" /etc/init.d/vpn-sticky reload
 
 	[ -f "$CONFIG_FILE" ] || return 0
 	config_load vpn-sticky || return 0
