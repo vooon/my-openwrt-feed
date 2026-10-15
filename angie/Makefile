@@ -8,12 +8,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=angie
-PKG_VERSION:=1.12.2
+PKG_VERSION:=1.12.3
 PKG_RELEASE:=1
 
 PKG_SOURCE:=angie-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://download.angie.software/files/
-PKG_HASH:=4f0a51b1de8dd9f09248b2845bbfa4df4f034877bf92f605e499fd7fff09c77c
+PKG_HASH:=09343fcfd8a085dab8e3745fb568e0eb16c9284ad636407d2fbcbfcfea8b3788
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 PKG_LICENSE:=BSD-2-Clause
