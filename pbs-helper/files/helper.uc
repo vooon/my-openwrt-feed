@@ -348,11 +348,16 @@ export function gotify_send(deps, srv, title, message, priority) {
 /**
  * Run one backup job and report it to Healthchecks and Gotify.
  *
- * job: { name, srv, args, hc_url }
+ * job: { name, srv, args, hc_url, wrap }
  *   name   - message title prefix, e.g. "host rootfs"
  *   srv    - server from server_config()
  *   args   - proxmox-backup-client arguments
  *   hc_url - Healthchecks ping URL (optional)
+ *
+ *   wrap   - optional fn(run): calls run() (which runs proxmox-backup-client
+ *            and returns { rc, report }) and returns that result, possibly
+ *            with another rc and `notes` (strings shown before the report;
+ *            a successful run with notes is reported at priority 5)
  *
  * Exit code: the backup's rc; 0 → 1 when a configured notification failed.
  *
@@ -365,22 +370,35 @@ export function run_job(deps, job) {
 
 	deps.logger.note(`${job.name}: backup started`);
 
-	let res = deps.run(backup_command(job.srv, job.args), deps.logger);
+	let cmd = backup_command(job.srv, job.args);
+	let run = () => deps.run(cmd, deps.logger);
+	let res = job.wrap ? job.wrap(run) : run();
 	let rc = res.rc;
+	let notes = '';
 	let stat = 'successful', prio = 1, msg = 'Backup completed successfully.';
+
+	for (let n in res.notes ?? [])
+		notes += `- ${n}\n`;
 
 	if (rc == 0) {
 		deps.logger.note(`${job.name}: backup successful`);
+		if (notes != '') {
+			stat = 'successful, with warnings';
+			prio = 5;
+			msg += '\n\n' + notes;
+		}
 	}
 	else {
 		deps.logger.err(`${job.name}: backup failed rc=${rc}`);
 		stat = `failed rc=${rc}`;
 		prio = 9;
-		msg = '```\n' + res.report + '\n```\n';
+		msg = (notes != '' ? notes + '\n' : '') + '```\n' + res.report + '\n```\n';
 	}
 
+	let report = (notes != '' ? notes + '\n' : '') + res.report;
+
 	/* independent sinks: always try both */
-	let hc_ok = hc_ping(deps, job.hc_url, `/${rc}`, res.report);
+	let hc_ok = hc_ping(deps, job.hc_url, `/${rc}`, report);
 	let gotify_ok = gotify_send(deps, job.srv, `${job.name} backup: ${stat}`, msg, prio);
 
 	if (rc != 0)

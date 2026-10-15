@@ -257,6 +257,48 @@ describe('run_job reporting', () => {
 	});
 });
 
+describe('run_job wrap and notes', () => {
+	it('wrap runs around the backup and may add notes', () => {
+		let d = mock_deps({});
+		let order = [];
+
+		let rc = pbs.run_job(d, { name: 'h vm', srv: SRV, args: [], hc_url: HC, wrap: (run) => {
+			push(order, 'before');
+			let r = run();
+			push(order, 'after');
+			r.notes = [ 'fsfreeze skipped: agent not responding' ];
+			return r;
+		} });
+
+		assert.match(0, rc);
+		assert.match([ 'before', 'after' ], order);
+		assert.match('- fsfreeze skipped: agent not responding\n\nline1\nline2', calls[1]?.body);
+
+		let g = json_of(2);
+		assert.match('h vm backup: successful, with warnings', g?.title);
+		assert.match(5, g?.priority);
+		assert.match('Backup completed successfully.\n\n- fsfreeze skipped: agent not responding\n', g?.message);
+	});
+
+	it('wrap can fail a successful backup', () => {
+		let d = mock_deps({});
+
+		let rc = pbs.run_job(d, { name: 'h vm', srv: SRV, args: [], hc_url: HC, wrap: (run) => {
+			let r = run();
+			r.rc = 3;
+			r.notes = [ 'ERROR: commit failed' ];
+			return r;
+		} });
+
+		assert.match(3, rc);
+		assert.match(HC + '/3', calls[1]?.url);
+
+		let g = json_of(2);
+		assert.match(9, g?.priority);
+		assert.match('- ERROR: commit failed\n\n```\nline1\nline2\n```\n', g?.message);
+	});
+});
+
 describe('healthchecks and gotify are independent', () => {
 	it('healthchecks down: retried, gotify still sent', () => {
 		let d = mock_deps({ 'https://hc.example/': [ { status: 0, error: 'connect failed' } ] });

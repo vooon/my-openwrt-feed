@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pbs-helper
-PKG_VERSION:=0.5.0
+PKG_VERSION:=0.5.1
 PKG_RELEASE:=1
 
 PKG_LICENSE:=ASL-2.0
