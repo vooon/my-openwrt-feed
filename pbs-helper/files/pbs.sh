@@ -38,6 +38,7 @@ config_get PBS_BACKUP_NAME "$section" backup_name "rootfs"
 config_get PBS_PREFIX "$section" prefix "/"
 config_get GOTIFY_URL "$section" gotify_url ""
 config_get GOTIFY_APP_TOKEN "$section" gotify_app_token ""
+config_get HC_PING_URL "$section" hc_ping_url ""
 
 [ -n "$repository" ] || {
 	echo "pbs-helper: repository is not configured" >&2
@@ -51,6 +52,18 @@ config_get GOTIFY_APP_TOKEN "$section" gotify_app_token ""
 export PBS_REPOSITORY="$repository"
 export PBS_PASSWORD="$password"
 [ -n "$fingerprint" ] && export PBS_FINGERPRINT="$fingerprint"
+
+# Healthchecks ping: $1 is "/start" or "/<rc>"; $2 an optional file whose
+# tail is sent as the ping body (shown in the check's event log).
+hc_ping() {
+	[ -n "$HC_PING_URL" ] || return 0
+	if [ -n "$2" ] && [ -s "$2" ]; then
+		tail -c 10000 "$2" | curl -fsS -m 10 --retry 3 -o /dev/null \
+			--data-binary @- "${HC_PING_URL%/}$1" || true
+	else
+		curl -fsS -m 10 --retry 3 -o /dev/null "${HC_PING_URL%/}$1" || true
+	fi
+}
 
 backup_args=""
 append_backup_arg() {
@@ -66,6 +79,8 @@ run_pbs_backup() {
 	fi
 }
 
+hc_ping /start
+
 if [ -n "$backup_args" ]; then
 	# shellcheck disable=SC2086
 	run_pbs_backup $backup_args "$@"
@@ -73,6 +88,8 @@ else
 	run_pbs_backup "$@"
 fi
 rc=$?
+
+hc_ping "/$rc" "$backup_log"
 
 if [ -z "$GOTIFY_URL" ]; then
 	exit $rc
