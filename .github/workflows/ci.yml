@@ -101,6 +101,17 @@ jobs:
           UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
             uwsd/test/run_tests.sh
 
+      - name: Run pbs-helper unit tests
+        # utest suite (pinned in run_tests.sh) for the pbs.helper job runner:
+        # command building, log tail, Healthchecks and Gotify reporting
+        # (mocked HTTP; independent sinks).
+        if: ${{ hashFiles('pbs-helper/test/run_tests.sh') != '' }}
+        run: |
+          set -euo pipefail
+          UCODE="${{ steps.ucode.outputs.bin }}" \
+          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
+            pbs-helper/test/run_tests.sh
+
       - name: Run netifd-proto-dummy tests
         # Shell unit tests: mocked netifd proto-shell helpers + a fake `ip`
         # asserting the exact commands the dummy.proto plugin issues, plus a

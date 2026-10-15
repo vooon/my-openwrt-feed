@@ -37,6 +37,8 @@ const roots = [
 	'ucode-mod-sqlite/test',
 	'uwsd/files',
 	'uwsd/test',
+	'pbs-helper/files',
+	'pbs-helper/test',
 ];
 
 /* Pin the ucode-lsp version for reproducibility. Bump deliberately. */
