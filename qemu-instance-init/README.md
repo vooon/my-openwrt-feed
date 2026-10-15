@@ -44,6 +44,7 @@ config instance 'instance-name'
 | `backup`              | bool    | no        | 0        | Enable backup for the instance |
 | `backup_server`       | string  | yes*      | *(none)* | Backup server section name |
 | `backup_id`           | string  | no        | `${hostname}-vm-${instance}` | Backup ID |
+| `hc_ping_url`         | string  | no        | *(none)* | [Healthchecks](https://healthchecks.io/docs/http_api/) ping URL for this instance's backup: `/start` before, `/<exit code>` after (log tail as body) |
 
 
 Proxmox Backup Server configuration

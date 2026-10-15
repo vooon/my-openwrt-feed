@@ -40,6 +40,20 @@ list_append_args() {
 	[ -n "$1" ] && procd_append_param command "$1"
 }
 
+# Healthchecks ping: $1 ping URL (no-op if empty), $2 "/start" or "/<rc>",
+# $3 an optional file whose tail is sent as the ping body.
+hc_ping() {
+	local url="$1" path="$2" body="$3"
+
+	[ -n "$url" ] || return 0
+	if [ -n "$body" ] && [ -s "$body" ]; then
+		tail -c 10000 "$body" | curl -fsS -m 10 --retry 3 -o /dev/null \
+			--data-binary @- "${url%/}$path" || true
+	else
+		curl -fsS -m 10 --retry 3 -o /dev/null "${url%/}$path" || true
+	fi
+}
+
 qmp_append_command() {
 	local out_file="$1"
 	local cmd="$2"
@@ -214,13 +228,14 @@ backup_instance() {
 
 	hostname=$(uname -n)
 
-	local qmp_socket backup_server backup_id
+	local qmp_socket backup_server backup_id hc_ping_url
 	config_get qmp_socket "$instance" qmp_socket "/var/run/qemu.$instance.qmp.sock"
 	config_get root_disk "$instance" root_disk
 	config_get uefi_code "$instance" uefi_code
 	config_get uefi_vars "$instance" uefi_vars
 	config_get backup_server "$instance" backup_server
 	config_get backup_id "$instance" backup_id "${hostname}-vm-${instance}"
+	config_get hc_ping_url "$instance" hc_ping_url
 
 	# load backup env vars
 	config_get PBS_REPOSITORY "$backup_server" repository
@@ -245,6 +260,7 @@ backup_instance() {
 	fi
 
 	log_info "$instance" "begin backup"
+	hc_ping "$hc_ping_url" /start
 
 	local pidfile="/var/run/qemu.$instance.pid"
 	if [ -e "$pidfile" ]; then
@@ -333,6 +349,8 @@ backup_instance() {
 	# shellcheck disable=SC2086
 	proxmox-backup-client backup --backup-type vm --backup-id "$backup_id" $pbs_args 2>&1 | tee "$backup_log"
 	local rc=$?
+
+	hc_ping "$hc_ping_url" "/$rc" "$backup_log"
 
 	if [ "$rc" -ne 0 ]; then
 		log_error "$instance" "backup failed: rc: $rc"
