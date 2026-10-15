@@ -53,6 +53,15 @@ pinned upstream ucode build.
   `UCODE_MODULE_PATH`) needs only the upstream `fs` module.
   `files/pbs-backup.uc` is the `/usr/bin/pbs-backup` CLI (`pbs.sh` is a
   compat wrapper).
+- `qemu-instance-init/` — procd init script `files/qemu.init`, two
+  conflicting VARIANTs: `qemu-instance-init` (init only) and
+  `qemu-instance-init-pbs` (adds `files/qemu-backup.uc` as
+  `/usr/libexec/qemu-backup`, uses `pbs.helper`); `qemu.init` offers `backup`
+  only when that script is installed. Both ship the QMP client
+  `files/qmp.uc` (`qemu.qmp`, `/usr/share/ucode/qemu/qmp.uc`) and its CLI
+  `files/qemu-qmp.uc` (`/usr/libexec/qemu-qmp`, used by `stop`); utest suite
+  `test/qmp_test.uc` runs it against a real unix socket
+  (`test/run_tests.sh`, `UCODE` / `UCODE_MODULE_PATH`, needs `socket.so`).
 - `vpn-sticky/` — `files/vpn-sticky.nft.uc`: a ucode **nft template** (raw text
   + `{% %}` blocks), compiled with `ucode -T`. Tested with
   [utest](https://github.com/m00qek/utest) (pinned in `test/run_tests.sh`,
@@ -86,6 +95,7 @@ sh scripts/build-ucode.sh /tmp/ucode-build
 UCODE=.../ucode UCODE_MODULES=... prometheus-node-exporter-ucode/test.sh
 UCODE=.../ucode UCODE_MODULE_PATH=... rpcd-mod-bird/test/run_tests.sh
 UCODE=.../ucode UCODE_MODULE_PATH=... pbs-helper/test/run_tests.sh
+UCODE=.../ucode UCODE_MODULE_PATH=... qemu-instance-init/test/run_tests.sh
 UCODE=.../ucode UCODE_MODULE_PATH=... NFT="sudo nft" vpn-sticky/test/run_tests.sh
 
 # C plugin:
@@ -108,7 +118,8 @@ the env var each runner expects; point them at the build dir with the `*.so`s).
 `--target-version 25.12` over the maintained ucode packages:
 `rpcd-mod-bird`, `inotify-rsync/files`, `vpn-sticky/files`, `vpn-sticky/test`,
 `ucode-mod-inotify/test`, `ucode-mod-sqlite/test`, `uwsd/files`, `uwsd/test`,
-`pbs-helper/files`, `pbs-helper/test`. (`prometheus-node-exporter-ucode` is deliberately
+`pbs-helper/files`, `pbs-helper/test`, `qemu-instance-init/files`,
+`qemu-instance-init/test`. (`prometheus-node-exporter-ucode` is deliberately
 excluded — its collectors run as raw-mode scripts with runtime-injected
 globals that static analysis can't see.)
 

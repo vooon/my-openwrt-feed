@@ -9,10 +9,11 @@ STOP=1
 # XXX TODO: detect arch
 PROG=/usr/bin/qemu-system-x86_64
 
-# XXX may be optional
-extra_command "backup" "run proxmox-backup-client (all or one instance)"
+QEMU_QMP=/usr/libexec/qemu-qmp
 
-. /usr/share/libubox/jshn.sh
+# only in the qemu-instance-init-pbs variant
+QEMU_BACKUP=/usr/libexec/qemu-backup
+[ -x "$QEMU_BACKUP" ] && extra_command "backup" "run proxmox-backup-client (all or one instance)"
 
 _log() {
 	local level="$1"
@@ -38,36 +39,6 @@ log_debug() {
 list_append_args() {
 	# NOTE: filter empty args
 	[ -n "$1" ] && procd_append_param command "$1"
-}
-
-# Healthchecks ping: $1 ping URL (no-op if empty), $2 "/start" or "/<rc>",
-# $3 an optional file whose tail is sent as the ping body.
-hc_ping() {
-	local url="$1" path="$2" body="$3"
-
-	[ -n "$url" ] || return 0
-	if [ -n "$body" ] && [ -s "$body" ]; then
-		tail -c 10000 "$body" | curl -fsS -m 10 --retry 3 -o /dev/null \
-			--data-binary @- "${url%/}$path" || true
-	else
-		curl -fsS -m 10 --retry 3 -o /dev/null "${url%/}$path" || true
-	fi
-}
-
-qmp_append_command() {
-	local out_file="$1"
-	local cmd="$2"
-	local device="$3"
-
-	json_init
-	json_add_string execute "$cmd"
-	if [ -n "$device" ]; then
-		json_add_object arguments
-		json_add_string device "$device"
-		json_close_object
-	fi
-	json_dump >> "$out_file"
-	printf '\n' >> "$out_file"
 }
 
 start_instance() {
@@ -178,10 +149,8 @@ _stop_instance_task(){
 	fi
 
 	log_info "$instance" "sending 'system_powerdown' to VM with PID $qemu_pid."
-	socat - "UNIX-CONNECT:$qmp_socket" <<-QMP
-	{ "execute": "qmp_capabilities" }
-	{ "execute": "system_powerdown" }
-	QMP
+	"$QEMU_QMP" "$qmp_socket" system_powerdown >/dev/null ||
+		log_warn "$instance" "system_powerdown via QMP failed"
 
 	log_info "$instance" "waiting VM to shutdown."
 	local elapsed=0
@@ -220,178 +189,6 @@ stop_instance() {
 	_stop_instance_task "$instance" "$qmp_socket" "$term_timeout" "$qemu_pid" &
 }
 
-backup_instance() {
-	local instance="$1" backup hostname
-
-	config_get_bool backup "$instance" backup 0
-	[ "$backup" = 1 ] || return
-
-	hostname=$(uname -n)
-
-	local qmp_socket backup_server backup_id hc_ping_url
-	config_get qmp_socket "$instance" qmp_socket "/var/run/qemu.$instance.qmp.sock"
-	config_get root_disk "$instance" root_disk
-	config_get uefi_code "$instance" uefi_code
-	config_get uefi_vars "$instance" uefi_vars
-	config_get backup_server "$instance" backup_server
-	config_get backup_id "$instance" backup_id "${hostname}-vm-${instance}"
-	config_get hc_ping_url "$instance" hc_ping_url
-
-	# load backup env vars
-	config_get PBS_REPOSITORY "$backup_server" repository
-	config_get PBS_PASSWORD "$backup_server" password
-	config_get PBS_FINGERPRINT "$backup_server" fingerprint
-	config_get PBS_NAMESPACE "$backup_server" namespace
-	# see https://pbs.proxmox.com/docs-1/backup-client.html#environment-variables
-	export PBS_REPOSITORY PBS_PASSWORD PBS_FINGERPRINT
-
-	# load notify url
-	local gotify_url gotify_app_token
-	config_get gotify_url "$backup_server" gotify_url
-	config_get gotify_app_token "$backup_server" gotify_app_token
-
-	if [ -z "$PBS_REPOSITORY" ] || [ -z "$PBS_PASSWORD" ]; then
-		log_error "$instance" "pbs client unconfigured: $backup_server"
-		return
-	fi
-	if [ ! -e "$root_disk" ]; then
-		log_error "$instance" "root disk: $root_disk: not exist"
-		return
-	fi
-
-	log_info "$instance" "begin backup"
-	hc_ping "$hc_ping_url" /start
-
-	local pidfile="/var/run/qemu.$instance.pid"
-	if [ -e "$pidfile" ]; then
-		local qemu_pid
-		qemu_pid=$(cat "$pidfile")
-
-		log_info "$instance" "querying block devices for VM with PID $qemu_pid"
-		local query_resp flush_devs flush_dev flush_resp qmp_flush_file line key
-		query_resp="$(socat - "UNIX-CONNECT:$qmp_socket" <<-QMP
-		{ "execute": "qmp_capabilities" }
-		{ "execute": "query-block" }
-		QMP
-		)"
-
-		flush_devs=""
-		while IFS= read -r line; do
-			case "$line" in
-				*'"return"'*)
-					json_cleanup
-					json_init
-					json_load "$line" || continue
-					json_select return 2>/dev/null || continue
-
-					for key in $(json_get_keys); do
-						json_select "$key" || continue
-						json_get_var flush_dev device
-						if [ -n "$flush_dev" ]; then
-							case " $flush_devs " in
-								*" $flush_dev "*) ;;
-								*) flush_devs="$flush_devs $flush_dev" ;;
-							esac
-						fi
-						json_select ..
-					done
-
-					json_select ..
-					;;
-			esac
-		done <<-EOF
-		$query_resp
-		EOF
-
-		if [ -z "$flush_devs" ]; then
-			log_warn "$instance" "no block devices found via QMP query-block, skipping block-flush"
-		else
-			qmp_flush_file="$(mktemp -t qmp-flush.${instance}.XXXXXX)"
-			: > "$qmp_flush_file"
-			qmp_append_command "$qmp_flush_file" qmp_capabilities
-			for flush_dev in $flush_devs; do
-				log_info "$instance" "queue 'block-flush' for device '$flush_dev'"
-				qmp_append_command "$qmp_flush_file" block-flush "$flush_dev"
-			done
-
-			flush_resp="$(socat - "UNIX-CONNECT:$qmp_socket" < "$qmp_flush_file")"
-			rm -f "$qmp_flush_file"
-
-			if printf '%s' "$flush_resp" | grep -q '"error"'; then
-				log_warn "$instance" "one or more block-flush commands failed"
-			fi
-		fi
-
-		# NOTE: ideally should make a lvm snapshot, then backup.
-		#       but porting all logic of vzdump is too much work...
-	fi
-
-	local backup_log="/tmp/pbs-backup.$instance.log"
-
-	# XXX need to have safe globbing
-	local pbs_args=""
-	if [ -n "$PBS_NAMESPACE" ]; then
-		pbs_args="$pbs_args --ns $PBS_NAMESPACE"
-	fi
-
-	# TODO: support multiple drives
-	pbs_args="$pbs_args disk0.img:$root_disk"
-
-	if [ -n "$uefi_code" ]; then
-		pbs_args="$pbs_args pflash0_code.img:$uefi_code"
-	fi
-	if [ -n "$uefi_vars" ]; then
-		pbs_args="$pbs_args pflash0_efivars.img:$uefi_vars"
-	fi
-
-	set -o pipefail
-
-	# shellcheck disable=SC2086
-	proxmox-backup-client backup --backup-type vm --backup-id "$backup_id" $pbs_args 2>&1 | tee "$backup_log"
-	local rc=$?
-
-	hc_ping "$hc_ping_url" "/$rc" "$backup_log"
-
-	if [ "$rc" -ne 0 ]; then
-		log_error "$instance" "backup failed: rc: $rc"
-		gotify_stat="failed rc=$rc"
-		gotify_prio=9
-	else
-		log_info "$instance" "backup successful"
-		gotify_stat="successful"
-		gotify_prio=1
-	fi
-
-	if [ -n "$gotify_url" ]; then
-		local msg_md
-		msg_md="$(printf '```\n%s\n```\n' "$(cat "$backup_log")")"
-
-		json_init
-		json_add_string title "$hostname $backup_id backup: $gotify_stat"
-		json_add_string message "$msg_md"
-		json_add_int priority "$gotify_prio"
-		json_add_object extras
-		json_add_object "client::display"
-		json_add_string contentType "text/markdown"
-		json_close_object
-		json_close_object
-
-		json_dump | curl -fsS "$gotify_url/message" \
-			-H "X-Gotify-Key: $gotify_app_token" \
-			-H "Content-Type: application/json" \
-			-X POST \
-			--data-binary @-
-		rc2=$?
-		if [ "$rc2" -ne 0 ]; then
-			log_error "$instance" "failed to notify gotify: rc: $rc2"
-		else
-			log_info "$instance" "gotify notified successfully"
-		fi
-	fi
-
-	log_info "$instance" "end backup"
-}
-
 start_service() {
 	local instance="$1"
 
@@ -417,12 +214,5 @@ stop_service() {
 }
 
 backup() {
-	local instance="$1"
-
-	config_load qemu
-	if [ -z "$instance" ]; then
-		config_foreach backup_instance instance
-	else
-		backup_instance "$instance"
-	fi
+	"$QEMU_BACKUP" "$@"
 }

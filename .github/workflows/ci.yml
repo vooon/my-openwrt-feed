@@ -112,6 +112,16 @@ jobs:
           UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
             pbs-helper/test/run_tests.sh
 
+      - name: Run qemu-instance-init QMP tests
+        # utest suite for the qemu.qmp client against a real unix socket
+        # (the test plays QEMU's side of the protocol).
+        if: ${{ hashFiles('qemu-instance-init/test/run_tests.sh') != '' }}
+        run: |
+          set -euo pipefail
+          UCODE="${{ steps.ucode.outputs.bin }}" \
+          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
+            qemu-instance-init/test/run_tests.sh
+
       - name: Run netifd-proto-dummy tests
         # Shell unit tests: mocked netifd proto-shell helpers + a fake `ip`
         # asserting the exact commands the dummy.proto plugin issues, plus a

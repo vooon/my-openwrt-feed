@@ -4,14 +4,18 @@ qemu-instance-init
 https://openwrt.org/docs/guide-user/virtualization/qemu_host#init_script
 
 A init script initially based on openwrt wiki, but ported to procd.
-Also supports backup by `proxmox-backup-client`.
+Two variants (mutually exclusive, install one):
 
-Runtime dependencies used by the script:
-- `proxmox-backup-client`
-- `curl`
-- `uuidgen`
-- `jshn`
-- `socat`
+- `qemu-instance-init` - the procd init script only. Depends on `uuidgen`
+  and ucode (`ucode-mod-socket`): `/usr/libexec/qemu-qmp <socket> <command>
+  [<json args>]` (module `qemu.qmp`) sends QMP commands, e.g.
+  `system_powerdown` on stop.
+- `qemu-instance-init-pbs` - the same init script plus backup by
+  `proxmox-backup-client`: `/etc/init.d/qemu backup [instance]` (the command
+  only exists in this variant) runs `/usr/libexec/qemu-backup`, a ucode script
+  built on `pbs-helper`'s job runner (`pbs.helper`). Backup output goes to syslog as
+  `qemu.<instance>` (stderr on a terminal); Healthchecks and Gotify reporting
+  are independent and both optional.
 
 
 Instance configuration
@@ -44,11 +48,15 @@ config instance 'instance-name'
 | `backup`              | bool    | no        | 0        | Enable backup for the instance |
 | `backup_server`       | string  | yes*      | *(none)* | Backup server section name |
 | `backup_id`           | string  | no        | `${hostname}-vm-${instance}` | Backup ID |
-| `hc_ping_url`         | string  | no        | *(none)* | [Healthchecks](https://healthchecks.io/docs/http_api/) ping URL for this instance's backup: `/start` before, `/<exit code>` after (log tail as body) |
+| `hc_ping_url`         | string  | no        | *(none)* | [Healthchecks](https://healthchecks.io/docs/http_api/) ping URL for this instance's backup: `/start` before, `/<exit code>` after (head and tail of the backup log as body) |
 
 
 Proxmox Backup Server configuration
 -----------------------------------
+
+Used by `qemu-instance-init-pbs`. The password is passed to
+`proxmox-backup-client` via `PBS_PASSWORD_CMD` (`uci -q get qemu.<section>.password`),
+so it never appears on a command line.
 
 https://pbs.proxmox.com/docs-1/backup-client.html#environment-variables
 
@@ -63,5 +71,5 @@ config proxmox_backup_server 'pbs_server'
 | `fingerprint` 				| string  | no        | *(none)* | server certificate fingerprint |
 | `namespace` 					| string  | no        | *(none)* | use namespace |
 |-----------------------|---------|-----------|----------|-------------|
-| `gotify_url` 					| string 	| no 				| *(none)* | URL to Gotify server for notifications. Disabled if unset. |
+| `gotify_url` 					| string 	| no 				| *(none)* | URL to Gotify server for notifications (Markdown). Disabled if unset; independent of `hc_ping_url`. |
 | `gotify_app_token` 		| string 	| yes       | *(none)* | Gotify application token |

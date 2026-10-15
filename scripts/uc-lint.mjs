@@ -39,6 +39,8 @@ const roots = [
 	'uwsd/test',
 	'pbs-helper/files',
 	'pbs-helper/test',
+	'qemu-instance-init/files',
+	'qemu-instance-init/test',
 ];
 
 /* Pin the ucode-lsp version for reproducibility. Bump deliberately. */
