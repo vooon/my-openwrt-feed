@@ -16,10 +16,8 @@ PKG_SOURCE_URL:=https://download.angie.software/files/
 PKG_HASH:=4f0a51b1de8dd9f09248b2845bbfa4df4f034877bf92f605e499fd7fff09c77c
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
-# angie itself is BSD-2-Clause; the bundled ucode module is Apache-2.0 and
-# vendors multipart-parser-c under MIT
-PKG_LICENSE:=BSD-2-Clause AND Apache-2.0 AND MIT
-PKG_LICENSE_FILES:=LICENSE ucode-module/vendor/multipart-parser-c/LICENSE
+PKG_LICENSE:=BSD-2-Clause
+PKG_LICENSE_FILES:=LICENSE
 
 PKG_FIXUP:=autoreconf
 PKG_BUILD_PARALLEL:=1
@@ -74,8 +72,7 @@ PKG_CONFIG_DEPENDS := \
 	CONFIG_ANGIE_HTTP_SECURE_LINK \
 	CONFIG_ANGIE_HTTP_SUB \
 	CONFIG_ANGIE_STREAM_REAL_IP \
-	CONFIG_PACKAGE_angie-mod-stream \
-	CONFIG_PACKAGE_angie-mod-ucode
+	CONFIG_PACKAGE_angie-mod-stream
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/nls.mk
@@ -191,15 +188,6 @@ define BuildModule
   $$(eval $$(call BuildPackage,angie-mod-$(1)))
 endef
 
-# Vendored third-party modules that live in this package dir and are built
-# into angie via --add-dynamic-module.  They are copied into the build tree
-# during prepare so that angie's auto/module can compile them.
-define Build/Prepare
-	$(call Build/Prepare/Default)
-	mkdir -p $(PKG_BUILD_DIR)/ucode-module
-	$(CP) ./ucode-module/* $(PKG_BUILD_DIR)/ucode-module/
-endef
-
 CONFIGURE_VARS += CONFIG_BIG_ENDIAN=$(CONFIG_BIG_ENDIAN)
 
 CONFIGURE_ARGS += \
@@ -270,10 +258,8 @@ CONFIGURE_ARGS += \
 	$(if $(call IsEnabled,ANGIE_HTTP_SECURE_LINK),--with-http_secure_link_module) \
 	$(if $(call IsEnabled,ANGIE_HTTP_SUB),--with-http_sub_module) \
 	$(if $(CONFIG_PACKAGE_angie-mod-stream),--with-stream=dynamic --with-stream_ssl_module --with-stream_ssl_preread_module) \
-	$(if $(call IsEnabled,ANGIE_STREAM_REAL_IP),--with-stream_realip_module) \
-	$(if $(CONFIG_PACKAGE_angie-mod-ucode),--add-dynamic-module=$(PKG_BUILD_DIR)/ucode-module)
+	$(if $(call IsEnabled,ANGIE_STREAM_REAL_IP),--with-stream_realip_module)
 
 $(eval $(call BuildPackage,angie))
 $(eval $(call BuildPackage,angie-full))
 $(eval $(call BuildModule,stream,,ngx_stream,Add support for Angie request streaming.))
-$(eval $(call BuildModule,ucode,+libucode +libjson-c,ngx_http_ucode,Execute ucode templates as content handlers.))

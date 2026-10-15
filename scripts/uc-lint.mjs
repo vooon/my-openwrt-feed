@@ -35,7 +35,6 @@ const roots = [
 	'vpn-sticky/test',
 	'ucode-mod-inotify/test',
 	'ucode-mod-sqlite/test',
-	'angie/ucode-module/test',
 	'uwsd/files',
 	'uwsd/test',
 ];

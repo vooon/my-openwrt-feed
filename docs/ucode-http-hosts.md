@@ -14,7 +14,6 @@ anchors for re-verification, not API guarantees.
 |------|------------------|---------------|------------------|-----------|
 | `uhttpd-mod-ucode` | once at startup | once at startup | `fork()`, no `exec`; reuses compiled VM via COW | process per request |
 | `uwsd` run-script | once per backend worker | once per backend worker | none (event loop in the worker) | worker process per backend |
-| `angie-mod-ucode` (legacy) | every request | every request | fresh VM, in-process | shares the angie worker |
 
 ## uhttpd-mod-ucode
 
@@ -78,14 +77,12 @@ directly. Response API:
 `request` / `response` / `uhttpd` scope and renders `.ut` templates with a
 compiled-template cache.
 
-## angie-mod-ucode (legacy)
+## angie-mod-ucode (removed)
 
-This was the first attempt at embedding ucode in this feed and is retained only
-for in-process embedding; `angie/README.md` already marks it legacy and
-recommends `uwsd`. It runs as an in-process angie content handler and creates a
-**fresh VM per request**, recompiling the template every time
-(`angie/ucode-module/ngx_http_ucode_module.c:1140`, `:1223`, `:1492`, `:1514`),
-which blocks the angie worker for the duration of the request.
+The first attempt at embedding ucode in this feed was an in-process angie
+content handler that created a fresh VM and recompiled the template on every
+request, blocking the angie worker meanwhile. It was removed in favour of
+`uwsd` (see git history for the module source).
 
 ## Decision: the node exporter stays on its own jailed uhttpd
 
