@@ -354,8 +354,9 @@ export function gotify_send(deps, srv, title, message, priority) {
  *   args   - proxmox-backup-client arguments
  *   hc_url - Healthchecks ping URL (optional)
  *
- *   wrap   - optional fn(run): calls run() (which runs proxmox-backup-client
- *            and returns { rc, report }) and returns that result, possibly
+ *   wrap   - optional fn(run): calls run([args]) (which runs
+ *            proxmox-backup-client, with `args` instead of job.args when
+ *            given, and returns { rc, report }) and returns that result, possibly
  *            with another rc and `notes` (strings shown before the report;
  *            a successful run with notes is reported at priority 5)
  *
@@ -370,8 +371,7 @@ export function run_job(deps, job) {
 
 	deps.logger.note(`${job.name}: backup started`);
 
-	let cmd = backup_command(job.srv, job.args);
-	let run = () => deps.run(cmd, deps.logger);
+	let run = (args) => deps.run(backup_command(job.srv, args ?? job.args), deps.logger);
 	let res = job.wrap ? job.wrap(run) : run();
 	let rc = res.rc;
 	let notes = '';

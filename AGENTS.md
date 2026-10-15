@@ -57,7 +57,7 @@ pinned upstream ucode build.
   conflicting VARIANTs: `qemu-instance-init` (init only) and
   `qemu-instance-init-pbs` (adds `files/qemu-backup.uc` as
   `/usr/libexec/qemu-backup`, uses `pbs.helper`, and `files/backup.uc`, the
-  `qemu.backup` fsfreeze / overlay snapshot / commit / recover flow with
+  `qemu.backup` fsfreeze / LVM-or-overlay snapshot / commit / recover flow with
   injected deps); `qemu.init` offers `backup`, and runs
   `qemu-backup --recover` before start, only when that script is installed. Both ship the QMP client
   `files/qmp.uc` (`qemu.qmp`, `/usr/share/ucode/qemu/qmp.uc`) and its CLI

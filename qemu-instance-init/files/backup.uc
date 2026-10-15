@@ -6,12 +6,13 @@
  * consistent_backup(deps, plan, backup):
  *   1. fsfreeze  guest-fsfreeze-freeze through qemu-guest-agent (flushes the
  *                guest page cache and blocks writes)
- *   2. snapshot  QMP blockdev-snapshot-sync: guest writes now go to a
- *                temporary qcow2 overlay, the base disk stops changing
+ *   2. snapshot  LVM disks: `lvcreate -s` (needs kmod-dm-snapshot);
+ *                qcow2 disks: QMP blockdev-snapshot-sync, guest writes go
+ *                to a temporary qcow2 overlay, the base file stops changing
  *   3. thaw      right away, so the guest is frozen only for step 2
- *   4. backup()  reads the (now static) base disk
- *   5. commit    block-commit the overlay back, block-job-complete pivots
- *                to the base, the overlay is deleted
+ *   4. backup()  reads the snapshot LV / the (now static) base file
+ *   5. cleanup   LVM: lvremove; qcow2: block-commit the overlay back,
+ *                block-job-complete pivots to the base, overlay deleted
  *
  * Without a snapshot, fsfreeze degrades to a freeze+thaw flush before the
  * live disk is read. Every step is best effort except the clean-up: thaw is
@@ -28,7 +29,7 @@
  * client at a time, and `/etc/init.d/qemu stop` must still reach it.
  *
  * Side effects go through deps (qmp_open, agent_open, exists, unlink, sleep,
- * offline_commit, logger), so the flow is testable without QEMU.
+ * offline_commit, lvm, logger), so the flow is testable without QEMU.
  */
 
 const JOB = 'pbs-commit';
@@ -152,6 +153,91 @@ function commit(q, deps, plan) {
 }
 
 /**
+ * Name of the backup snapshot LV of an origin LV.
+ *
+ * @param {string} lv
+ * @returns {string}
+ */
+function snap_name(lv) {
+	return `${lv}-pbs-snap`;
+}
+
+/**
+ * Trimmed output of a deps.lvm() result ('' when missing).
+ *
+ * @param {any} r
+ * @returns {string}
+ */
+function out_of(r) {
+	let o = r?.out;
+
+	return type(o) == 'string' ? trim(o) : '';
+}
+
+/**
+ * Resolve the VG and LV of a disk path through `lvs`.
+ *
+ * @param {object} deps
+ * @param {string} disk - e.g. /dev/vg0/vm-unifi
+ * @returns {object} { vg, lv } / { error }
+ */
+function lvm_origin(deps, disk) {
+	let r = deps.lvm([ 'lvs', '--noheadings', '--separator', '|', '-o', 'vg_name,lv_name', disk ]);
+	let m = match(out_of(r), /^\s*([^|\s]+)\s*\|\s*([^|\s]+)\s*$/);
+
+	if (r.rc != 0 || !m)
+		return { error: `lvs ${disk}: ${out_of(r)}` };
+
+	// ucode-lsp disable-next-line nullable-argument   # both groups matched
+	return { vg: m[1], lv: m[2] };
+}
+
+/**
+ * Remove the backup snapshot LV (no-op when absent).
+ *
+ * @param {object} deps
+ * @param {object} o - { vg, lv } of the origin
+ * @returns {string} error, or ''
+ */
+function lvm_remove(deps, o) {
+	let name = snap_name(o.lv);
+
+	if (!deps.exists(`/dev/${o.vg}/${name}`))
+		return '';
+
+	let r;
+	for (let i = 0; i < 3; i++) {
+		if (i > 0)
+			deps.sleep(2000);
+
+		r = deps.lvm([ 'lvremove', '-f', `${o.vg}/${name}` ]);
+		if (r.rc == 0)
+			return '';
+	}
+
+	return `lvremove ${o.vg}/${name}: ${out_of(r)}`;
+}
+
+/**
+ * Create the backup snapshot LV.
+ *
+ * @param {object} deps
+ * @param {object} o - { vg, lv } of the origin
+ * @param {string} size - lvcreate size: '10%ORIGIN' (-l) or '2G' (-L)
+ * @returns {object} { path } / { error }
+ */
+function lvm_create(deps, o, size) {
+	let name = snap_name(o.lv);
+	let r = deps.lvm([ 'lvcreate', '-s', '-n', name,
+		index(size, '%') >= 0 ? '-l' : '-L', size, `${o.vg}/${o.lv}` ]);
+
+	if (r.rc != 0)
+		return { error: `lvcreate: ${out_of(r)}` };
+
+	return { path: `/dev/${o.vg}/${name}` };
+}
+
+/**
  * Active image file of a block device.
  *
  * @param {object} q - QMP client
@@ -226,14 +312,19 @@ export function recover(deps, plan) {
  *   qmp_socket   - QMP socket path
  *   agent_socket - guest agent socket path (fsfreeze)
  *   fsfreeze     - freeze guest filesystems through the agent
- *   snapshot     - take a QEMU overlay snapshot (needs overlay)
+ *   snapshot     - take a snapshot for the backup
+ *   method       - 'lvm' (snapshot LV) or 'overlay' (QEMU qcow2 overlay)
+ *   disk         - the disk path (LVM: the origin LV)
+ *   snapshot_size - LVM snapshot size for lvcreate (default 10%ORIGIN)
  *   device       - QEMU block device name of the disk (root-img)
- *   overlay      - path of the temporary qcow2 overlay
+ *   overlay      - path of the temporary qcow2 overlay (method overlay)
  * }
  *
- * @param {object} deps - { qmp_open, agent_open, exists, unlink, sleep, logger }
+ * @param {object} deps - { qmp_open, agent_open, exists, unlink, sleep, lvm,
+ *                          offline_commit, logger }
  * @param {object} plan
- * @param {function} backup - runs the backup, returns its exit code
+ * @param {function} backup - backup(path): runs the backup reading `path`
+ *                            (null: the disk itself), returns its exit code
  * @returns {object} { rc, notes }
  */
 export function consistent_backup(deps, plan, backup) {
@@ -243,11 +334,22 @@ export function consistent_backup(deps, plan, backup) {
 
 	if (!plan.running) {
 		log.info('instance is not running, backing up the disk as is');
-		return { rc: backup(), notes };
+		return { rc: backup(null), notes };
 	}
 
-	let q = null;
-	if (plan.snapshot) {
+	let q = null, origin = null;
+	if (plan.snapshot && plan.method == 'lvm') {
+		origin = lvm_origin(deps, plan.disk);
+		if (origin.error) {
+			push(notes, `snapshot skipped: ${origin.error}`);
+			origin = null;
+		}
+		else if ((err = lvm_remove(deps, origin)) != '') {
+			push(notes, `snapshot skipped: stale snapshot: ${err}`);
+			origin = null;
+		}
+	}
+	else if (plan.snapshot) {
 		if (!plan.overlay) {
 			push(notes, 'snapshot skipped: no backup_snapshot_dir for this disk, backing up the live disk');
 		}
@@ -278,8 +380,19 @@ export function consistent_backup(deps, plan, backup) {
 		}
 	}
 
-	let snapped = false;
-	if (q) {
+	let snapped = false, snap_path = null;
+	if (origin) {
+		let r = lvm_create(deps, origin, plan.snapshot_size ?? '10%ORIGIN');
+
+		if (r.error)
+			push(notes, `snapshot failed, backing up the live disk: ${r.error}`);
+		else {
+			snapped = true;
+			snap_path = r.path;
+			log.info(`backing up LVM snapshot ${snap_path}`);
+		}
+	}
+	else if (q) {
 		let r = q.execute('blockdev-snapshot-sync', {
 			device: plan.device,
 			'snapshot-file': plan.overlay,
@@ -303,9 +416,14 @@ export function consistent_backup(deps, plan, backup) {
 	if (!snapped && !frozen)
 		log.warn('backing up the live disk (crash-consistent at best)');
 
-	let rc = backup();
+	let rc = backup(snap_path);
 
-	if (snapped) {
+	if (snapped && origin) {
+		err = lvm_remove(deps, origin);
+		if (err)
+			push(notes, `could not remove the snapshot (removed on the next backup): ${err}`);
+	}
+	else if (snapped) {
 		err = '';
 
 		for (let i = 0; i < 10; i++) {

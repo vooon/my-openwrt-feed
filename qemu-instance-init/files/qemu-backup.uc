@@ -15,9 +15,11 @@
  *
  * While a running instance is backed up, its disk is kept consistent (see
  * qemu.backup): guest filesystems frozen through qemu-guest-agent
- * (backup_fsfreeze, default: guest_agent) around a QEMU overlay snapshot
- * (backup_snapshot, default on; overlay in backup_snapshot_dir, default the
- * qcow2 disk's directory, required for LVM disks).
+ * (backup_fsfreeze, default: guest_agent) around a snapshot
+ * (backup_snapshot, default on): an LVM snapshot LV for LVM disks
+ * (backup_snapshot_size, default 10%ORIGIN; needs kmod-dm-snapshot), a QEMU
+ * qcow2 overlay for qcow2 disks (backup_snapshot_dir, default the disk's
+ * directory).
  *
  * --recover merges a snapshot overlay left behind by an interrupted backup
  * (qemu.init runs it before starting the instance).
@@ -26,7 +28,7 @@
  */
 
 import { cursor } from 'uci';
-import { access, readfile, unlink, dirname } from 'fs';
+import { access, readfile, unlink, dirname, popen } from 'fs';
 import * as log from 'log';
 // ucode-lsp disable-next-line UC3002   # installed as /usr/share/ucode/pbs/helper.uc
 import * as pbs from 'pbs.helper';
@@ -86,8 +88,8 @@ function bool(v, dflt) {
 function consistency_plan(inst) {
 	let name = inst['.name'];
 	let root_disk = inst.root_disk ?? '';
-	let disk_type = inst.root_disk_type ?? 'qcow2';
-	let snap_dir = inst.backup_snapshot_dir ?? (disk_type == 'qcow2' ? dirname(root_disk) : null);
+	let lvm = (inst.root_disk_type ?? 'qcow2') == 'lvm';
+	let snap_dir = lvm ? null : (inst.backup_snapshot_dir ?? dirname(root_disk));
 
 	return {
 		running: is_running(name),
@@ -95,6 +97,9 @@ function consistency_plan(inst) {
 		agent_socket: inst.guest_agent_socket ?? `/var/run/qemu.${name}.qga.sock`,
 		fsfreeze: bool(inst.backup_fsfreeze, bool(inst.guest_agent, false)),
 		snapshot: bool(inst.backup_snapshot, true),
+		method: lvm ? 'lvm' : 'overlay',
+		disk: root_disk,
+		snapshot_size: inst.backup_snapshot_size ?? '10%ORIGIN',
 		device: 'root-img',	/* -drive id= in qemu.init */
 		overlay: snap_dir ? `${snap_dir}/${name}.pbs-overlay.qcow2` : null,
 	};
@@ -113,6 +118,18 @@ function consistency_deps(logger) {
 		exists: (path) => access(path) == true,
 		unlink: (path) => unlink(path) == true,
 		offline_commit: (path) => system([ 'qemu-img', 'commit', '-q', path ]) == 0,
+		lvm: (args) => {
+			let cmd = 'lvm';
+			for (let a in args)
+				cmd += ' ' + pbs.shellquote(a);
+
+			let p = popen(cmd + ' 2>&1', 'r');
+			let out = p ? (p.read('all') ?? '') : '';
+			let code = p ? (p.close() ?? 1) : 127;
+
+			logger.info(`lvm ${join(' ', args)}: rc=${code}`);
+			return { rc: code, out };
+		},
 		sleep: sleep,
 		logger: logger,
 	};
@@ -166,17 +183,23 @@ function backup_instance(inst) {
 	}
 
 	let backup_id = inst.backup_id ?? `${host}-vm-${name}`;
-	let args = [ 'backup', '--backup-type', 'vm', '--backup-id', backup_id ];
 
-	if (srv.namespace != '')
-		push(args, '--ns', srv.namespace);
+	/* proxmox-backup-client arguments, reading disk0 from `disk` */
+	let args_for = (disk) => {
+		let args = [ 'backup', '--backup-type', 'vm', '--backup-id', backup_id ];
 
-	/* TODO: support multiple drives */
-	push(args, `disk0.img:${root_disk}`);
-	if (inst.uefi_code)
-		push(args, `pflash0_code.img:${inst.uefi_code}`);
-	if (inst.uefi_vars)
-		push(args, `pflash0_efivars.img:${inst.uefi_vars}`);
+		if (srv.namespace != '')
+			push(args, '--ns', srv.namespace);
+
+		/* TODO: support multiple drives */
+		push(args, `disk0.img:${disk}`);
+		if (inst.uefi_code)
+			push(args, `pflash0_code.img:${inst.uefi_code}`);
+		if (inst.uefi_vars)
+			push(args, `pflash0_efivars.img:${inst.uefi_vars}`);
+
+		return args;
+	};
 
 	let plan = consistency_plan(inst);
 	let cdeps = consistency_deps(deps.logger);
@@ -184,12 +207,13 @@ function backup_instance(inst) {
 	return pbs.run_job(deps, {
 		name: `${host} ${backup_id}`,
 		srv: srv,
-		args: args,
+		args: args_for(root_disk),
 		hc_url: inst.hc_ping_url,
 		wrap: (run) => {
 			let res;
-			let c = consistent_backup(cdeps, plan, () => {
-				res = run();
+			/* path: the snapshot LV to read instead of the disk, or null */
+			let c = consistent_backup(cdeps, plan, (path) => {
+				res = run(path ? args_for(path) : null);
 				return res.rc;
 			});
 

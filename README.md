@@ -94,8 +94,9 @@ Package overview
 | Package              | Description                                 |
 |----------------------|---------------------------------------------|
 | `proxmox-backup`     | Proxmox Backup Server client                |
-| `pbs-helper`         | Proxmox Backup helper script                |
-| `qemu-instance-init` | init.d helper for QEMU instances            |
+| `pbs-helper`         | Proxmox Backup host backup + job runner     |
+| `qemu-instance-init` | init.d helper for QEMU instances (`-pbs`: consistent VM backups) |
+| `kmod-dm-snapshot`   | device-mapper snapshot target (LVM snapshots) |
 
 ### File synchronization
 

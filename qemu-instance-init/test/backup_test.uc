@@ -49,7 +49,7 @@ function fake_client(who, script) {
 
 /**
  * Dependencies with fake clients.
- * @param {object} [o] - { qmp, agent, qmp_error, agent_error, exists, unlink, offline }
+ * @param {object} [o] - { qmp, agent, qmp_error, agent_error, exists, unlink, offline, lvm }
  * @returns {object}
  */
 function deps(o) {
@@ -70,6 +70,15 @@ function deps(o) {
 		},
 		exists: () => type(o.exists) == 'array' ? (length(o.exists) > 1 ? shift(o.exists) : o.exists[0]) : (o.exists ?? false),
 		offline_commit: (p) => { push(events, `qemu-img-commit:${p}`); return o.offline ?? true; },
+		lvm: (args) => {
+			push(events, `lvm:${join(' ', args)}`);
+
+			let r = o.lvm?.[args[0]];
+			if (type(r) == 'array')
+				return length(r) > 1 ? shift(r) : r[0];
+
+			return r ?? { rc: 0, out: '' };
+		},
 		unlink: (p) => { push(events, `unlink:${p}`); return o.unlink ?? true; },
 		sleep: () => null,
 		logger: { info: log('info'), note: log('note'), warn: log('warn'), err: log('err') },
@@ -95,13 +104,14 @@ function plan(o) {
 }
 
 /**
- * A backup callback recording itself and returning `rc`.
+ * A backup callback recording itself (and the path it was asked to read,
+ * when not the disk itself) and returning `rc`.
  * @param {number} rc
  * @returns {function}
  */
 function backup(rc) {
-	return () => {
-		push(events, 'backup');
+	return (path) => {
+		push(events, path ? `backup:${path}` : 'backup');
 		return rc;
 	};
 }
@@ -302,5 +312,98 @@ describe('recover', () => {
 		assert.match([ 'qmp:open', 'qmp:query-block', 'qmp:block-commit', 'qmp:query-block-jobs',
 			'qmp:query-block-jobs', 'qmp:block-job-complete', 'qmp:query-block-jobs', 'qmp:close',
 			`unlink:${OVERLAY}` ], events);
+	});
+});
+
+describe('LVM snapshot', () => {
+	const LV = '/dev/vg0/vm-unifi';
+	const SNAP = '/dev/vg0/vm-unifi-pbs-snap';
+	const LVS = { rc: 0, out: '  vg0|vm-unifi\n' };
+
+	/**
+	 * Plan for a running LVM instance.
+	 * @param {object} [o]
+	 * @returns {object}
+	 */
+	function lvm_plan(o) {
+		return plan({ method: 'lvm', disk: LV, overlay: null, snapshot_size: '10%ORIGIN', ...(o ?? {}) });
+	}
+
+	it('freeze, lvcreate, thaw, back up the snapshot, lvremove', () => {
+		/* exists: stale snapshot check (no), then removal check (yes) */
+		let d = deps({ agent: { ...FROZEN_STATUS }, lvm: { lvs: LVS }, exists: [ false, true ] });
+		let r = consistent_backup(d, lvm_plan(), backup(0));
+
+		assert.match({ rc: 0, notes: [] }, r);
+		assert.match([
+			`lvm:lvs --noheadings --separator | -o vg_name,lv_name ${LV}`,
+			'agent:open', 'agent:guest-fsfreeze-status', 'agent:guest-fsfreeze-freeze',
+			'lvm:lvcreate -s -n vm-unifi-pbs-snap -l 10%ORIGIN vg0/vm-unifi',
+			'agent:guest-fsfreeze-thaw', 'agent:close',
+			`backup:${SNAP}`,
+			'lvm:lvremove -f vg0/vm-unifi-pbs-snap',
+		], events);
+	});
+
+	it('absolute size uses -L', () => {
+		let d = deps({ lvm: { lvs: LVS } });
+
+		consistent_backup(d, lvm_plan({ fsfreeze: false, snapshot_size: '4G' }), backup(0));
+		assert.match(true, index(events, 'lvm:lvcreate -s -n vm-unifi-pbs-snap -L 4G vg0/vm-unifi') >= 0, events);
+	});
+
+	it('removes a stale snapshot first', () => {
+		let d = deps({ lvm: { lvs: LVS }, exists: [ true, true ] });
+
+		consistent_backup(d, lvm_plan({ fsfreeze: false }), backup(0));
+		assert.match([ 'lvm:lvremove -f vg0/vm-unifi-pbs-snap', 'lvm:lvcreate -s -n vm-unifi-pbs-snap -l 10%ORIGIN vg0/vm-unifi' ],
+			slice(filter(events, (e) => has(e, 'lvm:lv') && !has(e, 'lvm:lvs')), 0, 2));
+	});
+
+	it('lvcreate failure (no dm-snapshot): thaws, backs up the live LV', () => {
+		let d = deps({ agent: { ...FROZEN_STATUS }, lvm: { lvs: LVS,
+			lvcreate: { rc: 5, out: '  snapshot: Required device-mapper target(s) not detected in your kernel.\n' } } });
+		let r = consistent_backup(d, lvm_plan(), backup(0));
+
+		assert.match(0, r.rc);
+		assert.match([ 'snapshot failed, backing up the live disk: lvcreate: snapshot: Required device-mapper target(s) not detected in your kernel.' ],
+			r.notes);
+		assert.match(true, index(events, 'agent:guest-fsfreeze-thaw') >= 0);
+		assert.match(true, index(events, 'backup') >= 0);
+		assert.match(-1, index(events, 'lvm:lvremove -f vg0/vm-unifi-pbs-snap'));
+	});
+
+	it('not an LV: live backup, noted', () => {
+		let d = deps({ lvm: { lvs: { rc: 5, out: '  Failed to find logical volume "/srv/x"\n' } } });
+		let r = consistent_backup(d, lvm_plan({ fsfreeze: false, disk: '/srv/x' }), backup(0));
+
+		assert.match([ 'backup' ], filter(events, (e) => has(e, 'backup')));
+		assert.match([ 'snapshot skipped: lvs /srv/x: Failed to find logical volume "/srv/x"' ], r.notes);
+	});
+
+	it('failed backup still removes the snapshot', () => {
+		let d = deps({ lvm: { lvs: LVS }, exists: [ false, true ] });
+		let r = consistent_backup(d, lvm_plan({ fsfreeze: false }), backup(7));
+
+		assert.match(7, r.rc);
+		assert.match(true, index(events, 'lvm:lvremove -f vg0/vm-unifi-pbs-snap') > index(events, `backup:${SNAP}`));
+	});
+
+	it('lvremove failure is retried and noted, backup result kept', () => {
+		let d = deps({ lvm: { lvs: LVS, lvremove: { rc: 5, out: '  Logical volume vg0/vm-unifi-pbs-snap in use.\n' } },
+			exists: [ false, true ] });
+		let r = consistent_backup(d, lvm_plan({ fsfreeze: false }), backup(0));
+
+		assert.match(0, r.rc);
+		assert.match(3, length(filter(events, (e) => e == 'lvm:lvremove -f vg0/vm-unifi-pbs-snap')));
+		assert.match([ 'could not remove the snapshot (removed on the next backup): lvremove vg0/vm-unifi-pbs-snap: Logical volume vg0/vm-unifi-pbs-snap in use.' ],
+			r.notes);
+	});
+
+	it('no overlay recovery for LVM disks', () => {
+		let d = deps({ exists: true });
+
+		assert.match('', recover(d, lvm_plan({ running: false })));
+		assert.match([], events);
 	});
 });

@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qemu-instance-init
-PKG_VERSION:=0.5.0
+PKG_VERSION:=0.6.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=ASL-2.0
@@ -34,7 +34,7 @@ endef
 define Package/qemu-instance-init-pbs
   $(Package/qemu-instance-init/default)
   TITLE += with Proxmox Backup Server backup
-  DEPENDS += +pbs-helper +qemu-img
+  DEPENDS += +pbs-helper +qemu-img +kmod-dm-snapshot
   VARIANT:=pbs
   PROVIDES:=qemu-instance-init
   CONFLICTS:=qemu-instance-init
