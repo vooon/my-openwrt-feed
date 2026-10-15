@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qemu-instance-init
-PKG_VERSION:=0.4.0
+PKG_VERSION:=0.5.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=ASL-2.0
@@ -34,7 +34,7 @@ endef
 define Package/qemu-instance-init-pbs
   $(Package/qemu-instance-init/default)
   TITLE += with Proxmox Backup Server backup
-  DEPENDS += +pbs-helper
+  DEPENDS += +pbs-helper +qemu-img
   VARIANT:=pbs
   PROVIDES:=qemu-instance-init
   CONFLICTS:=qemu-instance-init
@@ -74,6 +74,8 @@ endef
 
 define Package/qemu-instance-init-pbs/install
 	$(call Package/qemu-instance-init/install,$(1))
+
+	$(INSTALL_DATA) $(CURDIR)/files/backup.uc $(1)/usr/share/ucode/qemu/backup.uc
 
 	$(INSTALL_DIR) $(1)/usr/libexec/
 	$(INSTALL_BIN) $(CURDIR)/files/qemu-backup.uc $(1)/usr/libexec/qemu-backup

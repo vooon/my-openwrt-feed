@@ -132,6 +132,43 @@ describe('execute', () => {
 	});
 });
 
+describe('guest agent', () => {
+	it('resyncs with guest-sync-delimited, skipping stale replies', () => {
+		/* a stale reply of an abandoned client, then ours behind 0xFF */
+		let p = pair('{"return": 1}\n\xff{"return": 42}\n{"return": {}}\n');
+		let q = qmp.agent_session(p.client, 500, 42);
+
+		assert.match(null, q.error);
+		assert.match({ ok: true, return: {} }, q.execute('guest-fsfreeze-thaw'));
+
+		let data = p.server?.recv(65536);
+		assert.match('\xff{ "execute": "guest-sync-delimited", "arguments": { "id": 42 } }\n' +
+			'{ "execute": "guest-sync-delimited", "arguments": { "id": 42 } }\n' +
+			'{ "execute": "guest-fsfreeze-thaw" }\n', data);
+		q.close();
+	});
+
+	it('agent_open connects by path', () => {
+		let path = sprintf('%s/qmp-test-agent-%d.sock', TMP, time());
+
+		fs.unlink(path);
+
+		let listener = socket.listen({ path: path }, null, { socktype: socket.SOCK_STREAM });
+		let q = qmp.agent_open(path, 100, 7);	/* nobody answers: times out */
+
+		listener?.close();
+		fs.unlink(path);
+		assert.match('guest agent not responding: timed out waiting for QEMU', q.error);
+	});
+
+	it('reports a guest without a running agent', () => {
+		let p = pair();
+
+		assert.match('guest agent not responding: timed out waiting for QEMU',
+			qmp.agent_session(p.client, 100, 1).error);
+	});
+});
+
 describe('open', () => {
 	it('fails on a missing socket', () => {
 		let path = `${TMP}/qmp-test-missing.sock`;

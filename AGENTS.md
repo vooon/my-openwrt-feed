@@ -56,11 +56,14 @@ pinned upstream ucode build.
 - `qemu-instance-init/` — procd init script `files/qemu.init`, two
   conflicting VARIANTs: `qemu-instance-init` (init only) and
   `qemu-instance-init-pbs` (adds `files/qemu-backup.uc` as
-  `/usr/libexec/qemu-backup`, uses `pbs.helper`); `qemu.init` offers `backup`
-  only when that script is installed. Both ship the QMP client
+  `/usr/libexec/qemu-backup`, uses `pbs.helper`, and `files/backup.uc`, the
+  `qemu.backup` fsfreeze / overlay snapshot / commit / recover flow with
+  injected deps); `qemu.init` offers `backup`, and runs
+  `qemu-backup --recover` before start, only when that script is installed. Both ship the QMP client
   `files/qmp.uc` (`qemu.qmp`, `/usr/share/ucode/qemu/qmp.uc`) and its CLI
   `files/qemu-qmp.uc` (`/usr/libexec/qemu-qmp`, used by `stop`); utest suite
-  `test/qmp_test.uc` runs it against a real unix socket
+  `test/qmp_test.uc` runs it against a real unix socket, `test/backup_test.uc`
+  the consistency flow against fake clients
   (`test/run_tests.sh`, `UCODE` / `UCODE_MODULE_PATH`, needs `socket.so`).
 - `vpn-sticky/` — `files/vpn-sticky.nft.uc`: a ucode **nft template** (raw text
   + `{% %}` blocks), compiled with `ucode -T`. Tested with

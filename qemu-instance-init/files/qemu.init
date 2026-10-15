@@ -72,6 +72,13 @@ start_instance() {
 		log_info "$instance" "uuid is not set. Generated UUID5 from instance name: $uuid"
 	fi
 
+	# merge a snapshot overlay left by an interrupted backup first: booting
+	# from the base disk alone would lose the writes it holds
+	if [ -x "$QEMU_BACKUP" ] && ! "$QEMU_BACKUP" --recover "$instance"; then
+		log_error "$instance" "leftover backup overlay could not be merged, not starting (see logread)"
+		return 1
+	fi
+
 	procd_open_instance "$instance"
 	procd_set_param command "$PROG" -enable-kvm -cpu "$cpu_type" \
 		-smp "$vcpus" -m "$ram" -uuid "$uuid"

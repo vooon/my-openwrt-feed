@@ -1,7 +1,7 @@
 'use strict';
 
-/* qemu.qmp - minimal QEMU Machine Protocol client (installed as
- * /usr/share/ucode/qemu/qmp.uc).
+/* qemu.qmp - minimal QEMU Machine Protocol and guest agent client
+ * (installed as /usr/share/ucode/qemu/qmp.uc).
  *
  *   let s = qmp.open('/var/run/qemu.vm.qmp.sock', 5000);
  *   if (s.error) ...;
@@ -10,6 +10,9 @@
  *
  * open() reads the server greeting and negotiates capabilities. Asynchronous
  * events received while waiting for a reply are skipped.
+ *
+ * agent_open() talks to qemu-guest-agent's virtio-serial socket instead: no
+ * greeting, resynchronised with guest-sync-delimited (0xFF-delimited).
  */
 
 import * as socket from 'socket';
@@ -19,7 +22,7 @@ import * as socket from 'socket';
  *
  * @param {object} conn - connected socket
  * @param {number} timeout_ms - per-read timeout
- * @returns {object} { next(), execute(cmd, args), close() }
+ * @returns {object} { next(), execute(cmd, args), set_timeout(ms), close() }
  */
 export function client(conn, timeout_ms) {
 	let buf = '';
@@ -56,7 +59,8 @@ export function client(conn, timeout_ms) {
 			if (!data)
 				return { error: 'connection closed by QEMU' };
 
-			buf += data;
+			/* guest-sync-delimited prefixes its reply with 0xFF */
+			buf += replace(data, '\xff', '');
 		}
 	};
 
@@ -88,6 +92,10 @@ export function client(conn, timeout_ms) {
 
 				/* {"event": ...}: not ours */
 			}
+		},
+
+		set_timeout: (ms) => {
+			timeout_ms = ms;
 		},
 
 		close: () => {
@@ -137,4 +145,59 @@ export function open(path, timeout_ms) {
 		return { error: `${path}: cannot connect (is the instance running?)` };
 
 	return session(conn, timeout_ms);
+};
+
+/**
+ * Resynchronise a connected guest agent stream.
+ *
+ * @param {object} conn - connected socket
+ * @param {number} timeout_ms
+ * @param {number} [sync_id] - guest-sync id (default: from the clock)
+ * @returns {object} the client, or { error }
+ */
+export function agent_session(conn, timeout_ms, sync_id) {
+	let q = client(conn, timeout_ms);
+	let c = clock();
+	let id = sync_id ?? ((c?.[0] ?? 0) % 1000000) * 1000000 + int((c?.[1] ?? 0) / 1000);
+
+	/* 0xFF makes the agent drop any partial input left by a previous client */
+	if (conn.send('\xff') == null) {
+		q.close();
+		return { error: `send failed: ${socket.error()}` };
+	}
+
+	/* replies to earlier, abandoned requests may still be queued: skip them */
+	for (let tries = 0; tries < 8; tries++) {
+		let r = q.execute('guest-sync-delimited', { id: id });
+
+		if (!r.ok) {
+			q.close();
+			return { error: `guest agent not responding: ${r.error}` };
+		}
+
+		if (r.return == id)
+			return q;
+	}
+
+	q.close();
+	return { error: 'guest agent out of sync' };
+};
+
+/**
+ * Connect to a qemu-guest-agent socket and resynchronise the stream.
+ * Fails (timeout) when no agent is running in the guest.
+ *
+ * @param {string} path - guest agent socket path
+ * @param {number} [timeout_ms=5000]
+ * @param {number} [sync_id] - guest-sync id (default: from the clock)
+ * @returns {object} the client, or { error }
+ */
+export function agent_open(path, timeout_ms, sync_id) {
+	timeout_ms ??= 5000;
+
+	let conn = socket.connect({ path: path }, null, null, timeout_ms);
+	if (!conn)
+		return { error: `${path}: cannot connect (is the instance running?)` };
+
+	return agent_session(conn, timeout_ms, sync_id);
 };
