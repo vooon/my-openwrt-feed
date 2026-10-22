@@ -72,7 +72,11 @@ jobs:
       matrix:
         package: ${{ fromJSON(needs.changed.outputs.packages) }}
     steps:
+      # the checkout is mounted into the build container, which runs
+      # untrusted upstream build scripts: keep the token out of .git/config
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: docker/login-action@v4
         with:
