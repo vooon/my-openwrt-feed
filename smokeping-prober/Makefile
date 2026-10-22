@@ -26,7 +26,7 @@ GO_PKG_LDFLAGS_X:= \
 	github.com/prometheus/common/version.BuildDate="$(shell date +%Y%m%d-%H:%M:%S)"
 
 include $(INCLUDE_DIR)/package.mk
-include ../../packages/lang/golang/golang-package.mk
+include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 
 define Package/smokeping-prober
   SECTION:=utils

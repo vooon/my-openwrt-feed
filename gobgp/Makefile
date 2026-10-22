@@ -27,7 +27,7 @@ GO_PKG_BUILD_PKG:=github.com/osrg/gobgp/v4/cmd/gobgp
 endif
 
 include $(INCLUDE_DIR)/package.mk
-include ../../packages/lang/golang/golang-package.mk
+include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 
 define Package/gobgp/Default
   SECTION:=net

@@ -24,7 +24,7 @@ CARGO_PKG_VARS += \
 	CARGO_NET_GIT_FETCH_WITH_CLI=true
 
 include $(INCLUDE_DIR)/package.mk
-include ../../packages/lang/rust/rust-package.mk
+include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 
 define Package/bpftop
   SECTION:=utils

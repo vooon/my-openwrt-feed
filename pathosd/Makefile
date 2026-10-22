@@ -25,7 +25,7 @@ GO_PKG_LDFLAGS_X:= \
 	github.com/prometheus/common/version.Branch="openwrt"
 
 include $(INCLUDE_DIR)/package.mk
-include ../../packages/lang/golang/golang-package.mk
+include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 
 define Package/pathosd
   SECTION:=net

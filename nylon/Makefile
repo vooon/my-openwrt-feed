@@ -20,7 +20,7 @@ PKG_BUILD_FLAGS:=no-mips16
 GO_PKG:=github.com/encodeous/nylon
 
 include $(INCLUDE_DIR)/package.mk
-include ../../packages/lang/golang/golang-package.mk
+include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 
 define Package/nylon
   SECTION:=net

@@ -23,7 +23,7 @@ GO_PKG:=github.com/vooon/gotify2telegram
 
 include $(INCLUDE_DIR)/package.mk
 # include ../../lang/golang/golang-package.mk
-include ../../packages/lang/golang/golang-package.mk
+include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 
 define Package/gotify2telegram
   SECTION:=net

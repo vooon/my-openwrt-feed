@@ -18,7 +18,7 @@ PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
 #include ../../lang/rust/rust-package.mk
-include ../../packages/lang/rust/rust-package.mk
+include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 
 # NOTE: use prebuilt webasm web-interface
 FRONTEND_FILE=$(PKG_NAME)-$(PKG_VERSION)-amd64.tar.gz

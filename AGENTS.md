@@ -74,6 +74,26 @@ pinned upstream ucode build.
   `nft -c` pass. `test/lib/uci.uc` is a stand-in so utest can shim `uci` on
   hosts without OpenWrt's `uci.so`.
 
+## Package builds in CI (`.github/workflows/build.yml`)
+
+Every PR / push compiles the packages whose directory the change touches,
+for x86_64, inside the feed's own SDK image: `ci/sdk/Dockerfile` layers the
+prebuilt `golang`, `golang1.27` and `rust` host toolchains on `ghcr.io/openwrt/sdk:<SDK_TAG>`
+and is pushed as `ghcr.io/vooon/my-openwrt-feed/sdk:<SDK_TAG>` by
+`sdk-image.yml` (rebuilt when the Dockerfile changes; bump `SDK_TAG` there
+to move to a newer OpenWrt point release). `scripts/sdk-build.sh <pkg>...`
+is the entry point and runs the same way locally (see its header):
+
+```sh
+mkdir -p out
+podman run --rm -u root -v "$PWD:/feed" -v "$PWD/out:/out" \
+    ghcr.io/vooon/my-openwrt-feed/sdk:x86-64-25.12.6 /feed/scripts/sdk-build.sh mihomo-meta
+```
+
+Package Makefiles must include feed helpers via `$(TOPDIR)/feeds/packages/...`
+(not `../../packages/...`): the SDK mounts this feed as a `src-link`
+symlink, where cwd-relative paths resolve outside the tree.
+
 ## CI checks (see `.github/workflows/ci.yml`)
 
 ```sh
