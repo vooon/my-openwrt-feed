@@ -11,7 +11,7 @@
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?(?: extractVersion=(?<extractVersion>\\S+))?\\nPKG_VERSION:=(?<currentValue>\\S+)\\nPKG_RELEASE:=\\d+\\n"
       ],
       "extractVersionTemplate": "^v?(?<version>.+)$",
-      "autoReplaceStringTemplate": "# renovate: datasource={{{datasource}}} depName={{{depName}}}{{#if versioning}} versioning={{{versioning}}}{{/if}}{{#if extractVersion}} extractVersion={{{extractVersion}}}{{/if}}\nPKG_VERSION:={{{newValue}}}\nPKG_RELEASE:=1\n"
+      "autoReplaceStringTemplate": "# renovate: datasource={{{datasource}}} depName={{{depName}}}{{#if versioning}}{{#unless (equals versioning 'semver-coerced')}} versioning={{{versioning}}}{{/unless}}{{/if}}{{#if extractVersion}}{{#unless (equals extractVersion '^v?(?<version>.+)$')}} extractVersion={{{extractVersion}}}{{/unless}}{{/if}}\nPKG_VERSION:={{{newValue}}}\nPKG_RELEASE:=1\n"
     }
   ],
   "packageRules": [

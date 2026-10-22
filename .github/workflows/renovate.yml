@@ -1,0 +1,63 @@
+name: Renovate
+
+# Self-hosted Renovate: bumps the package versions annotated in the
+# Makefiles (renovate.json, custom regex manager) and the GitHub Actions
+# used here, opening one PR per update that build.yml / ci.yml then check.
+#
+# Runs as the RENOVATE_TOKEN repository secret, a token of a user (classic
+# PAT with the `repo` and `workflow` scopes, or a fine-grained one with
+# contents, pull requests, issues and workflows read/write on this repo)
+# rather than GITHUB_TOKEN: pull requests created with GITHUB_TOKEN would
+# not trigger the other workflows. Create it with
+#   gh secret set RENOVATE_TOKEN
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  push:
+    branches: [master]
+    paths:
+      - renovate.json
+      - .github/workflows/renovate.yml
+  workflow_dispatch:
+    inputs:
+      log_level:
+        description: Renovate log level
+        type: choice
+        options: [info, debug]
+        default: info
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  RENOVATE_VERSION: 44.177.0
+
+jobs:
+  renovate:
+    name: run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate renovate.json
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/renovate.json:/renovate.json:ro" \
+            "ghcr.io/renovatebot/renovate:$RENOVATE_VERSION" \
+            renovate-config-validator /renovate.json
+
+      - uses: renovatebot/github-action@v46.3.9
+        with:
+          token: ${{ secrets.RENOVATE_TOKEN }}
+          renovate-version: ${{ env.RENOVATE_VERSION }}
+        env:
+          RENOVATE_PLATFORM: github
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          LOG_LEVEL: ${{ inputs.log_level || 'info' }}
