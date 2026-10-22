@@ -285,6 +285,8 @@ function newProto(name, proto, up, state, uptime, ip_version) {
 		v3: false,
 		/* optional protocol-specific info (BGP peer, OSPF status) */
 		info: '',
+		/* `description "..."` of the protocol config, verbatim ('' if unset) */
+		description: '',
 	};
 }
 
@@ -294,6 +296,10 @@ const routeFilteredRe = /^Routes:[ \t]+(\d+)[ \t]+imported,[ \t]+(\d+)[ \t]+filt
 const routeSimpleRe = /^Routes:[ \t]+(\d+)[ \t]+imported,[ \t]+(\d+)[ \t]+exported(,[ \t]+(\d+)[ \t]+preferred)?$/;
 const routeChangesRe = /^(Import|Export)[ \t]+(updates|withdraws):[ \t]+(\d+|---)[ \t]+(\d+|---)[ \t]+(\d+|---)[ \t]+(\d+|---)[ \t]+(\d+|---)([ \t]+(\d+|---)[ \t]+(\d+|---))?$/;
 const filterRe = /(Input|Output)[ \t]+filter:[ \t]+(.*)/;
+// "  Description:    <text>" follows the header when the protocol config
+// sets one (nest/proto.c proto_show_basic_info). The one place a peer can
+// carry its real hostname: protocol names cannot spell a hyphen.
+const descRe = /^Description:[ \t]+(.*[^ \t])[ \t]*$/;
 
 // BGP peer detail (proto/bgp/bgp.c bgp_show_neighbor):
 //   https://github.com/CZ-NIC/bird/blob/master/proto/bgp/bgp.c#L4157
@@ -388,6 +394,12 @@ function parseProtocols(lines) {
 				cur.import_filter = m[2];
 			else
 				cur.export_filter = m[2];
+			continue;
+		}
+
+		m = match(l, descRe);
+		if (m) {
+			cur.description = m[1];
 			continue;
 		}
 
@@ -648,6 +660,7 @@ const methods = {
 						neighbor_as: p.neighbor_as || null,
 						local_as: p.local_as || null,
 						neighbor_id: p.neighbor_id || null,
+						description: p.description || null,
 						imported: p.imported,
 						exported: p.exported,
 						filtered: p.filtered,
