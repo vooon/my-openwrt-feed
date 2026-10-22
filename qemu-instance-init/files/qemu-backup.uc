@@ -119,7 +119,9 @@ function consistency_deps(logger) {
 		unlink: (path) => unlink(path) == true,
 		offline_commit: (path) => system([ 'qemu-img', 'commit', '-q', path ]) == 0,
 		lvm: (args) => {
-			let cmd = 'lvm';
+			/* ucode keeps its source files open across popen(); lvm
+			 * would report each inherited descriptor on stderr */
+			let cmd = 'LVM_SUPPRESS_FD_WARNINGS=1 lvm';
 			for (let a in args)
 				cmd += ' ' + pbs.shellquote(a);
 

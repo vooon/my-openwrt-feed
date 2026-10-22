@@ -160,22 +160,26 @@ export function agent_session(conn, timeout_ms, sync_id) {
 	let c = clock();
 	let id = sync_id ?? ((c?.[0] ?? 0) % 1000000) * 1000000 + int((c?.[1] ?? 0) / 1000);
 
-	/* 0xFF makes the agent drop any partial input left by a previous client */
-	if (conn.send('\xff') == null) {
+	/* 0xFF makes the agent drop any partial input left by a previous client.
+	 * Current agents also answer the stray byte with a "JSON parse error"
+	 * reply, which is skipped below like any reply that is not our sync. */
+	let req = { execute: 'guest-sync-delimited', arguments: { id: id } };
+	if (conn.send(sprintf('\xff%J\n', req)) == null) {
 		q.close();
 		return { error: `send failed: ${socket.error()}` };
 	}
 
-	/* replies to earlier, abandoned requests may still be queued: skip them */
+	/* replies to earlier, abandoned requests may still be queued: skip them
+	 * (sending the sync once keeps the stream in step afterwards) */
 	for (let tries = 0; tries < 8; tries++) {
-		let r = q.execute('guest-sync-delimited', { id: id });
+		let r = q.next();
 
-		if (!r.ok) {
+		if (r.error) {
 			q.close();
 			return { error: `guest agent not responding: ${r.error}` };
 		}
 
-		if (r.return == id)
+		if (r.msg?.return == id)
 			return q;
 	}
 

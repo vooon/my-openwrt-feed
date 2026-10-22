@@ -183,13 +183,19 @@ function out_of(r) {
  */
 function lvm_origin(deps, disk) {
 	let r = deps.lvm([ 'lvs', '--noheadings', '--separator', '|', '-o', 'vg_name,lv_name', disk ]);
-	let m = match(out_of(r), /^\s*([^|\s]+)\s*\|\s*([^|\s]+)\s*$/);
 
-	if (r.rc != 0 || !m)
-		return { error: `lvs ${disk}: ${out_of(r)}` };
+	/* stderr is merged in: skip warnings (fd leaks, ...) around the data line */
+	if (r.rc == 0) {
+		for (let line in split(out_of(r), '\n')) {
+			let m = match(line, /^\s*([^|\s]+)\s*\|\s*([^|\s]+)\s*$/);
 
-	// ucode-lsp disable-next-line nullable-argument   # both groups matched
-	return { vg: m[1], lv: m[2] };
+			if (m)
+				// ucode-lsp disable-next-line nullable-argument   # both groups matched
+				return { vg: m[1], lv: m[2] };
+		}
+	}
+
+	return { error: `lvs ${disk}: ${out_of(r)}` };
 }
 
 /**

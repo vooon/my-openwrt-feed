@@ -373,6 +373,15 @@ describe('LVM snapshot', () => {
 		assert.match(-1, index(events, 'lvm:lvremove -f vg0/vm-unifi-pbs-snap'));
 	});
 
+	it('lvs: data line found behind lvm warnings', () => {
+		let d = deps({ lvm: { lvs: { rc: 0, out: '  File descriptor 5 (/usr/libexec/qemu-backup) leaked on lvm invocation. Parent PID 1: /usr/bin/ucode\n  vg0|vm-unifi\n' } },
+			exists: [ false, true ] });
+		let r = consistent_backup(d, lvm_plan({ fsfreeze: false }), backup(0));
+
+		assert.match([ `backup:${SNAP}` ], filter(events, (e) => has(e, 'backup')));
+		assert.match([], r.notes);
+	});
+
 	it('not an LV: live backup, noted', () => {
 		let d = deps({ lvm: { lvs: { rc: 5, out: '  Failed to find logical volume "/srv/x"\n' } } });
 		let r = consistent_backup(d, lvm_plan({ fsfreeze: false, disk: '/srv/x' }), backup(0));

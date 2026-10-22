@@ -134,18 +134,28 @@ describe('execute', () => {
 
 describe('guest agent', () => {
 	it('resyncs with guest-sync-delimited, skipping stale replies', () => {
-		/* a stale reply of an abandoned client, then ours behind 0xFF */
-		let p = pair('{"return": 1}\n\xff{"return": 42}\n{"return": {}}\n');
+		/* a stale reply of an abandoned client, the agent's complaint about
+		 * the 0xFF reset byte (qemu-ga >= 4.0), then ours behind 0xFF */
+		let p = pair('{"return": 1}\n' +
+			'{"error": {"class": "GenericError", "desc": "JSON parse error, stray \'\xff\'"}}\n' +
+			'\xff{"return": 42}\n{"return": {}}\n');
 		let q = qmp.agent_session(p.client, 500, 42);
 
 		assert.match(null, q.error);
 		assert.match({ ok: true, return: {} }, q.execute('guest-fsfreeze-thaw'));
 
+		/* the sync is sent once: a second one would leave a reply queued
+		 * that the next command would take as its own */
 		let data = p.server?.recv(65536);
 		assert.match('\xff{ "execute": "guest-sync-delimited", "arguments": { "id": 42 } }\n' +
-			'{ "execute": "guest-sync-delimited", "arguments": { "id": 42 } }\n' +
 			'{ "execute": "guest-fsfreeze-thaw" }\n', data);
 		q.close();
+	});
+
+	it('gives up on a stream that never yields the sync id', () => {
+		let p = pair(join('', map([ 1, 2, 3, 4, 5, 6, 7, 8, 9 ], (i) => `{"return": ${i}}\n`)));
+
+		assert.match('guest agent out of sync', qmp.agent_session(p.client, 500, 42).error);
 	});
 
 	it('agent_open connects by path', () => {
