@@ -26,9 +26,10 @@ include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 # (bpf.mk CLANG, built or prebuilt llvm-bpf) first so the build does not
 # depend on a host clang. libbpf-sys additionally compiles a vendored libbpf
 # against the staging libelf/zlib headers and statically links it.
-# (CARGO_PKG_VARS is reset by rust-package.mk: extend it after the include.)
+# (CARGO_PKG_VARS is reset by rust-package.mk: extend it after the include;
+# TARGET_PATH_PKG is the PATH package recipes run with, including cargo.)
 CARGO_PKG_VARS += \
-	PATH="$(dir $(CLANG)):$(PATH)" \
+	PATH="$(dir $(CLANG)):$(TARGET_PATH_PKG)" \
 	CFLAGS="-I$(STAGING_DIR)/usr/include" \
 	CARGO_NET_GIT_FETCH_WITH_CLI=true
 
