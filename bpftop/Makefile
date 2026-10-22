@@ -17,23 +17,27 @@ PKG_LICENSE_FILES:=LICENSE
 PKG_BUILD_DEPENDS:=rust/host
 PKG_BUILD_PARALLEL:=1
 
-# bpftop's build.rs cross-compiles an embedded BPF object with clang
-# (libbpf-cargo SkeletonBuilder), so the build host must provide clang with
-# the bpf target. libbpf-sys additionally compiles a vendored libbpf against
-# the staging libelf/zlib headers and statically links it.
+include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/bpf.mk
+include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
+
+# bpftop's build.rs cross-compiles an embedded BPF object with the `clang`
+# found in PATH (libbpf-cargo SkeletonBuilder): put OpenWrt's BPF toolchain
+# (bpf.mk CLANG, built or prebuilt llvm-bpf) first so the build does not
+# depend on a host clang. libbpf-sys additionally compiles a vendored libbpf
+# against the staging libelf/zlib headers and statically links it.
+# (CARGO_PKG_VARS is reset by rust-package.mk: extend it after the include.)
 CARGO_PKG_VARS += \
+	PATH="$(dir $(CLANG)):$(PATH)" \
 	CFLAGS="-I$(STAGING_DIR)/usr/include" \
 	CARGO_NET_GIT_FETCH_WITH_CLI=true
-
-include $(INCLUDE_DIR)/package.mk
-include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 
 define Package/bpftop
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Dynamic real-time view of running eBPF programs
   URL:=https://github.com/Netflix/bpftop
-  DEPENDS:=$(RUST_ARCH_DEPENDS) +libelf
+  DEPENDS:=$(RUST_ARCH_DEPENDS) $(BPF_DEPENDS) +libelf
 endef
 
 define Package/bpftop/description
@@ -45,7 +49,7 @@ define Package/bpftop/description
 endef
 
 define Build/Compile
-	command -v clang >/dev/null 2>&1 || { echo "bpftop needs clang (with the bpf target) on the build host" >&2; exit 1; }
+	[ -x "$(CLANG)" ] || { echo "bpftop needs the BPF toolchain: $(CLANG) is missing" >&2; exit 1; }
 	$(call Build/Compile/Cargo,.)
 endef
 

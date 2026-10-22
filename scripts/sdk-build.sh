@@ -12,7 +12,10 @@
 #       /feed/scripts/sdk-build.sh mihomo-meta rpcd-mod-bird
 #
 # -u root: the image user (buildbot) cannot write the mounted directories;
-# the SDK has no objection to building as root.
+# the SDK has no objection to building as root. TAR below makes tar apply
+# the umask when extracting, as it does for ordinary users: git archives
+# carry group-writable modes, and a tarball repacked from them as root
+# would not match the PKG_MIRROR_HASH recorded by a non-root build.
 #
 # Env:
 #   SDK_DIR   unpacked SDK                     [/builder]
@@ -54,10 +57,10 @@ make defconfig > /dev/null
 rc=0
 for pkg in "$@"; do
 	echo "::group::make package/$pkg/compile"
-	if ! make -j"$JOBS" "package/$pkg/compile"; then
+	if ! make -j"$JOBS" TAR="tar --no-same-permissions" "package/$pkg/compile"; then
 		echo "::endgroup::"
 		echo "::group::retry: make package/$pkg/compile -j1 V=s"
-		make -j1 V=s "package/$pkg/compile" || rc=1
+		make -j1 V=s TAR="tar --no-same-permissions" "package/$pkg/compile" || rc=1
 	fi
 	echo "::endgroup::"
 done
