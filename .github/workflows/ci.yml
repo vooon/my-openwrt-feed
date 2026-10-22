@@ -186,11 +186,11 @@ jobs:
           set -euo pipefail
           # Every immediate subdirectory that looks like an OpenWrt package must
           # contain a Makefile, otherwise `scripts/feeds update`/`install` skips
-          # it silently. `.github`, `scripts` and other non-package dirs are exempt.
+          # it silently. `.github`, `ci`, `scripts` and other non-package dirs are exempt.
           for dir in */; do
             dir="${dir%/}"
             case "$dir" in
-              .github|scripts|docs) continue ;;
+              .github|ci|scripts|docs) continue ;;
             esac
             if [ -d "$dir" ] && [ ! -f "$dir/Makefile" ]; then
               echo "::error::$dir/ exists but has no Makefile"
