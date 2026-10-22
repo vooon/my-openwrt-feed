@@ -15,7 +15,12 @@
  * forward declarations (`export function name;`) that shadow a later function
  * are flagged (UC1007).
  *
- * Usage: node scripts/uc-lint.mjs
+ * Usage: node scripts/uc-lint.mjs [package...]
+ *
+ * Without arguments every package listed in `roots` below is checked; with
+ * package names only those. ucode-lsp comes from npx at the pinned version,
+ * or from the command named by UCODE_LSP (the ci/ucode image installs the
+ * pinned version globally and sets UCODE_LSP=ucode-lsp).
  *
  * Copyright (C) 2026 Vladimir Ermakov <vooon341@gmail.com>
  * SPDX-License-Identifier: LGPL-2.1+
@@ -46,6 +51,14 @@ const roots = [
 /* Pin the ucode-lsp version for reproducibility. Bump deliberately. */
 const UCODE_LSP_VERSION = '0.8.11';
 
+const packages = process.argv.slice(2);
+const selected = packages.length
+	? roots.filter((r) => packages.includes(r.split('/')[0]))
+	: roots;
+const lsp = process.env.UCODE_LSP
+	? [process.env.UCODE_LSP]
+	: ['npx', '-y', `ucode-lsp@${UCODE_LSP_VERSION}`];
+
 let failed = 0;
 
 function err(msg) {
@@ -53,12 +66,17 @@ function err(msg) {
 	failed = 1;
 }
 
-for (const root of roots) {
+if (packages.length && !selected.length) {
+	console.log(`[uc-lint] no ucode sources in ${packages.join(' ')}`);
+	process.exit(0);
+}
+
+for (const root of selected) {
 	const dir = path.join(repoRoot, root);
 	if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory())
 		continue;
 
-	const r = spawnSync('npx', ['-y', `ucode-lsp@${UCODE_LSP_VERSION}`, dir, '--target-version', '25.12'], {
+	const r = spawnSync(lsp[0], [...lsp.slice(1), dir, '--target-version', '25.12'], {
 		encoding: 'utf8',
 		stdio: 'inherit',
 	});

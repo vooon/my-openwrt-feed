@@ -1,0 +1,71 @@
+name: ucode test image
+
+# Builds ci/ucode/Dockerfile (pinned ucode + modules, ucode-lsp, utest,
+# nftables, C toolchain) and pushes it to ghcr.io/<repo>/ucode-ci:<tag> for
+# ci.yml. The tag is the pinned ucode revision (scripts/build-ucode.sh), so
+# bumping it builds a new image; other inputs (ucode-lsp version, utest
+# revision, the Dockerfile) rebuild the same tag.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ci/ucode/Dockerfile
+      - scripts/build-ucode.sh
+      - scripts/uc-lint.mjs
+      - pbs-helper/test/run_tests.sh
+      - .github/workflows/ucode-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  image:
+    name: build and push
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve image tag and pinned versions
+        id: img
+        run: |
+          set -euo pipefail
+          sha="$(sed -n 's/^UCODE_SHA="\([0-9a-f]\{40\}\)".*/\1/p' scripts/build-ucode.sh)"
+          lsp="$(sed -n "s/^const UCODE_LSP_VERSION = '\([^']*\)';.*/\1/p" scripts/uc-lint.mjs)"
+          utest="$(sed -n 's/^UTEST_REV="\([0-9a-f]\{40\}\)".*/\1/p' pbs-helper/test/run_tests.sh)"
+          test -n "$sha" -a -n "$lsp" -a -n "$utest"
+          echo "tag=${sha:0:12}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}/ucode-ci" >> "$GITHUB_OUTPUT"
+          echo "ucode-lsp=$lsp" >> "$GITHUB_OUTPUT"
+          echo "utest=$utest" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ci/ucode/Dockerfile
+          push: true
+          tags: ${{ steps.img.outputs.image }}:${{ steps.img.outputs.tag }}
+          build-args: |
+            UCODE_LSP_VERSION=${{ steps.img.outputs.ucode-lsp }}
+            UTEST_REV=${{ steps.img.outputs.utest }}
