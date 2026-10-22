@@ -1,185 +1,104 @@
 name: CI
 
+# Lints, syntax-checks and tests the ucode / shell packages a change
+# touches (ci/ucode/test-package.sh --list), one job per package, inside the
+# feed's test image (ci/ucode/Dockerfile, built by ucode-image.yml). A change
+# to the tooling itself (scripts/, ci/, .github/) checks every covered
+# package. The feed layout check runs for every change.
+
 on:
   push:
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # master runs verify what landed: never cancel them for a newer push
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  ucode-tests:
-    name: ucode lint, syntax + unit tests
+  changed:
+    name: changed packages
     runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.list.outputs.packages }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Install toolchain
-        # ucode itself needs only json-c to build the upstream modules; the
-        # collectors/tests mock ubus/uci/etc. so no OpenWrt dev libs are needed.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            gcc make cmake git pkg-config libjson-c-dev libsqlite3-dev
-
-      - name: Lint ucode sources (ucode-lsp)
-        # ucode-lsp CLI checker: type inference, null-safety, target-version
-        # gating (25.12), plus the ucode-only rules (export function `;`,
-        # forward declarations). Pinned version via scripts/uc-lint.mjs.
+      - name: List covered packages touched by this change
+        id: list
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          node scripts/uc-lint.mjs
-
-      - uses: ./.github/actions/build-ucode
-        id: ucode
-
-      - name: Syntax-check every .uc file (ucode -c)
-        # Compile each module to bytecode without executing it. ucode resolves
-        # imports at compile time, but the OpenWrt modules (uci/ubus/... ) are
-        # not in the upstream tree, so strip the import lines, turn `export
-        # function` back into a plain function (script-mode `-c`) and compile.
-        # Template files (metrics.uc, *.nft.uc, *.ut, i.e. starting with `{%`
-        # or with a `.ut` extension) are compiled with `-T`.
-        run: |
-          set -euo pipefail
-          work="$(mktemp -d)"
-          for f in $(git ls-files '*.uc' '*.ut'); do
-            name="$(basename "$f")"
-            sed -e '/^[ \t]*import /d' -e 's/^[ \t]*export[ \t]*//' "$f" > "$work/$name"
-            if [ "${f##*.}" = "ut" ] || head -n1 "$f" | grep -q '^{%'; then
-              "${{ steps.ucode.outputs.bin }}" -L "${{ steps.ucode.outputs.mods }}" -T -c -o "$work/$name.out" "$work/$name"
+          covered="$(ci/ucode/test-package.sh --list)"
+          if [ "$EVENT" = workflow_dispatch ]; then
+            pkgs="$covered"
+          else
+            touched="$(ci/changed-dirs.sh)"
+            if grep -qxE 'scripts|ci|\.github' <<< "$touched"; then
+              pkgs="$covered"
             else
-              "${{ steps.ucode.outputs.bin }}" -L "${{ steps.ucode.outputs.mods }}" -c -o "$work/$name.out" "$work/$name"
+              pkgs="$(grep -xF -f <(echo "$covered") <<< "$touched" || true)"
             fi
-          done
+          fi
+          printf 'packages: %s\n' "$(echo $pkgs)"
+          echo "packages=$(printf '%s\n' $pkgs | grep . | jq -cR . | jq -cs .)" >> "$GITHUB_OUTPUT"
 
-      - name: Run prometheus-node-exporter-ucode collector tests
-        if: ${{ hashFiles('prometheus-node-exporter-ucode/test.sh') != '' }}
+  ucode:
+    name: ${{ matrix.package }}
+    needs: changed
+    if: needs.changed.outputs.packages != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.changed.outputs.packages) }}
+    steps:
+      # the checkout is mounted into the test container: keep the token
+      # out of .git/config
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint, syntax-check and test in the ucode image
+        # NET_ADMIN: `nft -c` on the vpn-sticky goldens needs netlink
+        env:
+          PACKAGE: ${{ matrix.package }}
         run: |
           set -euo pipefail
-          UCODE="${{ steps.ucode.outputs.bin }}" \
-          UCODE_MODULES="${{ steps.ucode.outputs.mods }}" \
-            prometheus-node-exporter-ucode/test.sh
-
-      - name: Run rpcd-mod-bird unit tests
-        if: ${{ hashFiles('rpcd-mod-bird/test/run_tests.sh') != '' }}
-        run: |
-          set -euo pipefail
-          UCODE="${{ steps.ucode.outputs.bin }}" \
-          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
-            rpcd-mod-bird/test/run_tests.sh
-
-      - name: Run vpn-sticky nft template tests
-        # utest suite (framework pinned in run_tests.sh): renders
-        # files/vpn-sticky.nft.uc against mocked uci configs, compares with the
-        # golden rulesets in test/expected/, then `nft -c` checks each golden
-        # (check mode only, nothing is applied).
-        if: ${{ hashFiles('vpn-sticky/test/run_tests.sh') != '' }}
-        run: |
-          set -euo pipefail
-          sudo apt-get install -y --no-install-recommends nftables
-          UCODE="${{ steps.ucode.outputs.bin }}" \
-          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
-          NFT="sudo nft" \
-            vpn-sticky/test/run_tests.sh
-
-      - name: Run uwsd utpl-wrapper unit tests
-        # Drives files/utpl-wrapper.uc through a fake uwsd connection object and
-        # asserts request.headers normalization (lower-cased names, as HTTP/2
-        # and the HAProxy/Angie hops deliver them) plus the Content-Type driven
-        # request.form / request.json parsing.
-        if: ${{ hashFiles('uwsd/test/run_tests.sh') != '' }}
-        run: |
-          set -euo pipefail
-          UCODE="${{ steps.ucode.outputs.bin }}" \
-          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
-            uwsd/test/run_tests.sh
-
-      - name: Run pbs-helper unit tests
-        # utest suite (pinned in run_tests.sh) for the pbs.helper job runner:
-        # command building, log tail, Healthchecks and Gotify reporting
-        # (mocked HTTP; independent sinks).
-        if: ${{ hashFiles('pbs-helper/test/run_tests.sh') != '' }}
-        run: |
-          set -euo pipefail
-          UCODE="${{ steps.ucode.outputs.bin }}" \
-          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
-            pbs-helper/test/run_tests.sh
-
-      - name: Run qemu-instance-init QMP tests
-        # utest suite for the qemu.qmp client against a real unix socket
-        # (the test plays QEMU's side of the protocol).
-        if: ${{ hashFiles('qemu-instance-init/test/run_tests.sh') != '' }}
-        run: |
-          set -euo pipefail
-          UCODE="${{ steps.ucode.outputs.bin }}" \
-          UCODE_MODULE_PATH="${{ steps.ucode.outputs.mods }}" \
-            qemu-instance-init/test/run_tests.sh
-
-      - name: Run netifd-proto-dummy tests
-        # Shell unit tests: mocked netifd proto-shell helpers + a fake `ip`
-        # asserting the exact commands the dummy.proto plugin issues, plus a
-        # `sh -n` syntax check. No OpenWrt toolchain needed.
-        if: ${{ hashFiles('netifd-proto-dummy/test/run_tests.sh') != '' }}
-        run: |
-          set -euo pipefail
-          netifd-proto-dummy/test/run_tests.sh
-
-      - name: Run netifd-proto-fou tests
-        # Shell unit tests for the fou-ip6gre / fou-ip6tnl proto plugins:
-        # mocked netifd proto-shell helpers + a fake `ip` asserting the exact
-        # `ip fou add` / `ip link add ... encap fou ...` sequences per mode,
-        # hub listen mode, failure paths and teardown, plus `sh -n`.
-        if: ${{ hashFiles('netifd-proto-fou/test/run_tests.sh') != '' }}
-        run: |
-          set -euo pipefail
-          netifd-proto-fou/test/run_tests.sh
-
-      - name: Build + smoke-test ucode-mod-inotify
-        # Compile the C plugin against the pinned ucode headers and run a real
-        # kernel inotify round-trip through the built interpreter (upstream
-        # modules + inotify.so on the module path).
-        if: ${{ hashFiles('ucode-mod-inotify/src/CMakeLists.txt') != '' }}
-        run: |
-          set -euo pipefail
-          build="${{ runner.temp }}/inotify-build"
-          cmake -S ucode-mod-inotify/src -B "$build" \
-            -Ducode_include_dir="${{ steps.ucode.outputs.inc }}"
-          cmake --build "$build"
-          mods="${{ runner.temp }}/inotify-mods"
-          mkdir -p "$mods"
-          cp "${{ steps.ucode.outputs.mods }}"/*.so "$mods"/
-          cp "$build"/inotify.so "$mods"/
-          "${{ steps.ucode.outputs.bin }}" -L "$mods" ucode-mod-inotify/test/inotify.uc
-
-      - name: Build + smoke-test ucode-mod-sqlite
-        # Compile the C plugin against the pinned ucode headers and run the
-        # in-memory SQLite round-trip through the built interpreter (upstream
-        # modules + sqlite.so on the module path).
-        if: ${{ hashFiles('ucode-mod-sqlite/src/CMakeLists.txt') != '' }}
-        run: |
-          set -euo pipefail
-          build="${{ runner.temp }}/sqlite-build"
-          cmake -S ucode-mod-sqlite/src -B "$build" \
-            -Ducode_include_dir="${{ steps.ucode.outputs.inc }}"
-          cmake --build "$build"
-          mods="${{ runner.temp }}/sqlite-mods"
-          mkdir -p "$mods"
-          cp "${{ steps.ucode.outputs.mods }}"/*.so "$mods"/
-          cp "$build"/sqlite.so "$mods"/
-          "${{ steps.ucode.outputs.bin }}" -L "$mods" ucode-mod-sqlite/test/sqlite.uc
+          sha="$(sed -n 's/^UCODE_SHA="\([0-9a-f]\{40\}\)".*/\1/p' scripts/build-ucode.sh)"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}/ucode-ci:${sha:0:12}"
+          docker run --rm --cap-add NET_ADMIN -v "$GITHUB_WORKSPACE:/feed" \
+            "$image" /feed/ci/ucode/test-package.sh "$PACKAGE"
 
   feed-health:
     name: Feed registration check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Validate feed layout
         run: |

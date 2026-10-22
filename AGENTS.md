@@ -16,7 +16,8 @@ https://github.com/vooon/my-openwrt-feed.git`). Packages are compiled by the
 OpenWrt build system; this repo carries no build system of its own. CI
 (`.github/workflows/ci.yml`) validates the packages that ship **ucode** code —
 `.uc` collector/daemon scripts and C `ucode-mod-*` plugin modules — against a
-pinned upstream ucode build.
+pinned upstream ucode build, and `build.yml` compiles touched packages in an
+OpenWrt SDK image (see "Package builds in CI").
 
 ## ucode packages in this feed
 
@@ -91,29 +92,59 @@ podman run --rm -u root -v "$PWD:/feed" -v "$PWD/out:/out" \
     ghcr.io/vooon/my-openwrt-feed/sdk:x86-64-25.12.6 /feed/scripts/sdk-build.sh mihomo-meta
 ```
 
-Version bumps come from Renovate (`renovate.json`, custom regex manager):
-a package Makefile carries `# renovate: datasource=github-releases
-depName=<owner>/<repo>` (plus `extractVersion=...` when tags are not
-`v<version>`) directly above `PKG_VERSION`, with `PKG_RELEASE` on the next
-line; a bump rewrites both (release back to 1) and the PR is built by
-`build.yml`. Prefer git sources with `PKG_MIRROR_HASH:=skip` for annotated
-packages, since Renovate cannot recompute a tarball `PKG_HASH`.
-Commit-pinned packages (proxmox-backup, mox, uwsd) and envsubst stay manual.
+Version bumps come from Renovate, self-hosted in `renovate.yml` (every
+six hours, on dispatch, and when `renovate.json` changes; it runs as the
+`RENOVATE_TOKEN` secret, a user token, so its PRs trigger the other
+workflows). `renovate.json` has a custom regex manager: a package Makefile
+carries `# renovate: datasource=github-releases depName=<owner>/<repo>`
+(plus `extractVersion=...` when tags are not `v<version>`) directly above
+`PKG_VERSION`, with `PKG_RELEASE` on the next line; a bump rewrites both
+(release back to 1) and the PR is built by `build.yml`. Prefer git sources
+with `PKG_MIRROR_HASH:=skip` for annotated packages, since Renovate cannot
+recompute a tarball `PKG_HASH`. Commit-pinned packages (proxmox-backup,
+mox, uwsd) and envsubst stay manual.
 
 Package Makefiles must include feed helpers via `$(TOPDIR)/feeds/packages/...`
 (not `../../packages/...`): the SDK mounts this feed as a `src-link`
-symlink, where cwd-relative paths resolve outside the tree.
+symlink, where cwd-relative paths resolve outside the tree. The build runs
+as root in the container, so `sdk-build.sh` passes
+`TAR="tar --no-same-permissions"` to make: git archives carry group-writable
+modes, and a source tarball repacked from one as root would not match the
+`PKG_MIRROR_HASH` recorded by a normal (non-root) build. BPF builds (bpftop)
+take clang from `include/bpf.mk` (`$(CLANG)`, the SDK ships
+`staging_dir/host/llvm-bpf`), never from the host.
 
 ## CI checks (see `.github/workflows/ci.yml`)
+
+`ci.yml` runs `ci/ucode/test-package.sh <package>` (lint, syntax check,
+tests) for every touched package the script covers (`--list`), one job per
+package, inside the test image `ci/ucode/Dockerfile`
+(`ghcr.io/vooon/my-openwrt-feed/ucode-ci:<ucode sha>`, built by
+`ucode-image.yml` when the pinned ucode revision, ucode-lsp version, utest
+revision or the Dockerfile change). The image holds the pinned ucode build
+(`/opt/ucode`, env `UCODE`/`UCODE_MODULES`/`UCODE_MODULE_PATH`/
+`UCODE_INCLUDE`), ucode-lsp (`UCODE_LSP`), utest (`UTEST_DIR`) and
+nftables. A change under `scripts/`, `ci/` or `.github/` checks every
+covered package. Locally:
+
+```sh
+podman build -f ci/ucode/Dockerfile -t ucode-ci \
+    --build-arg UCODE_LSP_VERSION=<scripts/uc-lint.mjs pin> \
+    --build-arg UTEST_REV=<*/test/run_tests.sh pin> .   # see the Dockerfile header
+podman run --rm --cap-add NET_ADMIN -v "$PWD:/feed" ucode-ci \
+    /feed/ci/ucode/test-package.sh vpn-sticky pbs-helper
+```
+
+The individual steps, runnable on a host without the image:
 
 ```sh
 # ucode lint: ucode-lsp CLI checker (type inference, flow analysis,
 # null-safety, unused imports, version gating to target 25.12). Pinned
-# ucode-lsp version; runs first.
-node scripts/uc-lint.mjs
+# ucode-lsp version (npx, or the command in $UCODE_LSP); package names
+# restrict it.
+node scripts/uc-lint.mjs [package...]
 
-# pinned ucode + upstream modules (OpenWrt 25.12 revision), cached.
-# Composite action: .github/actions/build-ucode (outputs bin/mods/inc).
+# pinned ucode + upstream modules (OpenWrt 25.12 revision).
 sh scripts/build-ucode.sh /tmp/ucode-build
 
 # syntax-check every tracked *.uc file without executing it:
