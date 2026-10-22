@@ -47,7 +47,8 @@ if (srv.namespace != '')
 
 push(args, `${backup_name}.pxar:${s.prefix ?? '/'}`);
 
-/* one proxmox-backup-client argument per list entry */
+/* one proxmox-backup-client argument per list entry, passed verbatim:
+ * use '--opt=value' or separate entries, never '--opt value' in one entry */
 let extra = s.backup_arg;
 if (type(extra) == 'string')
 	extra = [ extra ];
