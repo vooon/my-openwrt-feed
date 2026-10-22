@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=go2rtc
+# renovate: datasource=github-releases depName=AlexxIT/go2rtc
 PKG_VERSION:=1.9.14
 PKG_RELEASE:=1
 

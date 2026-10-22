@@ -1,0 +1,32 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "semanticCommits": "disabled",
+  "customManagers": [
+    {
+      "description": "OpenWrt package Makefiles annotated with '# renovate: datasource=... depName=...' above PKG_VERSION; a bump resets PKG_RELEASE to 1",
+      "customType": "regex",
+      "managerFilePatterns": ["/^[^/]+/Makefile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?(?: extractVersion=(?<extractVersion>\\S+))?\\nPKG_VERSION:=(?<currentValue>\\S+)\\nPKG_RELEASE:=\\d+\\n"
+      ],
+      "extractVersionTemplate": "^v?(?<version>.+)$",
+      "autoReplaceStringTemplate": "# renovate: datasource={{{datasource}}} depName={{{depName}}}{{#if versioning}} versioning={{{versioning}}}{{/if}}{{#if extractVersion}} extractVersion={{{extractVersion}}}{{/if}}\nPKG_VERSION:={{{newValue}}}\nPKG_RELEASE:=1\n"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Commit/PR title in the feed's style: '<package>: update to <version>'",
+      "matchManagers": ["custom.regex"],
+      "commitMessagePrefix": "{{{packageFileDir}}}:",
+      "commitMessageAction": "update",
+      "commitMessageTopic": "to {{{newVersion}}}",
+      "commitMessageExtra": ""
+    },
+    {
+      "description": "GitHub Actions: one PR per action, as dependabot did",
+      "matchManagers": ["github-actions"],
+      "commitMessagePrefix": "ci:"
+    }
+  ]
+}

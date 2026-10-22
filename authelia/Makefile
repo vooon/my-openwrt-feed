@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=authelia
+# renovate: datasource=github-releases depName=authelia/authelia
 PKG_VERSION:=4.39.28
 PKG_RELEASE:=1
 

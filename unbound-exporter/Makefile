@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=unbound-exporter
+# renovate: datasource=github-releases depName=letsencrypt/unbound_exporter
 PKG_VERSION:=0.6.0
 PKG_RELEASE:=1
 

@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gobgp
+# renovate: datasource=github-releases depName=osrg/gobgp
 PKG_VERSION:=4.10.0
 PKG_RELEASE:=1
 

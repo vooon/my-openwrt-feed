@@ -90,6 +90,15 @@ podman run --rm -u root -v "$PWD:/feed" -v "$PWD/out:/out" \
     ghcr.io/vooon/my-openwrt-feed/sdk:x86-64-25.12.6 /feed/scripts/sdk-build.sh mihomo-meta
 ```
 
+Version bumps come from Renovate (`renovate.json`, custom regex manager):
+a package Makefile carries `# renovate: datasource=github-releases
+depName=<owner>/<repo>` (plus `extractVersion=...` when tags are not
+`v<version>`) directly above `PKG_VERSION`, with `PKG_RELEASE` on the next
+line; a bump rewrites both (release back to 1) and the PR is built by
+`build.yml`. Prefer git sources with `PKG_MIRROR_HASH:=skip` for annotated
+packages, since Renovate cannot recompute a tarball `PKG_HASH`.
+Commit-pinned packages (proxmox-backup, mox, uwsd) and envsubst stay manual.
+
 Package Makefiles must include feed helpers via `$(TOPDIR)/feeds/packages/...`
 (not `../../packages/...`): the SDK mounts this feed as a `src-link`
 symlink, where cwd-relative paths resolve outside the tree.

@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gotify2telegram
+# renovate: datasource=github-tags depName=vooon/gotify2telegram
 PKG_VERSION:=3.1.1
 PKG_RELEASE:=1
 

@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=nylon
+# renovate: datasource=github-releases depName=encodeous/nylon
 PKG_VERSION:=0.4.6
 PKG_RELEASE:=1
 

@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=smokeping-prober
+# renovate: datasource=github-releases depName=SuperQ/smokeping_prober
 PKG_VERSION:=0.12.0
 PKG_RELEASE:=1
 

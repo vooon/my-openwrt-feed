@@ -4,6 +4,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=nebula
+# renovate: datasource=github-releases depName=slackhq/nebula
 PKG_VERSION:=1.11.2
 PKG_RELEASE:=1
 

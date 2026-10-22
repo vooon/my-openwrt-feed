@@ -1,12 +1,14 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=bpftop
+# renovate: datasource=github-releases depName=Netflix/bpftop
 PKG_VERSION:=0.9.0
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://codeload.github.com/Netflix/bpftop/tar.gz/refs/tags/v$(PKG_VERSION)?
-PKG_HASH:=a81bcc69a697ffa0919d63394d914d4b1f15b2ba33d2c28e6f6dae2187f59a5a
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=https://github.com/Netflix/bpftop.git
+PKG_SOURCE_VERSION:=v$(PKG_VERSION)
+PKG_MIRROR_HASH:=skip
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 PKG_LICENSE:=Apache-2.0

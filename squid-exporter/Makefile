@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=squid-exporter
+# renovate: datasource=github-releases depName=boynux/squid-exporter
 PKG_VERSION:=1.13.0
 PKG_RELEASE:=1
 

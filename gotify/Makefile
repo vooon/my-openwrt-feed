@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gotify
+# renovate: datasource=github-releases depName=gotify/server
 PKG_VERSION:=3.1.1
 PKG_RELEASE:=1
 

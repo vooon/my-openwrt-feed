@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lldap
+# renovate: datasource=github-releases depName=lldap/lldap
 PKG_VERSION:=0.6.3
 PKG_RELEASE:=1
 

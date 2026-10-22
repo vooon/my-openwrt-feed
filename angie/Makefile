@@ -8,12 +8,14 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=angie
+# renovate: datasource=github-releases depName=webserver-llc/angie extractVersion=^Angie-(?<version>.+)$
 PKG_VERSION:=1.12.4
 PKG_RELEASE:=1
 
-PKG_SOURCE:=angie-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://download.angie.software/files/
-PKG_HASH:=b236f152adb543fb6e4a94f271b873cdc0d48d570f86b1bd04435f85843f4527
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=https://github.com/webserver-llc/angie.git
+PKG_SOURCE_VERSION:=Angie-$(PKG_VERSION)
+PKG_MIRROR_HASH:=skip
 
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 PKG_LICENSE:=BSD-2-Clause

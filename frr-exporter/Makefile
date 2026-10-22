@@ -1,6 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=frr-exporter
+# renovate: datasource=github-releases depName=tynany/frr_exporter
 PKG_VERSION:=1.12.0
 PKG_RELEASE:=1
 
