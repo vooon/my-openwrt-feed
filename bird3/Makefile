@@ -26,7 +26,7 @@ define Package/bird3
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=Routing and Redirection
-  DEPENDS:=+libpthread $(ATOMIC64_DEPENDS)
+  DEPENDS:=+libpthread +libatomic
   CONFLICTS:=bird2
 endef
 
