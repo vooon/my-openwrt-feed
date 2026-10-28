@@ -15,7 +15,7 @@
 #   podman build -f ci/ucode/Dockerfile -t ucode-ci \
 #       --build-arg UCODE_LSP_VERSION="$(sed -n "s/^const UCODE_LSP_VERSION = '\([^']*\)';.*/\1/p" scripts/uc-lint.mjs)" \
 #       --build-arg UTEST_REV="$(sed -n 's/^UTEST_REV="\([0-9a-f]*\)".*/\1/p' pbs-helper/test/run_tests.sh)" .
-FROM docker.io/library/node:24-bookworm-slim
+FROM docker.io/library/node:26-bookworm-slim
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
