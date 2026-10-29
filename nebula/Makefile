@@ -5,7 +5,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=nebula
 # renovate: datasource=github-releases depName=slackhq/nebula
-PKG_VERSION:=1.11.2
+PKG_VERSION:=1.12.0
 PKG_RELEASE:=1
 
 # tracking master for goroutine/memory leak fix (213dd46)
