@@ -3,7 +3,7 @@ include $(TOPDIR)/rules.mk
 PKG_NAME:=meow-rs
 # renovate: datasource=github-releases depName=meow-rs/meow-rs
 PKG_VERSION:=0.28.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/meow-rs/meow-rs.git
@@ -22,6 +22,15 @@ PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
+
+# boring-sys generates its bindings with bindgen, which dlopens libclang. The
+# SDK image has no system libclang, but every OpenWrt tree with a BPF
+# toolchain ships one under staging_dir/host/llvm-bpf; point bindgen at it
+# when present and let it fall back to the system library otherwise.
+LLVM_BPF_LIB:=$(STAGING_DIR_HOST)/llvm-bpf/lib
+ifneq ($(wildcard $(LLVM_BPF_LIB)/libclang.so),)
+  CARGO_PKG_VARS+= LIBCLANG_PATH=$(LLVM_BPF_LIB)
+endif
 
 # meow-app is the CLI entry point; the workspace resolver picks up all
 # workspace crates from the lockfile at crates/meow-app.
