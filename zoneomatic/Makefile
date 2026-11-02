@@ -3,7 +3,7 @@ include $(TOPDIR)/rules.mk
 PKG_NAME:=zoneomatic
 # renovate: datasource=github-releases depName=vooon/zoneomatic
 PKG_VERSION:=0.19.0
-PKG_RELEASE:=2
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/zoneomatic.git
@@ -14,7 +14,7 @@ PKG_LICENSE:=ASL-2.0
 PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=Vladimir Ermakov <vooon341@gmail.com>
 
-PKG_BUILD_DEPENDS:=golang/host
+PKG_BUILD_DEPENDS:=golang1.27/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
