@@ -32,6 +32,14 @@ ifneq ($(wildcard $(LLVM_BPF_LIB)/libclang.so),)
   CARGO_PKG_VARS+= LIBCLANG_PATH=$(LLVM_BPF_LIB)
 endif
 
+# boring-sys and meow-lwip run bindgen's clang over target headers. clang
+# knows nothing about the OpenWrt toolchain layout: the libc headers are in
+# $(TOOLCHAIN_DIR)/include (not usr/include, where --sysroot would look),
+# the compiler builtin headers (stddef.h) next to the target gcc's libgcc.a
+# and the package headers in $(STAGING_DIR)/usr/include.
+CARGO_PKG_VARS+= \
+	BINDGEN_EXTRA_CLANG_ARGS="--target=$(REAL_GNU_TARGET_NAME) --sysroot=$(TOOLCHAIN_DIR) -isystem $(dir $(LIBGCC_A))include -isystem $(TOOLCHAIN_DIR)/include -I$(STAGING_DIR)/usr/include"
+
 # meow-app is the CLI entry point; the workspace resolver picks up all
 # workspace crates from the lockfile at crates/meow-app.
 MAKE_PATH:=crates/meow-app
