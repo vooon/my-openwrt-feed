@@ -3,7 +3,7 @@ include $(TOPDIR)/rules.mk
 PKG_NAME:=zoneomatic
 # renovate: datasource=github-releases depName=vooon/zoneomatic
 PKG_VERSION:=0.19.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/vooon/zoneomatic.git
