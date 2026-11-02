@@ -26,7 +26,7 @@ for (let idx = 0; ; idx++) {
 	});
 }
 
-if (length(thermal_devs) > 0) {	
+if (length(thermal_devs) > 0) {
 	const temp_metric = gauge("node_thermal_zone_temp", "Zone temperature in Celsius");
 
 	for (let d in thermal_devs) {
@@ -54,7 +54,7 @@ for (let idx = 0; ; idx++) {
 	});
 }
 
-if (length(cooling_devs) > 0) {	
+if (length(cooling_devs) > 0) {
 
 	const cur_throttle = gauge("node_cooling_device_cur_state", "Current throttle state of the cooling device");
 
