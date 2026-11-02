@@ -6,12 +6,20 @@ USE_PROCD=1
 PROG=/usr/bin/pathosd
 CONF=pathosd
 
+extra_command "check" "Run the configured health checks once and print the results (no BGP)"
+
 list_append_env() {
 	procd_append_param env "$1"
 }
 
 list_append_args() {
 	procd_append_param command "$1"
+}
+
+get_config_path() {
+	config_load "$CONF"
+	config_get config_path daemon config "/etc/pathosd/pathosd.yaml"
+	[ -f "$config_path" ] || return 1
 }
 
 start_service() {
@@ -59,6 +67,24 @@ start_service() {
 	procd_close_instance
 }
 
+# `reload` makes the running daemon re-read its YAML config in place (SIGHUP;
+# ujail forwards it), which keeps the BGP sessions up. The uci file only
+# shapes the command line and the jail, so a change there goes through the
+# config trigger below and restarts the instance instead.
+reload_service() {
+	procd_send_signal "$CONF" '*' HUP
+}
+
+check() {
+	local config_path
+
+	get_config_path || {
+		echo "pathosd: config file not found: $config_path" >&2
+		return 1
+	}
+	"$PROG" check --config "$config_path"
+}
+
 service_triggers() {
-	procd_add_reload_trigger "$CONF"
+	procd_add_config_trigger "config.change" "$CONF" /etc/init.d/pathosd restart
 }
