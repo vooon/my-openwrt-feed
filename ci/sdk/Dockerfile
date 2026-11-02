@@ -5,14 +5,22 @@
 #
 # Built and pushed by .github/workflows/sdk-image.yml as
 # ghcr.io/<repo>/sdk:<SDK_TAG>; used by .github/workflows/build.yml via
-# scripts/sdk-build.sh. The SDK's feeds.conf.default pins the packages feed
-# to one commit, so the toolchain versions are fixed per SDK_TAG.
+# scripts/sdk-build.sh. The SDK's feeds.conf.default pins every feed to its
+# release commit; the packages feed is moved to PACKAGES_REV below, so the
+# toolchain versions are fixed per (SDK_TAG, PACKAGES_REV).
 #
 # Local build (Rust takes a while):
 #   podman build -t openwrt-sdk-vooon ci/sdk
 #   podman build --build-arg HOST_PACKAGES=golang -t openwrt-sdk-vooon ci/sdk   # Go only
 ARG SDK_TAG=x86-64-25.12.6
 FROM ghcr.io/openwrt/sdk:${SDK_TAG}
+
+# Commit of the packages feed (openwrt-25.12 branch) to build against,
+# instead of the release commit the SDK pins (golang 1.26.9 / 1.27.1).
+# This one has golang 1.26.10 and 1.27.3, which pathosd, zoneomatic and
+# nebula need. Bump it to a newer openwrt-25.12 commit to move the
+# toolchains; the SDK itself (base feed, target toolchain) stays at SDK_TAG.
+ARG PACKAGES_REV=e9a1c22d1bebc97c71a8e5a4036f4a4935b85dda
 
 # Host toolchain packages (names in the packages feed) to prebuild, in
 # build order: the default Go, Go 1.27 (authelia), Rust, Python 3 (also
@@ -23,7 +31,12 @@ ARG HOST_PACKAGES="golang golang1.27 rust python3 node node-yarn"
 # make prints only one "make[2] -C ... host-compile" line per package and
 # nothing while its recipe runs (hours for rust), so a background loop
 # reports every 5 minutes what is being built and the size of its build dir.
+# The pin is written into feeds.conf.default, which scripts/sdk-build.sh
+# copies at build time, so the package builds see the same feed as the
+# toolchains were built from.
 RUN set -e; \
+	sed -i "s|^\(src-git packages [^^]*\)^.*|\1^${PACKAGES_REV}|" feeds.conf.default; \
+	grep -q "^src-git packages .*\^${PACKAGES_REV}\$" feeds.conf.default; \
 	cp feeds.conf.default feeds.conf; \
 	./scripts/feeds update -a; \
 	./scripts/feeds install ${HOST_PACKAGES}; \

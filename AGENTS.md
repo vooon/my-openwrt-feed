@@ -83,7 +83,9 @@ prebuilt `golang`, `golang1.27`, `rust`, `python3`, `node` and `node-yarn`
 host toolchains on `ghcr.io/openwrt/sdk:<SDK_TAG>` and is pushed as
 `ghcr.io/vooon/my-openwrt-feed/sdk:<SDK_TAG>` by `sdk-image.yml` (rebuilt
 when the Dockerfile changes; bump `SDK_TAG` there to move to a newer OpenWrt
-point release). `scripts/sdk-build.sh <pkg>...` is the entry point and runs
+point release, and `PACKAGES_REV` to move the packages feed, and with it the
+Go/Rust toolchain versions, to a newer `openwrt-25.12` commit than the one
+the SDK pins). `scripts/sdk-build.sh <pkg>...` is the entry point and runs
 the same way locally (see its header):
 
 ```sh
