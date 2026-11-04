@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=bpftop
 # renovate: datasource=github-releases depName=Netflix/bpftop
-PKG_VERSION:=0.9.0
+PKG_VERSION:=0.9.1
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
