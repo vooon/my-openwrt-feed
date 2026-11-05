@@ -2,8 +2,8 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=meow-rs
 # renovate: datasource=github-releases depName=meow-rs/meow-rs
-PKG_VERSION:=0.28.0
-PKG_RELEASE:=2
+PKG_VERSION:=0.29.0
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/meow-rs/meow-rs.git
