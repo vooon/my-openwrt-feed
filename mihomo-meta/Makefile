@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mihomo-meta
 # renovate: datasource=github-releases depName=MetaCubeX/mihomo
-PKG_VERSION:=1.19.33
+PKG_VERSION:=1.19.34
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
