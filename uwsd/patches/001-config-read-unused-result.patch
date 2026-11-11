@@ -1,6 +1,6 @@
 --- a/config.c
 +++ b/config.c
-@@ -1329,7 +1329,14 @@ parse_file(int dir, const char *file, struct stat *st)
+@@ -1331,7 +1331,14 @@ parse_file(int dir, const char *file, st
  
  	input = xalloc(st->st_size + 1);
  
