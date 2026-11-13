@@ -94,6 +94,9 @@ podman run --rm -u root -v "$PWD:/feed" -v "$PWD/out:/out" \
     ghcr.io/vooon/my-openwrt-feed/sdk:x86-64-25.12.6 /feed/scripts/sdk-build.sh mihomo-meta
 ```
 
+`sdk-build.sh` also adds the third-party amneziawg feed (`EXTRA_FEEDS`, pinned to a commit),
+which provides `kmod-amneziawg` for `rpcd-mod-amneziawg`.
+
 Version bumps come from Renovate, self-hosted in `renovate.yml` (every
 six hours, on dispatch, and when `renovate.json` changes; it runs as the
 `RENOVATE_TOKEN` secret, a user token, so its PRs trigger the other
