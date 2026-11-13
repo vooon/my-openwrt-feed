@@ -524,6 +524,22 @@ Source: ubus (`wireguard.status`)
 | `wireguard_received_bytes_total` | gauge | `public_key` | Bytes received |
 | `wireguard_sent_bytes_total` | gauge | `public_key` | Bytes sent |
 
+### amneziawg
+
+Package: `prometheus-node-exporter-ucode-amneziawg`
+Dependencies: `rpcd-mod-amneziawg`
+Source: ubus (`amneziawg.status`)
+
+The `wireguard` collector for AmneziaWG interfaces (`proto amneziawg`).
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `amneziawg_interface_info` | gauge | `name`, `public_key`, `listen_port`, `fwmark` | Interface info |
+| `amneziawg_peer_info` | gauge | `interface`, `public_key`, `description`, `endpoint`, ... | Peer info |
+| `amneziawg_latest_handshake_seconds` | gauge | `public_key` | Last handshake time |
+| `amneziawg_received_bytes_total` | gauge | `public_key` | Bytes received |
+| `amneziawg_sent_bytes_total` | gauge | `public_key` | Bytes sent |
+
 ## Testing
 
 The collectors can be tested without a running daemon by mocking their
