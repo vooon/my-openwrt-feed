@@ -67,6 +67,7 @@ Package overview
 |-------------------|------------------------------------------------------|
 | `ddns-dhcp-sync`  | Sync local DHCP static hosts with DDNS               |
 | `zoneomatic`      | Simple DynDNS API server                             |
+| `coredns`         | CoreDNS server with selectable built-in and third-party plugins |
 
 ### Network interfaces and protocols
 
@@ -77,12 +78,13 @@ Package overview
 | `netifd-proto-fou`      | Shared helpers for the netifd FOU tunnel protos  |
 | `luci-proto-fou-ip6gre` | LuCI UI for FOU-encapsulated GRE over IPv6       |
 | `luci-proto-fou-ip6tnl` | LuCI UI for FOU-encapsulated ip6tnl interfaces   |
+| `rpcd-mod-amneziawg`    | ubus status of AmneziaWG interfaces (`rpcd-mod-wireguard` for `proto amneziawg`) |
 
 ### Monitoring and observability
 
 | Package                          | Description                                    |
 |----------------------------------|------------------------------------------------|
-| `prometheus-node-exporter-ucode` | Prometheus node exporter written in ucode      |
+| `prometheus-node-exporter-ucode` | Prometheus node exporter written in ucode (incl. the AmneziaWG collector) |
 | `frr-exporter`                   | Prometheus exporter for Free Range Routing     |
 | `smokeping-prober`               | Prometheus smokeping prober                    |
 | `squid-exporter`                 | Prometheus exporter for Squid                  |

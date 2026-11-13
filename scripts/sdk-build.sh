@@ -21,6 +21,7 @@
 #   SDK_DIR   unpacked SDK                     [/builder]
 #   FEED_DIR  this feed (mounted checkout)     [/feed]
 #   OUT_DIR   where built packages are copied, if the directory exists [/out]
+#   EXTRA_FEEDS  feeds.conf lines of extra feeds  [the amneziawg feed]
 #   JOBS      parallel jobs                    [nproc]
 set -eu
 
@@ -29,6 +30,9 @@ FEED_DIR="${FEED_DIR:-/feed}"
 OUT_DIR="${OUT_DIR:-/out}"
 JOBS="${JOBS:-$(nproc)}"
 FEED=vooon
+# feeds.conf lines of the third-party feeds packages of this feed depend on,
+# pinned to a commit (url^sha); bump the pin by hand
+EXTRA_FEEDS="${EXTRA_FEEDS-src-git amneziawg https://github.com/this-username-has-been-taken/amneziawg-openwrt.git^5d6ac8712c565e629eb1abd3be97f768745bca06}"
 
 if [ $# -eq 0 ]; then
 	echo "usage: $0 <package>..." >&2
@@ -37,15 +41,18 @@ fi
 
 cd "$SDK_DIR"
 
-# The SDK's default feeds (pinned commits) plus this feed. In the ci/sdk
-# image the default feeds are already fetched and indexed; the stock SDK
-# needs a full update.
+# The SDK's default feeds (pinned commits) plus this feed and the feeds its
+# packages depend on (EXTRA_FEEDS: kmod-amneziawg for rpcd-mod-amneziawg).
+# In the ci/sdk image the default feeds are already fetched and indexed;
+# the stock SDK needs a full update.
 {
 	cat feeds.conf.default
+	echo "$EXTRA_FEEDS"
 	echo "src-link $FEED $FEED_DIR"
 } > feeds.conf
 if [ -f feeds/packages.index ]; then
-	./scripts/feeds update "$FEED"
+	# shellcheck disable=SC2046   # one feed name per word
+	./scripts/feeds update $(echo "$EXTRA_FEEDS" | awk 'NF {print $2}') "$FEED"
 else
 	./scripts/feeds update -a
 fi

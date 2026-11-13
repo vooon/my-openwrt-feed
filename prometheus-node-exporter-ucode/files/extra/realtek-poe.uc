@@ -37,34 +37,34 @@ const firmware    = poe_info["firmware"];
 const consumption = poe_info["consumption"];
 
 // push info, budget and consumption metric
-gauge(`realtek_poe_switch_info`)({ mcu: mcu, firmware: firmware }, 1);
-gauge(`realtek_poe_switch_budget_watts`)(null, budget);
-gauge(`realtek_poe_switch_consumption_watts`)(null, consumption);
+gauge('realtek_poe_switch_info')({ mcu: mcu, firmware: firmware }, 1);
+gauge('realtek_poe_switch_budget_watts')(null, budget);
+gauge('realtek_poe_switch_consumption_watts')(null, consumption);
 
 // push per port priority metrics
-const priority_metric = gauge(`realtek_poe_port_priority`);
-for (port, values in ports) {
+const priority_metric = gauge('realtek_poe_port_priority');
+for (let port, values in ports) {
 	priority_metric({ device: port }, values["priority"]);
 }
 
 // push per port consumption metrics
-const consumption_metric = gauge(`realtek_poe_port_consumption_watts`);
-for (port, values in ports) {
+const consumption_metric = gauge('realtek_poe_port_consumption_watts', 'PoE port power consumption in Watts');
+for (let port, values in ports) {
 	consumption_metric({ device: port }, (values["consumption"] || 0));
 }
 
 // push per port state metrics
-const state_metric = gauge(`realtek_poe_port_state`);
+const state_metric = gauge('realtek_poe_port_state', 'PoE port state');
 for (let state in POE_STATES) {
-	for (port, values in ports) {
+	for (let port, values in ports) {
 		state_metric({ device: port, state: state }, (values["status"] == state) ? 1 : 0);
 	}
 }
 
 // push per port mode metrics
-const mode_metric = gauge(`realtek_poe_port_mode`);
+const mode_metric = gauge('realtek_poe_port_mode', 'PoE port mode');
 for (let mode in POE_MODES) {
-	for (port, values in ports) {
+	for (let port, values in ports) {
 		mode_metric({ device: port, mode: mode }, (values["mode"] == mode) ? 1 : 0);
 	}
 }

@@ -94,6 +94,9 @@ podman run --rm -u root -v "$PWD:/feed" -v "$PWD/out:/out" \
     ghcr.io/vooon/my-openwrt-feed/sdk:x86-64-25.12.6 /feed/scripts/sdk-build.sh mihomo-meta
 ```
 
+`sdk-build.sh` also adds the third-party amneziawg feed (`EXTRA_FEEDS`, pinned to a commit),
+which provides `kmod-amneziawg` for `rpcd-mod-amneziawg`.
+
 Version bumps come from Renovate, self-hosted in `renovate.yml` (every
 six hours, on dispatch, and when `renovate.json` changes; it runs as the
 `RENOVATE_TOKEN` secret, a user token, so its PRs trigger the other
@@ -103,7 +106,13 @@ carries `# renovate: datasource=github-releases depName=<owner>/<repo>`
 `PKG_VERSION`, with `PKG_RELEASE` on the next line; a bump rewrites both
 (release back to 1) and the PR is built by `build.yml`. Prefer git sources
 with `PKG_MIRROR_HASH:=skip` for annotated packages, since Renovate cannot
-recompute a tarball `PKG_HASH`. Commit-pinned packages (proxmox-backup,
+recompute a tarball `PKG_HASH`. A second manager covers components built
+into a package (the third-party CoreDNS plugins): `# renovate: datasource=go
+depName=<name> packageName=<module>` above `<NAME>_VERSION:=v<version>`, or
+`datasource=git-refs ... packageName=<repo url> branch=<branch>` above
+`<NAME>_VERSION:=<commit sha>` when there are no release tags; such a bump
+also increments `PKG_RELEASE` through `scripts/bump-pkg-release.sh`
+(a `postUpgradeTasks` command, allowed in `renovate.yml`). Commit-pinned packages (proxmox-backup,
 mox, uwsd) and envsubst stay manual.
 
 Package Makefiles must include feed helpers via `$(TOPDIR)/feeds/packages/...`
