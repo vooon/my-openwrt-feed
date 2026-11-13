@@ -3,7 +3,7 @@ include $(TOPDIR)/rules.mk
 PKG_NAME:=coredns
 # renovate: datasource=github-releases depName=coredns/coredns
 PKG_VERSION:=1.15.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/coredns/coredns.git
@@ -38,7 +38,7 @@ COREDNS_MULTICLUSTER_VERSION:=edbcb64886f6ea1418db002e93ee5a2743ddcfc2
 # renovate: datasource=go depName=wgsd packageName=github.com/jwhited/wgsd
 COREDNS_WGSD_VERSION:=v0.3.6
 # renovate: datasource=go depName=coredns-gslb packageName=github.com/dmachard/coredns-gslb
-COREDNS_GSLB_VERSION:=v0.23.1
+COREDNS_GSLB_VERSION:=v0.23.2
 # renovate: datasource=go depName=fanout packageName=github.com/networkservicemesh/fanout
 COREDNS_FANOUT_VERSION:=v1.11.3
 
