@@ -25,6 +25,23 @@ GO_PKG_LDFLAGS_X:= \
 	github.com/coredns/coredns/coremain.GitCommit=v$(PKG_VERSION) \
 	github.com/coredns/coredns/coremain.gitTag=v$(PKG_VERSION)
 
+# Third-party plugins, pinned: "go get ./..." would otherwise take whatever
+# is the latest version at build time. Renovate bumps the pins (go module
+# versions, or the branch head commit for plugins without release tags)
+# and PKG_RELEASE with them (scripts/bump-pkg-release.sh).
+# renovate: datasource=go depName=coredns-netbox-plugin packageName=github.com/oz123/coredns-netbox-plugin
+COREDNS_NETBOX_VERSION:=v0.4.0
+# renovate: datasource=git-refs depName=coredns-finalizer packageName=https://github.com/tmeckel/coredns-finalizer branch=master
+COREDNS_FINALIZE_VERSION:=fef8501d6f0ed6f67d7e50b41bdcbe8569d085d5
+# renovate: datasource=git-refs depName=multicluster packageName=https://github.com/coredns/multicluster branch=main
+COREDNS_MULTICLUSTER_VERSION:=edbcb64886f6ea1418db002e93ee5a2743ddcfc2
+# renovate: datasource=go depName=wgsd packageName=github.com/jwhited/wgsd
+COREDNS_WGSD_VERSION:=v0.3.6
+# renovate: datasource=go depName=coredns-gslb packageName=github.com/dmachard/coredns-gslb
+COREDNS_GSLB_VERSION:=v0.23.1
+# renovate: datasource=go depName=fanout packageName=github.com/networkservicemesh/fanout
+COREDNS_FANOUT_VERSION:=v1.11.3
+
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 
@@ -74,6 +91,18 @@ define configure-plugin
 		$(SED) '/^$(2):/d' "$(PKG_BUILD_DIR)/plugin.cfg")
 endef
 
+# pin-plugin <enabled> <module> <version>
+# Require the plugin module at exactly <version>, before "go get ./..."
+# resolves what is still missing.
+define pin-plugin
+	$(if $(filter y,$(1)),\
+		cd $(PKG_BUILD_DIR); \
+		$(GO_GENERAL_BUILD_CONFIG_VARS) \
+		$(GO_PKG_BUILD_CONFIG_VARS) \
+		$(GO_PKG_VARS) \
+		go get $(2)@$(3))
+endef
+
 define Build/Configure
 	$(call GoPackage/Build/Configure,$(1))
 	cp "$(PKG_BUILD_DIR)/plugin.cfg.orig" "$(PKG_BUILD_DIR)/plugin.cfg"
@@ -109,6 +138,12 @@ define Build/Configure
 
 	# NOTE: custom plugins needs go get to pull new dependencies
 ifeq ($(CONFIG_COREDNS_REQUIRE_GO_GET),y)
+	$(call pin-plugin,$(CONFIG_COREDNS_PLUGIN_NETBOX),github.com/oz123/coredns-netbox-plugin,$(COREDNS_NETBOX_VERSION))
+	$(call pin-plugin,$(CONFIG_COREDNS_PLUGIN_FINALIZE),github.com/tmeckel/coredns-finalizer,$(COREDNS_FINALIZE_VERSION))
+	$(call pin-plugin,$(CONFIG_COREDNS_PLUGIN_MULTICLUSTER),github.com/coredns/multicluster,$(COREDNS_MULTICLUSTER_VERSION))
+	$(call pin-plugin,$(CONFIG_COREDNS_PLUGIN_WGSD),github.com/jwhited/wgsd,$(COREDNS_WGSD_VERSION))
+	$(call pin-plugin,$(CONFIG_COREDNS_PLUGIN_GSLB),github.com/dmachard/coredns-gslb,$(COREDNS_GSLB_VERSION))
+	$(call pin-plugin,$(CONFIG_COREDNS_PLUGIN_FANOUT),github.com/networkservicemesh/fanout,$(COREDNS_FANOUT_VERSION))
 	cd $(PKG_BUILD_DIR); \
 	$(GO_GENERAL_BUILD_CONFIG_VARS) \
 	$(GO_PKG_BUILD_CONFIG_VARS) \
