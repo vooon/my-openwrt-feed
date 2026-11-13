@@ -60,4 +60,7 @@ jobs:
         env:
           RENOVATE_PLATFORM: github
           RENOVATE_REPOSITORIES: ${{ github.repository }}
+          # postUpgradeTasks commands renovate.json may run (regexes): only
+          # the PKG_RELEASE bump that goes with a component pin update
+          RENOVATE_ALLOWED_COMMANDS: '["^scripts/bump-pkg-release\\.sh [^/ ]+/Makefile$"]'
           LOG_LEVEL: ${{ inputs.log_level || 'info' }}

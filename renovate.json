@@ -12,6 +12,15 @@
       ],
       "extractVersionTemplate": "^v?(?<version>.+)$",
       "autoReplaceStringTemplate": "# renovate: datasource={{{datasource}}} depName={{{depName}}}{{#if versioning}}{{#unless (equals versioning 'semver-coerced')}} versioning={{{versioning}}}{{/unless}}{{/if}}{{#if extractVersion}}{{#unless (equals extractVersion '^v?(?<version>.+)$')}} extractVersion={{{extractVersion}}}{{/unless}}{{/if}}\nPKG_VERSION:={{{newValue}}}\nPKG_RELEASE:=1\n"
+    },
+    {
+      "description": "Pins of components built into a package: '# renovate: datasource=... depName=... packageName=...' above '<NAME>_VERSION:=v<version>', or with a trailing 'branch=<branch>' above '<NAME>_VERSION:=<commit sha>' for sources without release tags",
+      "customType": "regex",
+      "managerFilePatterns": ["/^[^/]+/Makefile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) packageName=(?<packageName>\\S+)\\n[A-Z0-9_]+_VERSION:=(?<currentValue>v\\S+)\\n",
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) packageName=(?<packageName>\\S+) branch=(?<currentValue>\\S+)\\n[A-Z0-9_]+_VERSION:=(?<currentDigest>[0-9a-f]{40})\\n"
+      ]
     }
   ],
   "packageRules": [
@@ -22,6 +31,17 @@
       "commitMessageAction": "update",
       "commitMessageTopic": "to {{{newVersion}}}",
       "commitMessageExtra": ""
+    },
+    {
+      "description": "Component pins: '<package>: update <component> to <version>', and PKG_RELEASE is incremented (the command has to be in allowedCommands, see renovate.yml)",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["go", "git-refs"],
+      "commitMessageTopic": "{{{depName}}} to {{#if (equals updateType 'digest')}}{{{newDigestShort}}}{{else}}{{{newVersion}}}{{/if}}",
+      "postUpgradeTasks": {
+        "commands": ["scripts/bump-pkg-release.sh {{{packageFile}}}"],
+        "fileFilters": ["*/Makefile"],
+        "executionMode": "update"
+      }
     },
     {
       "description": "GitHub Actions: one PR per action, as dependabot did",
