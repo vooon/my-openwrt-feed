@@ -30,7 +30,7 @@ define Package/gotify2telegram
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Gotify forwarding plugin to Telegram.
-  URL:=https://github.com/anhbh310/gotify2telegram/
+  URL:=https://github.com/vooon/gotify2telegram/
   DEPENDS:=$(GO_ARCH_DEPENDS) gotify
 endef
 
