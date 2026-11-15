@@ -23,10 +23,17 @@ OpenWrt SDK image (see "Package builds in CI").
 
 - `prometheus-node-exporter-ucode/` — Prometheus node exporter rewritten in
   ucode. Collectors in `files/base/` and `files/extra/`, entry template in
-  `files/metrics.uc`, self-contained regression tests in `test/`
-  (`test/<name>.uc`), run with `test.sh`. Each collector is `loadfile()`d with
-  `raw_mode: true` and mocked `ubus`/`uci`/`gauge`/`counter`/`fs`/`raw`.
-  Tests are run from the package dir with `UCODE`/`UCODE_MODULES` set.
+  `files/metrics.uc`. [utest](https://github.com/m00qek/utest) suites in
+  `test/*_test.uc` (`test/run_tests.sh`, same pinned utest as vpn-sticky,
+  `UCODE` / `UCODE_MODULE_PATH`): `test/lib/harness.uc` `loadfile()`s a
+  collector with `raw_mode: true` and recording `gauge`/`counter`/`raw`;
+  `ubus`/`fs` are utest mocks, the HTTP collectors run through the real
+  `files/http_client.uc` on mocked `uclient`/`uloop` (`with_http()`), and
+  `test/metrics_test.uc` renders `metrics.uc` against
+  `test/fixtures/collectors/` with mocked uci. `ubus`/`uci` do not exist on
+  the test hosts, so `test/proxy/*.uc` add an `api` list to utest's proxies.
+  `test.sh` is the on-target smoke test of the OpenWrt package CI, as
+  upstream.
 - `rpcd-mod-bird/` — BIRD control-socket ubus rpcd plugin. `src/bird.uc`
   (imports `socket`/`log`/`fs` + the pure `./birdconfig.uc`), and the pure
   BIRD-config editor/parser `src/birdconfig.uc`. Unit tests in `test/`
@@ -167,7 +174,7 @@ sh scripts/build-ucode.sh /tmp/ucode-build
 #  `-o <file>`, else it would clobber a `./uc.out` in the cwd.)
 
 # unit tests (upstream modules on the module path):
-UCODE=.../ucode UCODE_MODULES=... prometheus-node-exporter-ucode/test.sh
+UCODE=.../ucode UCODE_MODULE_PATH=... prometheus-node-exporter-ucode/test/run_tests.sh
 UCODE=.../ucode UCODE_MODULE_PATH=... rpcd-mod-bird/test/run_tests.sh
 UCODE=.../ucode UCODE_MODULE_PATH=... pbs-helper/test/run_tests.sh
 UCODE=.../ucode UCODE_MODULE_PATH=... qemu-instance-init/test/run_tests.sh
@@ -284,10 +291,12 @@ When in doubt, check the docs rather than assuming ECMAScript semantics.
 
 ## Testing (see also `.github/workflows/ci.yml`)
 
-- **node-exporter collector tests** (`test/<name>.uc` + `test.sh`): each test
-  mocks the collector's dependencies with plain ucode objects, `loadfile()`s
-  the collector from `files/extra/` with `raw_mode: true` and asserts the
-  emitted metric set. Fixtures live under `test/`.
+- **node-exporter tests** (`test/*_test.uc` + `test/run_tests.sh`, utest):
+  each suite mocks the collector's dependencies with utest (`ubus`, `fs`,
+  `uclient`/`uloop`), `loadfile()`s the collector from `files/extra/` with
+  `raw_mode: true` through `test/lib/harness.uc` and asserts the emitted
+  metric set; `metrics_test.uc` covers the `metrics.uc` core. Fixtures live
+  under `test/fixtures/`.
 - **rpcd-mod-bird unit tests** (`test/run_tests.sh` + `birdconfig.test.uc`):
   fixture BIRD configs vs golden `expected/` files; asserts byte-exact edits,
   idempotency, round trips and parser edge cases. Pure, no sockets.

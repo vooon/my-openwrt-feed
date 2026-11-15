@@ -119,13 +119,10 @@ for pkg in "$@"; do
 
 	echo "::group::$pkg: tests"
 	case "$pkg" in
-	prometheus-node-exporter-ucode)
-		prometheus-node-exporter-ucode/test.sh
-		;;
 	rpcd-mod-bird | uwsd | netifd-proto-dummy | netifd-proto-fou)
 		"$pkg/test/run_tests.sh"
 		;;
-	pbs-helper | qemu-instance-init)
+	pbs-helper | prometheus-node-exporter-ucode | qemu-instance-init)
 		run_utest "$pkg"
 		;;
 	vpn-sticky)

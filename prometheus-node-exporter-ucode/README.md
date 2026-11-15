@@ -544,28 +544,26 @@ The `wireguard` collector for AmneziaWG interfaces (`proto amneziawg`).
 
 ## Testing
 
-The collectors can be tested without a running daemon by mocking their
-dependencies.  Each collector has a test in `test/<name>.uc` that loads
-`files/extra/<name>.uc` with a mocked `ubus`/`fs`/`gauge`/`raw` and asserts
-the emitted metrics.  Fixtures live in `test/fixtures/`.
+The collectors and the `files/metrics.uc` core are tested on the host with
+[utest](https://github.com/m00qek/utest), without a running daemon:
 
-Run all tests:
+- `test/<name>_test.uc` loads `files/extra/<name>.uc` the way `metrics.uc`
+  does and asserts the emitted metrics.  `ubus`, `fs` and the HTTP client's
+  `uclient`/`uloop` are utest mocks; `test/lib/harness.uc` has the shared
+  helpers (`run_collector()`, `with_http()`, ...).
+- `test/metrics_test.uc` renders `metrics.uc` in its command line mode
+  against the collectors in `test/fixtures/collectors/` and a mocked uci
+  config, and asserts the text output (label and value rendering, disabled
+  collectors, failing collectors).
 
-```sh
-./test.sh
-```
-
-Run specific tests:
-
-```sh
-./test.sh bird textfile
-```
-
-For a locally built ucode that doesn't have the modules installed natively:
+Run all tests (utest is fetched, pinned, on the first run):
 
 ```sh
-UCODE=/path/to/ucode UCODE_MODULES=/path/to/modules ./test.sh
+UCODE=/path/to/ucode UCODE_MODULE_PATH=/path/to/modules test/run_tests.sh
 ```
+
+`test.sh` is not part of this: it is the on-target smoke test run by the
+OpenWrt package CI, as in openwrt/packages.
 
 ## Writing a Custom Collector
 
