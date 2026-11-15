@@ -7,7 +7,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/letsencrypt/unbound_exporter.git
-PKG_MIRROR_HASH:=ae17420e4a642a30ada69fdb9f1586b37d13ee92fa5dd4538df5a8598d2bca48
+PKG_MIRROR_HASH:=skip
 PKG_SOURCE_VERSION:=v$(PKG_VERSION)
 
 PKG_LICENSE:=Apache-2.0

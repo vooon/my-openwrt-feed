@@ -7,7 +7,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/SuperQ/smokeping_prober.git
-PKG_MIRROR_HASH:=e9d0d1d7de348c308020b9c5d7061a6cb936ef2cde9f04dca4c39f37001eb26b
+PKG_MIRROR_HASH:=skip
 PKG_SOURCE_VERSION:=v$(PKG_VERSION)
 
 PKG_LICENSE:=Apache-2.0

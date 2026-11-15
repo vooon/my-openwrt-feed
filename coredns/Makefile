@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=coredns
-# renovate: datasource=github-releases depName=coredns/coredns
+# renovate: datasource=github-releases depName=coredns/coredns extractVersion=^v(?<version>\d+\.\d+\.\d+)$
 PKG_VERSION:=1.15.0
 PKG_RELEASE:=2
 
