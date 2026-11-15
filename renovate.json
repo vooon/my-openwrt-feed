@@ -2,6 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "semanticCommits": "disabled",
+  "vulnerabilityAlerts": { "enabled": false },
   "customManagers": [
     {
       "description": "OpenWrt package Makefiles annotated with '# renovate: datasource=... depName=...' above PKG_VERSION; a bump resets PKG_RELEASE to 1",
