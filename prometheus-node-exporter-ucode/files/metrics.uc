@@ -131,10 +131,8 @@ global.handle_request = function(env) {
 			return nextline(f);
 		},
 		raw: function(s) {
-			if (s == null)
-				return;
-
-			puts(s);
+			if (length(s))
+				puts(s);
 		},
 	};
 

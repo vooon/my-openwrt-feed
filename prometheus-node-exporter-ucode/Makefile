@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=prometheus-node-exporter-ucode
 PKG_VERSION:=2026.11.15
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_MAINTAINER:=Andre Heider <a.heider@gmail.com>
 PKG_LICENSE:=Apache-2.0
@@ -72,6 +72,7 @@ $(eval $(call Collector,ltq-dsl,Lantiq/Intel/MaxLinear DSL collector,@ltq-dsl-ap
 $(eval $(call Collector,netstat,netstat collector,))
 $(eval $(call Collector,odhcp6c,odhcp6c statistics collector,@odhcp6c))
 $(eval $(call Collector,openwrt,OpenWrt collector,))
+$(eval $(call Collector,procd,procd service collector,))
 $(eval $(call Collector,realtek-poe,RealTek PoE collector,@realtek-poe))
 $(eval $(call Collector,snmp6,snmp6 collector,))
 $(eval $(call Collector,thermal,thermal collector,))
@@ -81,7 +82,6 @@ $(eval $(call Collector,wifi,Wi-Fi collector,+ucode-mod-nl80211))
 $(eval $(call Collector,wireguard,Wireguard collector,+rpcd-mod-wireguard))
 $(eval $(call Collector,amneziawg,AmneziaWG collector,+rpcd-mod-amneziawg))
 $(eval $(call Collector,babeld,Babel routing daemon collector,babeld))
-$(eval $(call Collector,procd,openwrt procd collector,))
 $(eval $(call Collector,go2rtc,go2rtc collector,+ucode-mod-uclient +ucode-mod-uloop))
 $(eval $(call Collector,singbox,sing-box collector,+ucode-mod-uclient +ucode-mod-uloop))
 $(eval $(call Collector,mihomo,Mihomo collector,+ucode-mod-uclient +ucode-mod-uloop))

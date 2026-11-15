@@ -333,9 +333,11 @@ Source: ubus (`service.list`)
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `procd_service_running` | gauge | `procd_service`, `procd_instance` | Service is running (0/1) |
-| `procd_service_pid` | gauge | `procd_service`, `procd_instance` | Service PID |
-| `procd_service_exit_code` | gauge | `procd_service`, `procd_instance` | Stopped service exit code |
+| `procd_service_running` | gauge | `service`, `service_instance` | Service is running (0/1) |
+| `procd_service_pid` | gauge | `service`, `service_instance` | Service PID (only while running) |
+| `procd_service_exit_code` | gauge | `service`, `service_instance` | Stopped service exit code |
+| `procd_service_incarnation` | gauge | `service`, `service_instance` | Incarnation of the instance, changes on every (re)start (newer procd only) |
+| `procd_service_jail` | gauge | `service`, `service_instance` | Service runs in a jail (0/1) |
 
 ### realtek-poe
 
@@ -431,7 +433,7 @@ their contents verbatim.  This lets external tools (cron jobs, shell scripts,
 ...) drop metrics into the exporter without writing a dedicated collector,
 mirroring the upstream node_exporter textfile collector.
 
-The directory lives under `/run` (volatile runtime data) and is created and
+The directory lives under `/var/run` (volatile runtime data) and is created and
 mounted into the exporter's ujail on service start, so the collector can read
 the files.  To disable the collector, set `disabled 1` in its config section —
 this applies to all collectors.
@@ -440,7 +442,7 @@ Configuration (`/etc/config/prometheus-node-exporter-ucode`):
 
 ```
 config collector 'textfile'
-	option directory '/run/prometheus/textfile'
+	option directory '/var/run/prometheus/textfile'
 	# option disabled '0'
 ```
 
