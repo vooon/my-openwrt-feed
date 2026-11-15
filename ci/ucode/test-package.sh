@@ -20,7 +20,7 @@ set -eu
 
 COVERED="inotify-rsync netifd-proto-dummy netifd-proto-fou pbs-helper
 prometheus-node-exporter-ucode qemu-instance-init rpcd-mod-bird
-ucode-mod-inotify ucode-mod-sqlite uwsd vpn-sticky"
+stun-nat-check ucode-mod-inotify ucode-mod-sqlite uwsd vpn-sticky"
 
 if [ "${1:-}" = "--list" ]; then
 	# shellcheck disable=SC2086   # one name per line
@@ -134,7 +134,7 @@ for pkg in "$@"; do
 	ucode-mod-sqlite)
 		build_plugin ucode-mod-sqlite sqlite
 		;;
-	inotify-rsync)
+	inotify-rsync | stun-nat-check)
 		echo "no test suite"
 		;;
 	esac

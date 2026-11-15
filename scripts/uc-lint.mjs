@@ -46,6 +46,7 @@ const roots = [
 	'pbs-helper/test',
 	'qemu-instance-init/files',
 	'qemu-instance-init/test',
+	'stun-nat-check/files',
 ];
 
 /* Pin the ucode-lsp version for reproducibility. Bump deliberately. */

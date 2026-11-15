@@ -73,6 +73,17 @@ OpenWrt SDK image (see "Package builds in CI").
   `test/qmp_test.uc` runs it against a real unix socket, `test/backup_test.uc`
   the consistency flow against fake clients
   (`test/run_tests.sh`, `UCODE` / `UCODE_MODULE_PATH`, needs `socket.so`).
+- `stun-nat-check/` — `files/stun-nat-check.uc` (installed as
+  `/usr/bin/stun-nat-check`): one-shot CLI importing `socket` and `digest`.
+  Sends STUN Binding Requests from one local UDP port (`-p`) to several
+  servers (`-s host[:port]`, repeatable; default a public list) and compares
+  the mapped endpoints (exit 0 same, 3 different, 1 undecided). `-u
+  user:pass` / `STUN_NAT_CHECK_AUTH` answer a 401 with RFC 5389 long-term
+  credentials (MD5 key, hand-rolled HMAC-SHA1 over `digest.sha1`). The
+  shebang is `#!/usr/bin/ucode --` on purpose: without the `--` a glibc
+  getopt permutes the script's own `-p`/`-s` into interpreter options. No
+  test suite: it needs real STUN servers (checked by hand against coturn
+  `--lt-cred-mech --secure-stun` in an `openwrt/rootfs` container).
 - `vpn-sticky/` — `files/vpn-sticky.nft.uc`: a ucode **nft template** (raw text
   + `{% %}` blocks), compiled with `ucode -T`. Tested with
   [utest](https://github.com/m00qek/utest) (pinned in `test/run_tests.sh`,
@@ -201,7 +212,7 @@ the env var each runner expects; point them at the build dir with the `*.so`s).
 `rpcd-mod-bird`, `inotify-rsync/files`, `vpn-sticky/files`, `vpn-sticky/test`,
 `ucode-mod-inotify/test`, `ucode-mod-sqlite/test`, `uwsd/files`, `uwsd/test`,
 `pbs-helper/files`, `pbs-helper/test`, `qemu-instance-init/files`,
-`qemu-instance-init/test`. (`prometheus-node-exporter-ucode` is deliberately
+`qemu-instance-init/test`, `stun-nat-check/files`. (`prometheus-node-exporter-ucode` is deliberately
 excluded — its collectors run as raw-mode scripts with runtime-injected
 globals that static analysis can't see.)
 

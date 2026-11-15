@@ -79,6 +79,7 @@ Package overview
 | `luci-proto-fou-ip6gre` | LuCI UI for FOU-encapsulated GRE over IPv6       |
 | `luci-proto-fou-ip6tnl` | LuCI UI for FOU-encapsulated ip6tnl interfaces   |
 | `rpcd-mod-amneziawg`    | ubus status of AmneziaWG interfaces (`rpcd-mod-wireguard` for `proto amneziawg`) |
+| `stun-nat-check`        | STUN check of the NAT port mapping behaviour (can UDP hole punching work) |
 
 ### Monitoring and observability
 
