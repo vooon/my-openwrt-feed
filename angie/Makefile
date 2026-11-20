@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=angie
 # renovate: datasource=github-releases depName=webserver-llc/angie extractVersion=^Angie-(?<version>.+)$
-PKG_VERSION:=1.12.4
+PKG_VERSION:=1.12.5
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
