@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pathosd
 # renovate: datasource=github-releases depName=vooon/pathosd
-PKG_VERSION:=0.16.1
+PKG_VERSION:=0.16.2
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
