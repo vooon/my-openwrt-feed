@@ -53,7 +53,7 @@ jobs:
             "ghcr.io/renovatebot/renovate:$RENOVATE_VERSION" \
             renovate-config-validator /renovate.json
 
-      - uses: renovatebot/github-action@v47.0.0
+      - uses: renovatebot/github-action@v48.0.0
         with:
           token: ${{ secrets.RENOVATE_TOKEN }}
           renovate-version: ${{ env.RENOVATE_VERSION }}
